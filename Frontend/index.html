@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin</title>
+    <style>
+      html, body, #root { height: 100%; }
+      body { margin: 0; color: #111827; background: #fff; }
+      .dev-boot-msg { position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.8); color:#fff; z-index:999999; padding:24px; text-align:left; }
+      .dev-boot-msg pre { max-width: 960px; white-space: pre-wrap; word-break: break-word; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <div id="__boot_watchdog__" class="dev-boot-msg">
+      <div>
+        <h3 style="margin-top:0">Boot issue: App did not mount</h3>
+        <p>Likely causes:<br>• Wrong script path<br>• Fatal import error in main/App/routes<br>• Build/lint error<br>• Router/layout returning null</p>
+        <div id="__boot_details__"><pre>(no details)</pre></div>
+        <div style="margin-top:.75rem">
+          <button onclick="localStorage.removeItem('auth');location.reload()" style="padding:.4rem .8rem;border:1px solid #999;background:#222;color:#fff;border-radius:8px">Clear auth & reload</button>
+          <button onclick="location.reload()" style="padding:.4rem .8rem;border:1px solid #999;background:#222;color:#fff;border-radius:8px;margin-left:.5rem">Reload</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function(){
+        const w=document.getElementById('__boot_watchdog__');
+        const d=document.getElementById('__boot_details__').firstElementChild;
+        window.addEventListener('error', e => { w.style.display='grid'; d.textContent = String(e?.error||e?.message||e); });
+        window.addEventListener('unhandledrejection', e => { w.style.display='grid'; d.textContent = String(e?.reason||e); });
+        setTimeout(() => {
+          if (!window.__APP_MOUNTED__) {
+            w.style.display='grid';
+            d.textContent='main.jsx did not mark window.__APP_MOUNTED__ = true';
+          }
+        }, 2000);
+      })();
+    </script>
+
+    <!-- IMPORTANT: keep this exact path to your main file -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
