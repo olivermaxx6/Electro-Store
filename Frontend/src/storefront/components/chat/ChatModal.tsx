@@ -27,7 +27,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
     sendMessage, 
     getChatRoom,
     connectWebSocket,
-    disconnectWebSocket
+    disconnectWebSocket,
+    retryConnection,
+    clearError
   } = useChatApiStore();
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -97,8 +99,19 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {isConnected ? 'Real-time Connected' : 'Connecting...'}
+                  {isConnected ? 'Real-time Connected' : error ? 'Connection Failed' : 'Connecting...'}
                 </p>
+                {error && (
+                  <button
+                    onClick={() => {
+                      clearError();
+                      retryConnection();
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Retry
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeTextarea } from '@shared/theme';
 import { listBrands, listTopCategories, createBrand, deleteBrand, createCategory, deleteCategory, updateContent, getContent } from '../../lib/api';
+import DealCountdown from '../../components/DealCountdown';
 
 export default function ContentPage() {
   const [content, setContent] = useState({
@@ -13,9 +14,18 @@ export default function ContentPage() {
     banner3_text: '',
     banner3_link: '',
     banner3_image: null,
-    phone_number: '',
+    deal1_title: '',
+    deal1_subtitle: '',
+    deal1_discount: '',
+    deal1_description: '',
+    deal1_image: null,
+    deal1_end_date: '',
+    street_address: '',
+    city: '',
+    postcode: '',
+    country: '',
+    phone: '',
     email: '',
-    address: '',
     logo: null
   });
   
@@ -26,10 +36,11 @@ export default function ContentPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  // File states for each banner
+  // File states for each banner and deal
   const [banner1File, setBanner1File] = useState(null);
   const [banner2File, setBanner2File] = useState(null);
   const [banner3File, setBanner3File] = useState(null);
+  const [deal1File, setDeal1File] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
 
   useEffect(() => {
@@ -62,9 +73,18 @@ export default function ContentPage() {
         banner3_text: contentData.banner3_text || '',
         banner3_link: contentData.banner3_link || '',
         banner3_image: contentData.banner3_image || '',
-        phone_number: contentData.phone_number || '',
+        deal1_title: contentData.deal1_title || '',
+        deal1_subtitle: contentData.deal1_subtitle || '',
+        deal1_discount: contentData.deal1_discount || '',
+        deal1_description: contentData.deal1_description || '',
+        deal1_image: contentData.deal1_image || '',
+        deal1_end_date: contentData.deal1_end_date || '',
+        street_address: contentData.street_address || '',
+        city: contentData.city || '',
+        postcode: contentData.postcode || '',
+        country: contentData.country || '',
+        phone: contentData.phone || '',
         email: contentData.email || '',
-        address: contentData.address || '',
         logo: contentData.logo || ''
       }));
     } catch (err) {
@@ -87,9 +107,17 @@ export default function ContentPage() {
       formData.append('banner2_link', content.banner2_link);
       formData.append('banner3_text', content.banner3_text);
       formData.append('banner3_link', content.banner3_link);
-      formData.append('phone_number', content.phone_number);
+      formData.append('deal1_title', content.deal1_title);
+      formData.append('deal1_subtitle', content.deal1_subtitle);
+      formData.append('deal1_discount', content.deal1_discount);
+      formData.append('deal1_description', content.deal1_description);
+      formData.append('deal1_end_date', content.deal1_end_date);
+      formData.append('street_address', content.street_address);
+      formData.append('city', content.city);
+      formData.append('postcode', content.postcode);
+      formData.append('country', content.country);
+      formData.append('phone', content.phone);
       formData.append('email', content.email);
-      formData.append('address', content.address);
       
       // Add files if selected
       if (banner1File) {
@@ -100,6 +128,9 @@ export default function ContentPage() {
       }
       if (banner3File) {
         formData.append('banner3_image', banner3File);
+      }
+      if (deal1File) {
+        formData.append('deal1_image', deal1File);
       }
       if (logoFile) {
         formData.append('logo', logoFile);
@@ -112,9 +143,12 @@ export default function ContentPage() {
         banner2_link: content.banner2_link,
         banner3_text: content.banner3_text,
         banner3_link: content.banner3_link,
-        phone_number: content.phone_number,
+        street_address: content.street_address,
+        city: content.city,
+        postcode: content.postcode,
+        country: content.country,
+        phone: content.phone,
         email: content.email,
-        address: content.address,
         has_banner1_file: !!banner1File,
         has_banner2_file: !!banner2File,
         has_banner3_file: !!banner3File,
@@ -131,6 +165,7 @@ export default function ContentPage() {
       setBanner1File(null);
       setBanner2File(null);
       setBanner3File(null);
+      setDeal1File(null);
       setLogoFile(null);
       await loadData();
     } catch (err) {
@@ -448,30 +483,180 @@ export default function ContentPage() {
             </form>
           </section>
 
-          {/* Store Contact & Logo */}
+          {/* Deal Products */}
           <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                <span className="text-white text-lg">🏪</span>
+              <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-600 rounded-xl flex items-center justify-center">
+                <span className="text-white text-lg">🔥</span>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Store Contact & Logo</h2>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Hot Deals This Week</h2>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+              Configure hot deal products with countdown timers and promotional content.
+            </p>
+            
+            <form onSubmit={saveContent} className="space-y-8">
+              {/* Single Deal Product */}
+              <div className="p-6 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-3xl border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm">🔥</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Hot Deal Product</h3>
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Title
+                    </label>
+                    <ThemeInput
+                      value={content.deal1_title}
+                      onChange={(e) => setContent(prev => ({ ...prev, deal1_title: e.target.value }))}
+                      placeholder="Enter deal title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Subtitle
+                    </label>
+                    <ThemeInput
+                      value={content.deal1_subtitle}
+                      onChange={(e) => setContent(prev => ({ ...prev, deal1_subtitle: e.target.value }))}
+                      placeholder="Enter deal subtitle"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 mt-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Discount
+                    </label>
+                    <ThemeInput
+                      value={content.deal1_discount}
+                      onChange={(e) => setContent(prev => ({ ...prev, deal1_discount: e.target.value }))}
+                      placeholder="e.g., Up to 50% Off"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      End Date
+                    </label>
+                    <ThemeInput
+                      type="datetime-local"
+                      value={content.deal1_end_date}
+                      onChange={(e) => setContent(prev => ({ ...prev, deal1_end_date: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Description
+                  </label>
+                  <ThemeTextarea
+                    value={content.deal1_description}
+                    onChange={(e) => setContent(prev => ({ ...prev, deal1_description: e.target.value }))}
+                    placeholder="Enter deal description"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Countdown Timer Preview */}
+                {content.deal1_end_date && (
+                  <div className="mt-6 p-4 bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30 rounded-2xl border border-red-200 dark:border-red-800">
+                    <div className="text-center mb-4">
+                      <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Live Countdown Preview</h4>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">This is how the countdown will appear on the storefront</p>
+                    </div>
+                    <DealCountdown endDate={content.deal1_end_date} />
+                    
+                    {/* Shop Now Button Preview */}
+                    <div className="mt-4 text-center">
+                      <a 
+                        href="http://localhost:5173/shop" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white font-bold rounded-xl hover:from-red-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                      >
+                        <span>🛒</span>
+                        Shop Now
+                      </a>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-4 space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Deal Image
+                  </label>
+                  <div className="flex items-center gap-4">
+                    {content.deal1_image && (
+                      <img 
+                        src={content.deal1_image} 
+                        alt="Deal 1" 
+                        className="w-32 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-600"
+                      />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setDeal1File(e.target.files[0])}
+                      className="block text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 dark:file:bg-red-900/20 dark:file:text-red-300"
+                    />
+                  </div>
+                  {deal1File && (
+                    <div className="mt-2">
+                      <img 
+                        src={URL.createObjectURL(deal1File)} 
+                        alt="New deal 1" 
+                        className="w-32 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-600"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <ThemeButton 
+                  type="submit" 
+                  disabled={busy} 
+                  loading={busy} 
+                  variant="danger" 
+                  icon="💾"
+                  className="whitespace-nowrap min-w-fit flex-shrink-0"
+                >
+                  Save Deals
+                </ThemeButton>
+              </div>
+            </form>
+          </section>
+
+          {/* Contact Information */}
+          <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <span className="text-white text-lg">📞</span>
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Contact Information</h2>
             </div>
             
             <form onSubmit={saveContent} className="space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Phone Number
+                    Phone
                   </label>
                   <ThemeInput
-                    value={content.phone_number}
-                    onChange={(e) => setContent(prev => ({ ...prev, phone_number: e.target.value }))}
+                    value={content.phone}
+                    onChange={(e) => setContent(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="Enter phone number"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Email Address
+                    Email
                   </label>
                   <ThemeInput
                     value={content.email}
@@ -480,18 +665,6 @@ export default function ContentPage() {
                     type="email"
                   />
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Address
-                </label>
-                <ThemeTextarea
-                  value={content.address}
-                  onChange={(e) => setContent(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="Enter store address"
-                  rows={3}
-                />
               </div>
 
               <div className="space-y-2">
@@ -510,7 +683,7 @@ export default function ContentPage() {
                     type="file"
                     accept="image/*"
                     onChange={(e) => setLogoFile(e.target.files[0])}
-                    className="block text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-purple-900/20 dark:file:text-purple-300"
+                    className="block text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-300"
                   />
                 </div>
                 {logoFile && (
@@ -529,7 +702,7 @@ export default function ContentPage() {
                   type="submit" 
                   disabled={busy} 
                   loading={busy} 
-                  variant="success" 
+                  variant="primary" 
                   icon="💾"
                   className="whitespace-nowrap min-w-fit flex-shrink-0"
                 >

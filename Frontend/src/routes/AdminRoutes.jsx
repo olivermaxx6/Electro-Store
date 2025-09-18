@@ -13,6 +13,7 @@ import ReviewsPage from '../admin/pages/admin/ReviewsPage';
 import SettingsPage from '../admin/pages/admin/SettingsPage';
 import AdminProfilePage from '../admin/pages/admin/AdminProfilePage';
 import ChatPage from '../admin/pages/admin/ChatPage';
+import ContactPage from '../admin/pages/admin/ContactPage';
 import StorePage from '../pages/store/StorePage';
 
 function Private({ children }){
@@ -56,6 +57,7 @@ export default function AdminRoutes(){
       <Route path="settings" element={<Private><SettingsPage/></Private>} />
       <Route path="profile" element={<Private><AdminProfilePage/></Private>} />
       <Route path="chat" element={<Private><ChatPage/></Private>} />
+      <Route path="contact" element={<Private><ContactPage/></Private>} />
 
       <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
     </Routes>

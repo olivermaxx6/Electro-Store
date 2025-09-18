@@ -8,7 +8,7 @@ SECRET_KEY = "dev-secret-key-change-in-prod"
 DEBUG = True
 DEBUG_PROPAGATE_EXCEPTIONS = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "::1", "testserver"]  # dev-safe, no wildcard
+ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "::1", "testserver"]  # dev-safe, temporarily permissive
 
 INSTALLED_APPS = [
     # Django apps...
@@ -96,11 +96,11 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),  # Extended from 60 minutes to 8 hours
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "ALGORITHM": "HS256",
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=6),  # dev friendly
     "AUTH_HEADER_TYPES": ("Bearer",),
+    # Do NOT set VERIFYING_KEY for HS256.
+    # Ensure SECRET_KEY is stable and same across all app processes.
 }
 
 CORS_ALLOWED_ORIGINS = [
@@ -118,6 +118,9 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+
+# For local dev behind HTTP:
+SECURE_SSL_REDIRECT = False
 
 # CSRF settings for development
 CSRF_TRUSTED_ORIGINS = [

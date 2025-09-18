@@ -11,34 +11,53 @@ class ChatConsumer(AsyncWebsocketConsumer):
     """WebSocket consumer for customer chat rooms"""
     
     async def connect(self):
-        self.room_id = self.scope['url_route']['kwargs']['room_id']
-        self.room_group_name = f'chat_{self.room_id}'
-        
-        # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-        
-        await self.accept()
-        
-        # Send room info to client
-        room_info = await self.get_room_info()
-        await self.send(text_data=json.dumps({
-            'type': 'room_info',
-            'room': room_info
-        }))
-        
-        logger.info(f"Customer connected to chat room {self.room_id}")
+        try:
+            logger.info("Customer WS connect path=%s", self.scope.get("path"))
+            self.room_id = self.scope['url_route']['kwargs']['room_id']
+            self.group_name = f'chat_{self.room_id}'
+            
+            # Check if room exists
+            room_exists = await self.check_room_exists()
+            if not room_exists:
+                logger.warning("Customer WS room not found: %s", self.room_id)
+                await self.close(code=4404)
+                return
+            
+            # Defend against channel layer issues with clear error
+            try:
+                await self.channel_layer.group_add(
+                    self.group_name,
+                    self.channel_name
+                )
+            except Exception as e:
+                logger.exception("Channel layer/group_add failed: %s", e)
+                await self.close(code=1011)
+                return
+            
+            await self.accept()
+            logger.info("Customer WS accepted room=%s", self.room_id)
+            
+            # Send room info to client
+            room_info = await self.get_room_info()
+            await self.send(text_data=json.dumps({
+                'type': 'room_info',
+                'room': room_info
+            }))
+            
+        except Exception as e:
+            logger.exception("Customer WS connect error: %s", e)
+            await self.close(code=1011)
 
     async def disconnect(self, close_code):
+        logger.info("Customer WS disconnect code=%s", close_code)
         # Leave room group
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
-        
-        logger.info(f"Customer disconnected from chat room {self.room_id}")
+        try:
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name
+            )
+        except Exception as e:
+            logger.error("Error leaving group: %s", e)
 
     async def receive(self, text_data):
         try:
@@ -52,7 +71,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     if message:
                         # Send message to room group
                         await self.channel_layer.group_send(
-                            self.room_group_name,
+                            self.group_name,
                             {
                                 'type': 'chat_message',
                                 'message': {
@@ -102,6 +121,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return None
 
     @database_sync_to_async
+    def check_room_exists(self):
+        """Check if chat room exists"""
+        try:
+            ChatRoom.objects.get(id=self.room_id)
+            return True
+        except ChatRoom.DoesNotExist:
+            return False
+
+    @database_sync_to_async
     def save_message(self, content, sender_type):
         """Save message to database"""
         try:
@@ -117,6 +145,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             
             # Update room's last message time
+            room.last_message_at = message.created_at
             room.save()
             
             return {
@@ -139,43 +168,64 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
     """WebSocket consumer for admin chat interface"""
     
     async def connect(self):
-        self.admin_group_name = 'admin_chat'
-        
-        # Check if user is authenticated and is admin
-        user = self.scope.get("user")
-        if isinstance(user, AnonymousUser) or not user.is_staff:
-            logger.warning(f"Unauthorized WebSocket connection attempt: {type(user).__name__}")
-            await self.close()
-            return
-        
-        # Store user info for this connection
-        self.user = user
-        
-        # Join admin group
-        await self.channel_layer.group_add(
-            self.admin_group_name,
-            self.channel_name
-        )
-        
-        await self.accept()
-        
-        # Send list of active chat rooms
-        rooms = await self.get_active_rooms()
-        await self.send(text_data=json.dumps({
-            'type': 'room_list',
-            'rooms': rooms
-        }))
-        
-        logger.info(f"Admin {user.username} ({user.email}) connected to chat")
+        try:
+            logger.info("Admin WS connect path=%s", self.scope.get("path"))
+            user = self.scope.get("user")
+            jwt_error = self.scope.get("jwt_error")
+            if not user or getattr(user, "is_anonymous", True):
+                logger.warning("Admin WS unauthorized jwt_error=%s", jwt_error)
+                await self.close(code=4401)
+                return
+            if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
+                logger.warning("Admin WS forbidden user=%s", getattr(user, "id", None))
+                await self.close(code=4403)
+                return
+
+            self.admin_group_name = 'admin_chat'
+            self.user = user
+            
+            # Defend against channel layer issues with clear error
+            try:
+                await self.channel_layer.group_add(
+                    self.admin_group_name,
+                    self.channel_name
+                )
+            except Exception as e:
+                logger.exception("Channel layer/group_add failed: %s", e)
+                await self.close(code=1011)
+                return
+
+            await self.accept()
+            logger.info("Admin WS accepted user=%s", user.id)
+            
+            # Send list of active chat rooms
+            try:
+                logger.info("Getting active rooms...")
+                rooms = await self.get_active_rooms()
+                logger.info("Got %d rooms, sending to client...", len(rooms))
+                await self.send(text_data=json.dumps({
+                    'type': 'room_list',
+                    'rooms': rooms
+                }))
+                logger.info("Room list sent successfully")
+            except Exception as e:
+                logger.exception("Error sending room list: %s", e)
+                raise
+            
+        except Exception as e:
+            logger.exception("Admin WS connect error: %s", e)
+            await self.close(code=1011)
 
     async def disconnect(self, close_code):
+        logger.info("Admin WS disconnect code=%s", close_code)
         # Leave admin group
-        await self.channel_layer.group_discard(
-            self.admin_group_name,
-            self.channel_name
-        )
-        
-        logger.info("Admin disconnected from chat")
+        try:
+            await self.channel_layer.group_discard(
+                self.admin_group_name,
+                self.channel_name
+            )
+        except Exception as e:
+            logger.error("Error leaving admin group: %s", e)
 
     async def receive(self, text_data):
         try:
@@ -241,6 +291,16 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
     async def new_customer_message(self, event):
         """Receive notification of new customer message"""
         await self.send(text_data=json.dumps(event))
+        
+        # Refresh room list to show updated unread counts
+        try:
+            rooms = await self.get_active_rooms()
+            await self.send(text_data=json.dumps({
+                'type': 'room_list',
+                'rooms': rooms
+            }))
+        except Exception as e:
+            logger.error(f"Error refreshing room list: {e}")
 
     @database_sync_to_async
     def get_active_rooms(self):

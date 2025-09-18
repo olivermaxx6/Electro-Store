@@ -5,7 +5,7 @@ from .models import (
     Brand, Category, Product, ProductImage,
     Service, ServiceImage, ServiceInquiry,
     Order, OrderItem, Review, WebsiteContent, StoreSettings,
-    ChatRoom, ChatMessage
+    ChatRoom, ChatMessage, Contact
 )
 
 class SafeModelSerializer(serializers.ModelSerializer):
@@ -205,13 +205,16 @@ class WebsiteContentSerializer(serializers.ModelSerializer):
             "banner1_image", "banner1_text", "banner1_link",
             "banner2_image", "banner2_text", "banner2_link", 
             "banner3_image", "banner3_text", "banner3_link",
-            "logo", "phone_number", "email", "address"
+            "logo", 
+            "deal1_title", "deal1_subtitle", "deal1_discount", "deal1_description", "deal1_image", "deal1_end_date",
+            "street_address", "city", "postcode", "country",
+            "phone", "email"
         ]
 
 class StoreSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreSettings
-        fields = ["id","currency","tax_rate","shipping_rate"]
+        fields = ["id","store_name","store_logo","about_us_picture","favicon","currency","tax_rate","shipping_rate","street_address","city","postcode","country","phone","email","monday_friday_hours","saturday_hours","sunday_hours"]
 
 # --- Users (admin-facing) ---
 class AdminUserSerializer(serializers.ModelSerializer):
@@ -269,3 +272,12 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
                 "created_at": last_msg.created_at
             }
         return None
+
+# --- Contact Form ---
+class ContactSerializer(SafeModelSerializer):
+    """Serializer for contact form submissions"""
+    
+    class Meta:
+        model = Contact
+        fields = ["id", "name", "email", "subject", "message", "status", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]

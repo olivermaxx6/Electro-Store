@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react';
 import { contentRepo } from '../lib/repo';
 
 interface ContactInfo {
-  phone_number: string;
+  phone: string;
   email: string;
-  address: string;
+  city: string;
+  country: string;
 }
 
 export const useContactInfo = () => {
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
-    phone_number: '',
+    phone: '',
     email: '',
-    address: ''
+    city: '',
+    country: ''
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

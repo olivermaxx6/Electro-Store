@@ -116,4 +116,17 @@ class Command(BaseCommand):
             "phone_number":"+1 555-1234",
             "address":"123 Market St, City",
         })
-        StoreSettings.objects.get_or_create(id=1, defaults={"currency":"USD","tax_rate":7.50,"shipping_rate":9.99})
+        StoreSettings.objects.get_or_create(id=1, defaults={
+            "currency":"USD",
+            "tax_rate":7.50,
+            "shipping_rate":9.99,
+            "street_address":"abc",
+            "city":"Coventry", 
+            "postcode":"123",
+            "country":"UK",
+            "phone":"+1 (555) 123-4567",
+            "email":"info@yourstore.com",
+            "monday_friday_hours":"9:00 AM - 6:00 PM",
+            "saturday_hours":"10:00 AM - 4:00 PM",
+            "sunday_hours":"Closed"
+        })

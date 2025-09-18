@@ -19,7 +19,8 @@ export default function ChatPage() {
     markAsRead,
     setCurrentRoom,
     connectAdminWebSocket,
-    disconnectWebSocket
+    disconnectWebSocket,
+    clearError
   } = useChatApiStore();
   const { user } = useAuth();
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -28,8 +29,17 @@ export default function ChatPage() {
   
   // Load conversations on component mount and connect WebSocket
   useEffect(() => {
-    getAdminChatRooms().catch(console.error);
-    connectAdminWebSocket();
+    const loadChatData = async () => {
+      try {
+        await getAdminChatRooms();
+        connectAdminWebSocket();
+      } catch (error) {
+        console.error('Failed to load chat data:', error);
+        // Error is already handled in the store
+      }
+    };
+    
+    loadChatData();
     
     // Cleanup on unmount
     return () => {
@@ -130,15 +140,36 @@ export default function ChatPage() {
         </div>
         
         {/* Connection Status */}
-        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
-          isConnected 
-            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-        }`}>
-          <div className={`w-2 h-2 rounded-full mr-2 ${
-            isConnected ? 'bg-green-500' : 'bg-red-500'
-          }`}></div>
-          {isConnected ? 'Real-time Connected' : 'Disconnected'}
+        <div className="flex flex-col items-end space-y-2">
+          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+            isConnected 
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+          }`}>
+            <div className={`w-2 h-2 rounded-full mr-2 ${
+              isConnected ? 'bg-green-500' : 'bg-red-500'
+            }`}></div>
+            {isConnected ? 'Real-time Connected' : 'Disconnected'}
+          </div>
+          {error && (
+            <div className="text-sm text-red-600 dark:text-red-400 max-w-xs text-right">
+              <div className="mb-2">{error}</div>
+              <button
+                onClick={async () => {
+                  clearError();
+                  try {
+                    await getAdminChatRooms();
+                    connectAdminWebSocket();
+                  } catch (error) {
+                    console.error('Retry failed:', error);
+                  }
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                Retry Connection
+              </button>
+            </div>
+          )}
         </div>
       </div>
       

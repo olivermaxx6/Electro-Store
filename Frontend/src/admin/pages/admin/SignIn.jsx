@@ -13,9 +13,16 @@ export default function SignIn() {
   const submit = async (e) => {
     e.preventDefault();
     setError(null);
+    console.log('[SignIn] Attempting login with:', username, password);
     const res = await login(username, password);
-    if (res.ok) nav('/admin/dashboard');
-    else setError('Invalid credentials');
+    console.log('[SignIn] Login result:', res);
+    if (res.ok) {
+      console.log('[SignIn] Login successful, navigating to dashboard');
+      nav('/admin/dashboard');
+    } else {
+      console.log('[SignIn] Login failed:', res.error);
+      setError('Invalid credentials');
+    }
   };
 
   return (

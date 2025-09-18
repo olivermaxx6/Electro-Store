@@ -3,8 +3,8 @@
 
 Write-Host "Starting E-commerce Project..." -ForegroundColor Green
 
-# Start Backend in new window
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD\Backend'; Write-Host '=== Django Backend ===' -ForegroundColor Yellow; python manage.py migrate; python manage.py runserver 127.0.0.1:8001"
+# Start Backend in new window with ASGI support for WebSockets
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD\Backend'; Write-Host '=== Django Backend with ASGI/WebSocket Support ===' -ForegroundColor Yellow; python manage.py migrate; .\start_asgi_server.ps1"
 
 # Wait a moment
 Start-Sleep -Seconds 2

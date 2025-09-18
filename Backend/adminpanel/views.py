@@ -13,13 +13,14 @@ from .models import (
     Brand, Category, Product, ProductImage,
     Service, ServiceImage, ServiceInquiry,
     Order, Review, WebsiteContent, StoreSettings,
-    ChatRoom, ChatMessage
+    ChatRoom, ChatMessage, Contact
 )
 from .serializers import (
     BrandSerializer, CategorySerializer, ProductSerializer, ProductImageSerializer,
     ServiceSerializer, ServiceImageSerializer, ServiceInquirySerializer,
     OrderSerializer, ReviewSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
-    AdminUserSerializer, ChatRoomSerializer, ChatRoomListSerializer, ChatMessageSerializer
+    AdminUserSerializer, ChatRoomSerializer, ChatRoomListSerializer, ChatMessageSerializer,
+    ContactSerializer
 )
 from .views_dashboard import DashboardStatsView, ProfileView, ChangePasswordView  # re-use from your existing file
 
@@ -250,6 +251,7 @@ class WebsiteContentViewSet(viewsets.ViewSet):
 
 class StoreSettingsViewSet(viewsets.ViewSet):
     permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
 
     def _get_singleton(self):
         obj, _ = StoreSettings.objects.get_or_create(id=1)
@@ -473,17 +475,62 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         if not content:
             return Response({'error': 'Message content is required'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Create a more descriptive sender name with user info
+        sender_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+        if request.user.email:
+            sender_name += f" ({request.user.email})"
+        
         message = ChatMessage.objects.create(
             room=room,
             sender_type='admin',
-            sender_name=request.user.username,
+            sender_name=sender_name,
             content=content,
             is_read=True  # Admin messages are auto-read
         )
         
         # Update room status and last message time
         room.status = 'active'
+        room.last_message_at = message.created_at
         room.save()
+        
+        # Broadcast message via WebSocket
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            # Send to room group
+            async_to_sync(channel_layer.group_send)(
+                f'chat_{room.id}',
+                {
+                    'type': 'chat_message',
+                    'message': {
+                        'id': message.id,
+                        'content': message.content,
+                        'sender_type': message.sender_type,
+                        'sender_name': message.sender_name,
+                        'created_at': message.created_at.isoformat(),
+                        'is_read': message.is_read
+                    }
+                }
+            )
+            
+            # Notify other admins
+            async_to_sync(channel_layer.group_send)(
+                'admin_chat',
+                {
+                    'type': 'admin_message_sent',
+                    'room_id': str(room.id),
+                    'message': {
+                        'id': message.id,
+                        'content': message.content,
+                        'sender_type': message.sender_type,
+                        'sender_name': message.sender_name,
+                        'created_at': message.created_at.isoformat(),
+                        'is_read': message.is_read
+                    }
+                }
+            )
         
         serializer = ChatMessageSerializer(message)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -505,4 +552,37 @@ class ChatMessageViewSet(viewsets.ReadOnlyModelViewSet):
         if room_id:
             return ChatMessage.objects.filter(room_id=room_id).order_by('created_at')
         return ChatMessage.objects.none()
+
+class ContactViewSet(viewsets.ModelViewSet):
+    """Admin viewset for managing contact form submissions"""
+    serializer_class = ContactSerializer
+    permission_classes = [IsAdmin]
+    http_method_names = ['get', 'patch', 'put', 'delete', 'head', 'options', 'trace']
+    
+    def get_queryset(self):
+        return Contact.objects.all().order_by('-created_at')
+    
+    @action(detail=True, methods=['patch'])
+    def mark_as_read(self, request, pk=None):
+        """Mark a contact submission as read"""
+        contact = self.get_object()
+        contact.status = 'read'
+        contact.save()
+        return Response({'status': 'marked as read'})
+    
+    @action(detail=True, methods=['patch'])
+    def mark_as_replied(self, request, pk=None):
+        """Mark a contact submission as replied"""
+        contact = self.get_object()
+        contact.status = 'replied'
+        contact.save()
+        return Response({'status': 'marked as replied'})
+    
+    @action(detail=True, methods=['patch'])
+    def close(self, request, pk=None):
+        """Close a contact submission"""
+        contact = self.get_object()
+        contact.status = 'closed'
+        contact.save()
+        return Response({'status': 'closed'})
 

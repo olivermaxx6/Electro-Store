@@ -12,9 +12,21 @@ interface WebsiteContent {
   banner3_text: string;
   banner3_link: string;
   logo: string | null;
-  phone_number: string;
+  
+  // Deal Product 1
+  deal1_title: string;
+  deal1_subtitle: string;
+  deal1_discount: string;
+  deal1_description: string;
+  deal1_image: string | null;
+  deal1_end_date: string;
+
+  phone: string;
   email: string;
-  address: string;
+  street_address: string;
+  city: string;
+  postcode: string;
+  country: string;
 }
 
 interface UseWebsiteContentReturn {

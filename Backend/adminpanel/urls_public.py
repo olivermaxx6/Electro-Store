@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from .views_public import (
     PublicBrandViewSet, PublicCategoryViewSet, PublicProductViewSet,
     PublicServiceViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet,
-    PublicChatRoomViewSet, PublicChatMessageViewSet
+    PublicChatRoomViewSet, PublicChatMessageViewSet, PublicContactViewSet
 )
 
 router = DefaultRouter()
@@ -22,6 +22,7 @@ router.register(r"website-content", PublicWebsiteContentViewSet, basename="publi
 router.register(r"store-settings", PublicStoreSettingsViewSet, basename="public-storesettings")
 router.register(r"chat-rooms", PublicChatRoomViewSet, basename="public-chatroom")
 router.register(r"chat-messages", PublicChatMessageViewSet, basename="public-chatmessage")
+router.register(r"contacts", PublicContactViewSet, basename="public-contact")
 
 urlpatterns = [
     path("", include(router.urls)),
