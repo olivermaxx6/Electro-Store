@@ -7,6 +7,7 @@ from .admin_config import admin_site
 urlpatterns = [
     path("admin/", admin_site.urls),
     path("api/", include("adminpanel.urls")),   # Admin API endpoints
+    path("api/", include("accounts.urls")),     # User authentication endpoints
     path("api/public/", include("adminpanel.urls_public")),  # Public API endpoints for storefront
 ]
 

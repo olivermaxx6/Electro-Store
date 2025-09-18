@@ -225,7 +225,8 @@ export default function ProductsPage(){
     console.log('Validation passed, proceeding with product creation...');
     
     // Check authentication
-    const authToken = localStorage.getItem('auth');
+    const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+    const authToken = authData.access;
     console.log('Auth token exists:', !!authToken);
     
     try {

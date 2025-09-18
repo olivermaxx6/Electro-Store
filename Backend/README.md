@@ -40,6 +40,10 @@ python scripts/run_django_dev.py
 - **Frontend Admin (5174)** and **Storefront (5173)** both proxy `/api` → `127.0.0.1:8001`
 - **Note**: Splunk may occupy port 8000; Django runs on 8001 in dev to avoid conflicts
 
+### Port Policy
+
+**Django must never run on port 8000 in development.** See [docs/dev/port-policy.md](docs/dev/port-policy.md) for detailed information about how this is enforced and troubleshooting guidance.
+
 The API will be available at http://127.0.0.1:8001
 
 Default admin credentials: `admin` / `admin123`

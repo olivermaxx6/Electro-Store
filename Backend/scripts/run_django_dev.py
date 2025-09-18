@@ -9,5 +9,5 @@ addr = f"{host}:{port}"
 
 print(f"Starting Django development server on {addr}...")
 
-# Run Django development server using custom devserver command
-subprocess.check_call([sys.executable, "manage.py", "devserver"])
+# Run Django development server using custom runserver command (enforces port policy)
+subprocess.check_call([sys.executable, "manage.py", "runserver", addr])

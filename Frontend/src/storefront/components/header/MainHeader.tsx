@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Heart, ShoppingCart, Menu, ChevronDown } from 'lucide-react';
+import { Search, Heart, ShoppingCart, Menu, ChevronDown, User } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { selectCartItemCount } from '../../store/cartSlice';
 import { selectWishlistCount } from '../../store/wishlistSlice';
-import { useCategories } from '../../hooks/useCategories';
+import { selectCurrentUser } from '../../store/userSlice';
 
 const MainHeader: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  const cartCount = useSelector(selectCartItemCount);
-  const wishlistCount = useSelector(selectWishlistCount);
-  const { categories, loading } = useCategories();
+  const currentUser = useSelector(selectCurrentUser);
+  const userId = currentUser?.id || 'guest';
+  const cartCount = useSelector(selectCartItemCount(userId));
+  const wishlistCount = useSelector(selectWishlistCount(userId));
+  
+  // Load categories from backend
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://127.0.0.1:8001/api/public/categories/?top=true');
+        if (response.ok) {
+          const data = await response.json();
+          const categoriesData = data.results || data;
+          setCategories(categoriesData);
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadCategories();
+  }, []);
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +50,7 @@ const MainHeader: React.FC = () => {
     <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
+
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-red-600 dark:bg-blue-600 rounded-full flex items-center justify-center">
@@ -36,6 +61,7 @@ const MainHeader: React.FC = () => {
             </span>
           </Link>
           
+
           {/* Category Dropdown */}
           <div className="relative hidden lg:block">
             <button
@@ -90,7 +116,9 @@ const MainHeader: React.FC = () => {
             </div>
           </form>
           
-          {/* Mini Cart and Wishlist */}
+
+          
+          {/* Mini Cart, Wishlist, and User */}
           <div className="flex items-center space-x-4">
             <Link
               to="/wishlist"
@@ -114,6 +142,14 @@ const MainHeader: React.FC = () => {
                   {cartCount}
                 </span>
               )}
+            </Link>
+
+            {/* User Icon */}
+            <Link
+              to={currentUser ? "/user/dashboard" : "/user/sign-in"}
+              className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors"
+            >
+              <User className="w-6 h-6" />
             </Link>
           </div>
         </div>

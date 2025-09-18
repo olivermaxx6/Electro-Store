@@ -2,6 +2,7 @@ import ThemeToggle from '../ThemeToggle';
 import { useEffect } from 'react';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../../store/authStore';
+import { Link } from 'react-router-dom';
 
 export default function TopBar({ collapsed, title = 'Dashboard' }) {
   const { user, logout } = useAuth();
@@ -29,6 +30,22 @@ export default function TopBar({ collapsed, title = 'Dashboard' }) {
 
           {/* Right Section - Actions with 20px margin from end */}
           <div className="flex items-center gap-3 mr-5">
+            {/* Chat Button */}
+            <Link
+              to="/admin/chat"
+              className="group relative rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300 hover:shadow-md hover:scale-105 active:scale-95"
+              title="Chat with users"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <span className="text-white text-sm">💬</span>
+                </div>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
+                  Chat
+                </span>
+              </div>
+            </Link>
+
             {/* Theme Toggle */}
             <div className="rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-1 hover:border-amber-300 dark:hover:border-amber-500 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/20 dark:hover:to-orange-900/20 transition-all duration-300 hover:shadow-md">
               <ThemeToggle />

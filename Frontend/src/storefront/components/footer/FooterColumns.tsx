@@ -1,7 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const FooterColumns: React.FC = () => {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8001/api/public/categories/?top=true');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data.results || data);
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadCategories();
+  }, []);
+
   const footerSections = [
     {
       title: 'About',
@@ -14,12 +35,10 @@ const FooterColumns: React.FC = () => {
     },
     {
       title: 'Categories',
-      links: [
-        { label: 'Laptops', href: '/category/laptops' },
-        { label: 'Smartphones', href: '/category/smartphones' },
-        { label: 'Cameras', href: '/category/cameras' },
-        { label: 'Accessories', href: '/category/accessories' },
-      ],
+      links: loading ? [] : categories.map(category => ({
+        label: category.name,
+        href: `/category/${category.slug}`
+      })),
     },
     {
       title: 'Information',

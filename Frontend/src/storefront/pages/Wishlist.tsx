@@ -7,6 +7,7 @@ import { selectWishlistItems } from '../store/wishlistSlice';
 import { selectProducts } from '../store/productsSlice';
 import { addToCart } from '../store/cartSlice';
 import { removeFromWishlist } from '../store/wishlistSlice';
+import { selectCurrentUser } from '../store/userSlice';
 import { addToast } from '../store/uiSlice';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import Placeholder from '../components/common/Placeholder';
@@ -14,7 +15,9 @@ import Price from '../components/products/Price';
 
 const Wishlist: React.FC = () => {
   const dispatch = useDispatch();
-  const wishlistItems = useSelector(selectWishlistItems);
+  const currentUser = useSelector(selectCurrentUser);
+  const userId = currentUser?.id || 'guest';
+  const wishlistItems = useSelector(selectWishlistItems(userId));
   const products = useSelector(selectProducts);
   
   const wishlistProducts = wishlistItems.map(wishlistItem => {
@@ -23,8 +26,8 @@ const Wishlist: React.FC = () => {
   }).filter(Boolean);
   
   const handleMoveToCart = (productId: string) => {
-    dispatch(addToCart({ productId, qty: 1 }));
-    dispatch(removeFromWishlist(productId));
+    dispatch(addToCart({ productId, qty: 1, userId }));
+    dispatch(removeFromWishlist({ productId, userId }));
     dispatch(addToast({
       message: 'Moved to cart!',
       type: 'success',
@@ -32,7 +35,7 @@ const Wishlist: React.FC = () => {
   };
   
   const handleRemoveFromWishlist = (productId: string) => {
-    dispatch(removeFromWishlist(productId));
+    dispatch(removeFromWishlist({ productId, userId }));
     dispatch(addToast({
       message: 'Removed from wishlist',
       type: 'info',

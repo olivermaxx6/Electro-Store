@@ -137,17 +137,17 @@ class WebsiteContent(models.Model):
     # Banner 1
     banner1_image = models.ImageField(upload_to="banner/", null=True, blank=True)
     banner1_text = models.CharField(max_length=200, blank=True)
-    banner1_link = models.URLField(blank=True)
+    banner1_link = models.CharField(max_length=500, blank=True)
     
     # Banner 2
     banner2_image = models.ImageField(upload_to="banner/", null=True, blank=True)
     banner2_text = models.CharField(max_length=200, blank=True)
-    banner2_link = models.URLField(blank=True)
+    banner2_link = models.CharField(max_length=500, blank=True)
     
     # Banner 3
     banner3_image = models.ImageField(upload_to="banner/", null=True, blank=True)
     banner3_text = models.CharField(max_length=200, blank=True)
-    banner3_link = models.URLField(blank=True)
+    banner3_link = models.CharField(max_length=500, blank=True)
     
     # Contact information
     logo = models.ImageField(upload_to="logo/", null=True, blank=True)
@@ -159,3 +159,48 @@ class StoreSettings(models.Model):
     currency = models.CharField(max_length=10, default="USD")
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)      # percent
     shipping_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0) # flat
+
+# --- Chat System ---
+class ChatRoom(models.Model):
+    """Represents a chat conversation between a customer and admin"""
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    customer_name = models.CharField(max_length=200, blank=True)
+    customer_email = models.EmailField(blank=True)
+    customer_phone = models.CharField(max_length=50, blank=True)
+    customer_session = models.CharField(max_length=40, blank=True, help_text="Django session key for anonymous customers")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_rooms', help_text="Authenticated user (optional)")
+    status = models.CharField(max_length=20, choices=[
+        ('active', 'Active'),
+        ('closed', 'Closed'),
+        ('waiting', 'Waiting for Response')
+    ], default='active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_message_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-last_message_at']
+    
+    def __str__(self):
+        return f"Chat {self.id} - {self.customer_name or 'Anonymous'}"
+
+class ChatMessage(models.Model):
+    """Individual messages within a chat room"""
+    SENDER_CHOICES = [
+        ('customer', 'Customer'),
+        ('admin', 'Admin'),
+        ('system', 'System')
+    ]
+    
+    room = models.ForeignKey(ChatRoom, related_name='messages', on_delete=models.CASCADE)
+    sender_type = models.CharField(max_length=10, choices=SENDER_CHOICES)
+    sender_name = models.CharField(max_length=200, blank=True)  # For display purposes
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"{self.sender_type}: {self.content[:50]}..."

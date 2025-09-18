@@ -10,8 +10,8 @@ const authApi = axios.create({
 });
 
 export const useAuth = create((set, get) => ({
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
-  token: localStorage.getItem('access_token') || null,
+  user: JSON.parse(localStorage.getItem('auth') || '{}').user || null,
+  token: JSON.parse(localStorage.getItem('auth') || '{}').access || null,
   loading: false,
 
   isAuthed: () => !!get().token,
@@ -33,9 +33,13 @@ export const useAuth = create((set, get) => ({
       const { data } = await authApi.post('/api/auth/login/', { username, password });
       console.log('[AUTH] Login response:', data);
       
-      localStorage.setItem('access_token', data.access);
-      localStorage.setItem('refresh_token', data.refresh);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Store auth data in the format expected by API lib
+      const authData = {
+        access: data.access,
+        refresh: data.refresh,
+        user: data.user
+      };
+      localStorage.setItem('auth', JSON.stringify(authData));
       set({ token: data.access, user: data.user, loading: false });
       
       // Set authorization header for future requests
@@ -57,7 +61,10 @@ export const useAuth = create((set, get) => ({
   me: async () => {
     try {
       const { data } = await authApi.get('/api/auth/me/');
-      localStorage.setItem('user', JSON.stringify(data));
+      // Update the auth data in localStorage
+      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+      authData.user = data;
+      localStorage.setItem('auth', JSON.stringify(authData));
       set({ user: data });
       return data;
     } catch {
@@ -68,7 +75,10 @@ export const useAuth = create((set, get) => ({
   updateProfile: async (profileData) => {
     try {
       const { data } = await authApi.put('/api/auth/profile/', profileData);
-      localStorage.setItem('user', JSON.stringify(data));
+      // Update the auth data in localStorage
+      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+      authData.user = data;
+      localStorage.setItem('auth', JSON.stringify(authData));
       set({ user: data });
       return { ok: true, data };
     } catch (error) {
@@ -86,9 +96,7 @@ export const useAuth = create((set, get) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('auth');
     delete authApi.defaults.headers.common.Authorization;
     delete api.defaults.headers.common.Authorization;
     set({ token: null, user: null });

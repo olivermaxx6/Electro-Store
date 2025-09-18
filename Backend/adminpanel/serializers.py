@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from .models import (
     Brand, Category, Product, ProductImage,
     Service, ServiceImage, ServiceInquiry,
-    Order, OrderItem, Review, WebsiteContent, StoreSettings
+    Order, OrderItem, Review, WebsiteContent, StoreSettings,
+    ChatRoom, ChatMessage
 )
 
 class SafeModelSerializer(serializers.ModelSerializer):
@@ -48,11 +49,19 @@ class CategorySerializer(SafeModelSerializer):
         required=False,
     )
     name = serializers.CharField(max_length=120)
+    slug = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "name", "parent", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "name", "slug", "parent", "created_at"]
+        read_only_fields = ["id", "slug", "created_at"]
+
+    def get_slug(self, obj):
+        """Generate slug from category name"""
+        import re
+        slug = re.sub(r'[^\w\s-]', '', obj.name.lower())
+        slug = re.sub(r'[-\s]+', '-', slug)
+        return slug.strip('-')
 
     def validate_name(self, v):
         v = (v or "").strip()
@@ -215,3 +224,48 @@ class RecentOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ["id","total_price","status","created_at","shipping_name"]
+
+# --- Chat System ---
+class ChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = ["id", "sender_type", "sender_name", "content", "is_read", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+class ChatRoomSerializer(serializers.ModelSerializer):
+    messages = ChatMessageSerializer(many=True, read_only=True)
+    unread_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ChatRoom
+        fields = ["id", "customer_name", "customer_email", "customer_phone", "customer_session",
+                 "user", "status", "created_at", "updated_at", "last_message_at", 
+                 "messages", "unread_count"]
+        read_only_fields = ["id", "created_at", "updated_at", "last_message_at"]
+    
+    def get_unread_count(self, obj):
+        return obj.messages.filter(is_read=False, sender_type='customer').count()
+
+class ChatRoomListSerializer(serializers.ModelSerializer):
+    """Simplified serializer for chat room lists"""
+    unread_count = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ChatRoom
+        fields = ["id", "customer_name", "customer_email", "customer_session", "user", "status", 
+                 "created_at", "updated_at", "last_message_at", 
+                 "unread_count", "last_message"]
+    
+    def get_unread_count(self, obj):
+        return obj.messages.filter(is_read=False, sender_type='customer').count()
+    
+    def get_last_message(self, obj):
+        last_msg = obj.messages.last()
+        if last_msg:
+            return {
+                "content": last_msg.content,
+                "sender_type": last_msg.sender_type,
+                "created_at": last_msg.created_at
+            }
+        return None

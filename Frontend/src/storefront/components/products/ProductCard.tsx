@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Product } from '../../lib/types';
 import { addToCart } from '../../store/cartSlice';
 import { addToWishlist, removeFromWishlist, selectIsInWishlist } from '../../store/wishlistSlice';
+import { selectCurrentUser } from '../../store/userSlice';
 import { addToast } from '../../store/uiSlice';
 import Placeholder from '../common/Placeholder';
 import Price from './Price';
@@ -18,12 +19,14 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) => {
   const dispatch = useDispatch();
-  const isInWishlist = useSelector(selectIsInWishlist(product.id));
+  const currentUser = useSelector(selectCurrentUser);
+  const userId = currentUser?.id || 'guest';
+  const isInWishlist = useSelector(selectIsInWishlist(product.id, userId));
   
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    dispatch(addToCart({ productId: product.id, qty: 1 }));
+    dispatch(addToCart({ productId: product.id, qty: 1, userId }));
     dispatch(addToast({
       message: 'Added to cart!',
       type: 'success',
@@ -35,13 +38,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) =>
     e.stopPropagation();
     
     if (isInWishlist) {
-      dispatch(removeFromWishlist(product.id));
+      dispatch(removeFromWishlist({ productId: product.id, userId }));
       dispatch(addToast({
         message: 'Removed from wishlist',
         type: 'info',
       }));
     } else {
-      dispatch(addToWishlist(product.id));
+      dispatch(addToWishlist({ productId: product.id, userId }));
       dispatch(addToast({
         message: 'Added to wishlist!',
         type: 'success',
@@ -74,9 +77,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) =>
                 NEW
               </span>
             )}
-            {product.discountPct && product.discountPct > 0 && (
+            {product.discount_rate && product.discount_rate > 0 && (
               <span className="bg-red-500 dark:bg-red-600 text-white text-xs px-2 py-1 rounded-full font-medium shadow-sm">
-                -{product.discountPct}%
+                -{product.discount_rate}%
               </span>
             )}
           </div>

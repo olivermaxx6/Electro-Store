@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Home, ArrowLeft } from 'lucide-react';
 import Placeholder from '../components/common/Placeholder';
 
 const NotFound: React.FC = () => {
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8001/api/public/categories/?top=true');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data.results || data);
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+      }
+    };
+    
+    loadCategories();
+  }, []);
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
@@ -40,18 +57,15 @@ const NotFound: React.FC = () => {
             <Link to="/" className="text-primary hover:text-primary-600 transition-colors">
               Home
             </Link>
-            <Link to="/category/laptops" className="text-primary hover:text-primary-600 transition-colors">
-              Laptops
-            </Link>
-            <Link to="/category/smartphones" className="text-primary hover:text-primary-600 transition-colors">
-              Smartphones
-            </Link>
-            <Link to="/category/cameras" className="text-primary hover:text-primary-600 transition-colors">
-              Cameras
-            </Link>
-            <Link to="/category/accessories" className="text-primary hover:text-primary-600 transition-colors">
-              Accessories
-            </Link>
+            {categories.map((category) => (
+              <Link 
+                key={category.id}
+                to={`/category/${category.slug}`} 
+                className="text-primary hover:text-primary-600 transition-colors"
+              >
+                {category.name}
+              </Link>
+            ))}
             <Link to="/deals" className="text-primary hover:text-primary-600 transition-colors">
               Hot Deals
             </Link>

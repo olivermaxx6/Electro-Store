@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 import { setProducts, setCategories, setBrands, selectProducts } from '../store/productsSlice';
 import { productRepo, categoryRepo, brandRepo } from '../lib/repo';
+import { useWebsiteContent } from '../hooks/useWebsiteContent';
 import PromoTile from '../components/hero/PromoTile';
 import ProductCard from '../components/products/ProductCard';
 import HotDealBanner from '../components/promo/HotDealBanner';
@@ -12,6 +13,8 @@ import CompactList from '../components/lists/CompactList';
 const Home: React.FC = () => {
   const dispatch = useDispatch();
   const products = useSelector(selectProducts);
+  const { content: websiteContent, loading: contentLoading, error: contentError } = useWebsiteContent();
+  const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
   
   useEffect(() => {
     const loadData = async () => {
@@ -25,6 +28,7 @@ const Home: React.FC = () => {
         dispatch(setProducts(productsData));
         dispatch(setCategories(categoriesData));
         dispatch(setBrands(brandsData));
+        setDynamicCategories(categoriesData);
       } catch (error) {
         console.error('Failed to load data:', error);
       }
@@ -34,7 +38,6 @@ const Home: React.FC = () => {
   }, [dispatch]);
   
   // Get featured products
-  const featuredProducts = products.filter(p => p.rating && p.rating >= 4.5).slice(0, 8);
   const newProducts = products.filter(p => p.isNew).slice(0, 8);
   const topSelling = products.filter(p => p.ratingCount && p.ratingCount > 1000).slice(0, 4);
   
@@ -56,30 +59,79 @@ const Home: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <PromoTile
-                title="New Arrivals"
-                subtitle="Discover the latest tech innovations"
-                ctaText="Shop Now"
-                ctaLink="/category/laptops"
-              />
-            </div>
-            <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <PromoTile
-                title="Best Deals"
-                subtitle="Save up to 50% on selected items"
-                ctaText="View Deals"
-                ctaLink="/deals"
-              />
-            </div>
-            <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-              <PromoTile
-                title="Premium Brands"
-                subtitle="Shop from top electronics brands"
-                ctaText="Explore"
-                ctaLink="/category/smartphones"
-              />
-            </div>
+            {contentLoading ? (
+              // Loading state
+              <>
+                <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                  <div className="bg-gray-200 dark:bg-slate-700 rounded-2xl p-8 h-64 animate-pulse"></div>
+                </div>
+                <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                  <div className="bg-gray-200 dark:bg-slate-700 rounded-2xl p-8 h-64 animate-pulse"></div>
+                </div>
+                <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                  <div className="bg-gray-200 dark:bg-slate-700 rounded-2xl p-8 h-64 animate-pulse"></div>
+                </div>
+              </>
+            ) : contentError ? (
+              // Error state - show default banners
+              <>
+                <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                  <PromoTile
+                    title="New Arrivals"
+                    subtitle="Discover the latest tech innovations"
+                    ctaText="Shop Now"
+                    ctaLink={dynamicCategories.length > 0 ? `/category/${dynamicCategories[0].slug}` : "/categories"}
+                  />
+                </div>
+                <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                  <PromoTile
+                    title="Best Deals"
+                    subtitle="Save up to 50% on selected items"
+                    ctaText="View Deals"
+                    ctaLink="/deals"
+                  />
+                </div>
+                <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                  <PromoTile
+                    title="Premium Brands"
+                    subtitle="Shop from top electronics brands"
+                    ctaText="Explore"
+                    ctaLink={dynamicCategories.length > 1 ? `/category/${dynamicCategories[1].slug}` : "/categories"}
+                  />
+                </div>
+              </>
+            ) : (
+              // Dynamic content from API
+              <>
+                <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                  <PromoTile
+                    title={websiteContent?.banner1_text || "New Arrivals"}
+                    subtitle="Discover the latest tech innovations"
+                    ctaText="Shop Now"
+                    ctaLink={websiteContent?.banner1_link || (dynamicCategories.length > 0 ? `/category/${dynamicCategories[0].slug}` : "/categories")}
+                    image={websiteContent?.banner1_image}
+                  />
+                </div>
+                <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                  <PromoTile
+                    title={websiteContent?.banner2_text || "Best Deals"}
+                    subtitle="Save up to 50% on selected items"
+                    ctaText="View Deals"
+                    ctaLink={websiteContent?.banner2_link || "/deals"}
+                    image={websiteContent?.banner2_image}
+                  />
+                </div>
+                <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                  <PromoTile
+                    title={websiteContent?.banner3_text || "Premium Brands"}
+                    subtitle="Shop from top electronics brands"
+                    ctaText="Explore"
+                    ctaLink={websiteContent?.banner3_link || (dynamicCategories.length > 1 ? `/category/${dynamicCategories[1].slug}` : "/categories")}
+                    image={websiteContent?.banner3_image}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -110,7 +162,7 @@ const Home: React.FC = () => {
           
           <div className="text-center mt-12">
             <Link
-              to="/category/laptops"
+              to={dynamicCategories.length > 0 ? `/category/${dynamicCategories[0].slug}` : "/categories"}
               className="btn-primary inline-flex items-center gap-3 px-10 py-5 text-lg font-semibold rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 group relative overflow-hidden"
             >
               <span className="relative z-10 flex items-center gap-3">

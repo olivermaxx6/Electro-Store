@@ -1,0 +1,64 @@
+import { useState, useEffect } from 'react';
+
+interface WebsiteContent {
+  id: number;
+  banner1_image: string | null;
+  banner1_text: string;
+  banner1_link: string;
+  banner2_image: string | null;
+  banner2_text: string;
+  banner2_link: string;
+  banner3_image: string | null;
+  banner3_text: string;
+  banner3_link: string;
+  logo: string | null;
+  phone_number: string;
+  email: string;
+  address: string;
+}
+
+interface UseWebsiteContentReturn {
+  content: WebsiteContent | null;
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
+export const useWebsiteContent = (): UseWebsiteContentReturn => {
+  const [content, setContent] = useState<WebsiteContent | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchContent = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/public/website-content/1/');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setContent(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load content';
+      setError(errorMessage);
+      console.error('Failed to fetch website content:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchContent();
+  }, []);
+
+  return {
+    content,
+    loading,
+    error,
+    refetch: fetchContent,
+  };
+};
