@@ -18,11 +18,13 @@ import { selectCurrentUser, selectUserOrders } from '../../store/userSlice';
 import { selectCartItemCount } from '../../store/cartSlice';
 import { selectWishlistCount } from '../../store/wishlistSlice';
 import { signOut } from '../../store/userSlice';
+import { useStore } from '../../contexts/StoreContext';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import ChatModal from '../../components/chat/ChatModal';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const { storeSettings } = useStore();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const currentUser = useSelector(selectCurrentUser);
   const orders = useSelector(selectUserOrders);
@@ -347,7 +349,7 @@ const Dashboard: React.FC = () => {
                   <span className="text-white font-bold text-lg">E</span>
                 </div>
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
-                  Electro<span className="text-red-600 dark:text-blue-400">.</span>
+                  {storeSettings.store_name}<span className="text-red-600 dark:text-blue-400">.</span>
                 </span>
               </Link>
             </div>

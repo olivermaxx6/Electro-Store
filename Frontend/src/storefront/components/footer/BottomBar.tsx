@@ -1,7 +1,9 @@
 import React from 'react';
 import { CreditCard, Shield, Truck, Headphones } from 'lucide-react';
+import { useStore } from '../../contexts/StoreContext';
 
 const BottomBar: React.FC = () => {
+  const { storeSettings } = useStore();
   const paymentMethods = [
     { name: 'Visa', icon: '💳' },
     { name: 'Mastercard', icon: '💳' },
@@ -22,7 +24,7 @@ const BottomBar: React.FC = () => {
         <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
           {/* Copyright */}
           <div className="text-sm text-gray-400 dark:text-gray-300">
-            © 2024 Electro. All rights reserved.
+            © 2024 {storeSettings.store_name}. All rights reserved.
           </div>
           
           {/* Payment Methods */}

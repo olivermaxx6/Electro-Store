@@ -92,10 +92,11 @@ python manage.py check
 Write-Host "Running database migrations..." -ForegroundColor Cyan
 python manage.py migrate
 
-# Start Django development server
-Write-Host "Starting Django server at http://127.0.0.1:8001..." -ForegroundColor Green
+# Start Django ASGI server with WebSocket support
+Write-Host "Starting Django ASGI server at http://127.0.0.1:8001..." -ForegroundColor Green
 Write-Host "Backend API will be available at: http://127.0.0.1:8001" -ForegroundColor Green
-python manage.py runserver 127.0.0.1:8001
+Write-Host "WebSocket endpoint: ws://127.0.0.1:8001/ws/" -ForegroundColor Green
+uvicorn core.asgi:application --host 127.0.0.1 --port 8001 --reload
 "@
     
     Start-InNewWindow -Title "E-commerce Backend (Django)" -WorkingDirectory "$PWD\Backend" -Command $backendCommand

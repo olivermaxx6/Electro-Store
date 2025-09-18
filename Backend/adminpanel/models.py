@@ -149,16 +149,58 @@ class WebsiteContent(models.Model):
     banner3_text = models.CharField(max_length=200, blank=True)
     banner3_link = models.CharField(max_length=500, blank=True)
     
-    # Contact information
+    # Store logo
     logo = models.ImageField(upload_to="logo/", null=True, blank=True)
-    phone_number = models.CharField(max_length=50, blank=True)
-    email = models.EmailField(blank=True)
-    address = models.TextField(blank=True)
+    
+    # Deal Product 1
+    deal1_title = models.CharField(max_length=200, blank=True, help_text="Deal product 1 title")
+    deal1_subtitle = models.CharField(max_length=200, blank=True, help_text="Deal product 1 subtitle")
+    deal1_discount = models.CharField(max_length=50, blank=True, help_text="Deal product 1 discount (e.g., 'Up to 50% Off')")
+    deal1_description = models.TextField(blank=True, help_text="Deal product 1 description")
+    deal1_image = models.ImageField(upload_to="deals/", null=True, blank=True, help_text="Deal product 1 image")
+    deal1_end_date = models.DateTimeField(null=True, blank=True, help_text="Deal product 1 end date")
+    
+    # Deal Product 2
+    deal2_title = models.CharField(max_length=200, blank=True, help_text="Deal product 2 title")
+    deal2_subtitle = models.CharField(max_length=200, blank=True, help_text="Deal product 2 subtitle")
+    deal2_discount = models.CharField(max_length=50, blank=True, help_text="Deal product 2 discount (e.g., 'Up to 50% Off')")
+    deal2_description = models.TextField(blank=True, help_text="Deal product 2 description")
+    deal2_image = models.ImageField(upload_to="deals/", null=True, blank=True, help_text="Deal product 2 image")
+    deal2_end_date = models.DateTimeField(null=True, blank=True, help_text="Deal product 2 end date")
+    
+    # Store Location (for Find Us page and map integration)
+    street_address = models.CharField(max_length=200, blank=True, help_text="Street address")
+    city = models.CharField(max_length=100, blank=True, help_text="City")
+    postcode = models.CharField(max_length=20, blank=True, help_text="Postal/ZIP code")
+    country = models.CharField(max_length=100, blank=True, help_text="Country")
+    
+    # Contact Information
+    phone = models.CharField(max_length=50, blank=True, help_text="Store phone number")
+    email = models.EmailField(blank=True, help_text="Store email address")
 
 class StoreSettings(models.Model):
+    store_name = models.CharField(max_length=200, default="Electro")
+    store_logo = models.ImageField(upload_to="store/", null=True, blank=True)
+    about_us_picture = models.ImageField(upload_to="store/", null=True, blank=True)
+    favicon = models.ImageField(upload_to="store/", null=True, blank=True, help_text="Favicon for the website (recommended size: 32x32 or 16x16 pixels)")
     currency = models.CharField(max_length=10, default="USD")
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)      # percent
     shipping_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0) # flat
+    
+    # Store address fields for Find Us page
+    street_address = models.CharField(max_length=200, blank=True, help_text="Street address")
+    city = models.CharField(max_length=100, blank=True, help_text="City")
+    postcode = models.CharField(max_length=20, blank=True, help_text="Postal/ZIP code")
+    country = models.CharField(max_length=100, blank=True, help_text="Country")
+    
+    # Contact information
+    phone = models.CharField(max_length=50, blank=True, help_text="Store phone number")
+    email = models.EmailField(blank=True, help_text="Store email address")
+    
+    # Business hours
+    monday_friday_hours = models.CharField(max_length=100, blank=True, help_text="Monday - Friday hours (e.g., '9:00 AM - 6:00 PM')")
+    saturday_hours = models.CharField(max_length=100, blank=True, help_text="Saturday hours (e.g., '10:00 AM - 4:00 PM')")
+    sunday_hours = models.CharField(max_length=100, blank=True, help_text="Sunday hours (e.g., 'Closed')")
 
 # --- Chat System ---
 class ChatRoom(models.Model):
@@ -204,3 +246,27 @@ class ChatMessage(models.Model):
     
     def __str__(self):
         return f"{self.sender_type}: {self.content[:50]}..."
+
+# --- Contact Form ---
+class Contact(models.Model):
+    """Contact form submissions from the website"""
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('read', 'Read'),
+        ('replied', 'Replied'),
+        ('closed', 'Closed')
+    ]
+    
+    name = models.CharField(max_length=200)
+    email = models.EmailField()
+    subject = models.CharField(max_length=300)
+    message = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.name} - {self.subject}"

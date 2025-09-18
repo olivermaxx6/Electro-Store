@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Package, Wrench, MessagesSquare, ShoppingCart, Users, FileText, Star, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, Wrench, MessagesSquare, ShoppingCart, Users, FileText, Star, Settings, MessageCircle, Mail } from 'lucide-react';
 import SidebarItem from './SidebarItem';
 
 const links = [
@@ -12,6 +12,8 @@ const links = [
   { to: '/admin/users', label: 'User Management', icon: Users },
   { to: '/admin/content', label: 'Website Content', icon: FileText },
   { to: '/admin/reviews', label: 'Reviews & Ratings', icon: Star },
+  { to: '/admin/chat', label: 'Customer Chat', icon: MessageCircle },
+  { to: '/admin/contact', label: 'Contact Messages', icon: Mail },
   { to: '/admin/settings', label: 'Store Settings', icon: Settings },
 ];
 

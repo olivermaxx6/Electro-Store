@@ -4,11 +4,15 @@ import FormRow from '../../components/ui/FormRow';
 import { ThemeLayout, ThemeCard, ThemeInput, ThemeSelect, ThemeButton, ThemeAlert, FormSection } from '@shared/theme';
 import { useCurrency, currencyOptions } from '../../store/currencyStore';
 import { getStoreSettings, updateStoreSettings } from '../../lib/api';
+import FaviconUpdater from '../../components/common/FaviconUpdater';
 
 export default function SettingsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [storeLogoFile, setStoreLogoFile] = useState(null);
+  const [aboutUsFile, setAboutUsFile] = useState(null);
+  const [faviconFile, setFaviconFile] = useState(null);
   const { currency, setCurrency, getCurrentCurrency } = useCurrency();
 
   useEffect(()=>{ (async()=>{
@@ -62,15 +66,42 @@ export default function SettingsPage() {
       setLoading(true);
       setError(null);
       
+      // Create FormData for file uploads
+      const formData = new FormData();
+      formData.append('store_name', data.store_name);
+      formData.append('currency', data.currency);
+      formData.append('tax_rate', parseFloat(data.tax_rate));
+      formData.append('shipping_rate', parseFloat(data.shipping_rate));
+      formData.append('street_address', data.street_address || '');
+      formData.append('city', data.city || '');
+      formData.append('postcode', data.postcode || '');
+      formData.append('country', data.country || '');
+      formData.append('phone', data.phone || '');
+      formData.append('email', data.email || '');
+      formData.append('monday_friday_hours', data.monday_friday_hours || '');
+      formData.append('saturday_hours', data.saturday_hours || '');
+      formData.append('sunday_hours', data.sunday_hours || '');
+      
+      if (storeLogoFile) {
+        formData.append('store_logo', storeLogoFile);
+      }
+      if (aboutUsFile) {
+        formData.append('about_us_picture', aboutUsFile);
+      }
+      if (faviconFile) {
+        formData.append('favicon', faviconFile);
+      }
+      
       // Update backend settings
-      await updateStoreSettings({
-        currency: data.currency,
-        tax_rate: parseFloat(data.tax_rate),
-        shipping_rate: parseFloat(data.shipping_rate)
-      });
+      await updateStoreSettings(formData);
       
       // Update local currency store
       setCurrency(data.currency);
+      
+      // Clear file inputs
+      setStoreLogoFile(null);
+      setAboutUsFile(null);
+      setFaviconFile(null);
       
       alert('Settings saved successfully!');
     } catch (err) {
@@ -117,8 +148,171 @@ export default function SettingsPage() {
 
   return (
     <ThemeLayout>
-      <FormSection title="Global Settings" icon="⚙️" color="primary">
-        <form onSubmit={save} className="space-y-6">
+      <FaviconUpdater faviconUrl={data?.favicon} />
+      <form onSubmit={save} className="space-y-8">
+        <FormSection title="Store Settings" icon="🏪" color="primary">
+          <div className="space-y-6">
+            <ThemeInput
+              label="Store Name"
+              value={data.store_name || ''} 
+              onChange={e=>setData(d=>({...d,store_name:e.target.value}))}
+              placeholder="Enter store name"
+            />
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Store Logo
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setStoreLogoFile(e.target.files[0])}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
+                />
+                {data.store_logo && (
+                  <div className="mt-2">
+                    <img src={data.store_logo} alt="Current logo" className="h-16 w-16 object-cover rounded" />
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  About Us Picture
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setAboutUsFile(e.target.files[0])}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
+                />
+                {data.about_us_picture && (
+                  <div className="mt-2">
+                    <img src={data.about_us_picture} alt="Current about us picture" className="h-16 w-16 object-cover rounded" />
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Favicon
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">(32x32px recommended)</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setFaviconFile(e.target.files[0])}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
+                />
+                {data.favicon && (
+                  <div className="mt-2">
+                    <img src={data.favicon} alt="Current favicon" className="h-8 w-8 object-cover rounded" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </FormSection>
+        
+        <FormSection title="Store Location" icon="📍" color="primary">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ThemeInput
+                label="Street Address"
+                value={data.street_address || ''} 
+                onChange={e=>setData(d=>({...d,street_address:e.target.value}))}
+                placeholder="Enter street address"
+              />
+              
+              <ThemeInput
+                label="City"
+                value={data.city || ''} 
+                onChange={e=>setData(d=>({...d,city:e.target.value}))}
+                placeholder="Enter city"
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ThemeInput
+                label="Postcode"
+                value={data.postcode || ''} 
+                onChange={e=>setData(d=>({...d,postcode:e.target.value}))}
+                placeholder="Enter postcode"
+              />
+              
+              <ThemeInput
+                label="Country"
+                value={data.country || ''} 
+                onChange={e=>setData(d=>({...d,country:e.target.value}))}
+                placeholder="Enter country"
+              />
+            </div>
+            
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                <strong>Note:</strong> The store address will be displayed on the Find Us page and used for map integration.
+              </div>
+            </div>
+          </div>
+        </FormSection>
+        
+        <FormSection title="Contact Information" icon="📞" color="primary">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ThemeInput
+                label="Phone"
+                value={data.phone || ''} 
+                onChange={e=>setData(d=>({...d,phone:e.target.value}))}
+                placeholder="+1 (555) 123-4567"
+              />
+              
+              <ThemeInput
+                label="Email"
+                type="email"
+                value={data.email || ''} 
+                onChange={e=>setData(d=>({...d,email:e.target.value}))}
+                placeholder="info@yourstore.com"
+              />
+            </div>
+          </div>
+        </FormSection>
+        
+        <FormSection title="Business Hours" icon="🕒" color="primary">
+          <div className="space-y-6">
+            <ThemeInput
+              label="Monday - Friday"
+              value={data.monday_friday_hours || ''} 
+              onChange={e=>setData(d=>({...d,monday_friday_hours:e.target.value}))}
+              placeholder="9:00 AM - 6:00 PM"
+            />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ThemeInput
+                label="Saturday"
+                value={data.saturday_hours || ''} 
+                onChange={e=>setData(d=>({...d,saturday_hours:e.target.value}))}
+                placeholder="10:00 AM - 4:00 PM"
+              />
+              
+              <ThemeInput
+                label="Sunday"
+                value={data.sunday_hours || ''} 
+                onChange={e=>setData(d=>({...d,sunday_hours:e.target.value}))}
+                placeholder="Closed"
+              />
+            </div>
+            
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                <strong>Note:</strong> Business hours will be displayed on the Find Us page and contact sections.
+              </div>
+            </div>
+          </div>
+        </FormSection>
+        
+        <FormSection title="Global Settings" icon="⚙️" color="primary">
+          <div className="space-y-6">
           <ThemeSelect
             label="Currency"
             value={data.currency} 
@@ -168,18 +362,19 @@ export default function SettingsPage() {
             />
           </div>
           
-          <div className="flex justify-end">
-            <ThemeButton 
-              type="submit" 
-              variant="success" 
-              icon="💾"
-              className="whitespace-nowrap min-w-fit flex-shrink-0"
-            >
-              Save Settings
-            </ThemeButton>
+            <div className="flex justify-end">
+              <ThemeButton 
+                type="submit" 
+                variant="success" 
+                icon="💾"
+                className="whitespace-nowrap min-w-fit flex-shrink-0"
+              >
+                Save Settings
+              </ThemeButton>
+            </div>
           </div>
-        </form>
-      </FormSection>
+        </FormSection>
+      </form>
     </ThemeLayout>
   );
 }

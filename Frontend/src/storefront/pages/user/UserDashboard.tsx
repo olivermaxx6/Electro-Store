@@ -17,10 +17,12 @@ import { selectCurrentUser } from '../../store/userSlice';
 import { selectCartItemCount } from '../../store/cartSlice';
 import { selectWishlistCount } from '../../store/wishlistSlice';
 import { signOut } from '../../store/userSlice';
+import { useStore } from '../../contexts/StoreContext';
 import ThemeToggle from '../../components/common/ThemeToggle';
 
 const UserDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const { storeSettings } = useStore();
   const currentUser = useSelector(selectCurrentUser);
   const cartCount = useSelector(selectCartItemCount(currentUser?.id || 'guest'));
   const wishlistCount = useSelector(selectWishlistCount(currentUser?.id || 'guest'));
@@ -346,7 +348,7 @@ const UserDashboard: React.FC = () => {
                   <span className="text-white font-bold text-lg">E</span>
                 </div>
                 <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Electro<span className="text-red-600 dark:text-blue-400">.</span>
+                  {storeSettings.store_name}<span className="text-red-600 dark:text-blue-400">.</span>
                 </span>
               </Link>
             </div>

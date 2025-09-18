@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat API Test</title>
+</head>
+<body>
+    <h1>Chat API Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testAPI() {
+            const results = document.getElementById('results');
+            
+            try {
+                // Test basic Django response
+                const response = await fetch('http://127.0.0.1:8001/');
+                results.innerHTML += `<p>✓ Django root: ${response.status}</p>`;
+                
+                // Test admin chat rooms (should return 401 without auth)
+                const chatResponse = await fetch('http://127.0.0.1:8001/api/admin/chat-rooms/');
+                results.innerHTML += `<p>✓ Admin chat rooms: ${chatResponse.status} (expected 401)</p>`;
+                
+                // Test public chat rooms
+                const publicResponse = await fetch('http://127.0.0.1:8001/api/public/chat-rooms/');
+                results.innerHTML += `<p>✓ Public chat rooms: ${publicResponse.status}</p>`;
+                
+                if (publicResponse.ok) {
+                    const data = await publicResponse.json();
+                    results.innerHTML += `<p>✓ Public chat data: ${JSON.stringify(data)}</p>`;
+                }
+                
+            } catch (error) {
+                results.innerHTML += `<p>✗ Error: ${error.message}</p>`;
+            }
+        }
+        
+        testAPI();
+    </script>
+</body>
+</html>

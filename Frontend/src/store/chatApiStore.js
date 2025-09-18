@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { makeWsUrl } from '../lib/wsUrl';
 
 // API base URL
 const API_BASE_URL = 'http://127.0.0.1:8001/api';
@@ -7,6 +8,12 @@ const API_BASE_URL = 'http://127.0.0.1:8001/api';
 // Helper function to get auth token
 const getAuthToken = () => {
   try {
+    // First try to get from localStorage.access_token (direct ACCESS token)
+    const accessToken = localStorage.getItem('access_token');
+    if (accessToken) {
+      return accessToken;
+    }
+    // Fallback to auth object
     const authData = JSON.parse(localStorage.getItem('auth') || '{}');
     return authData.access;
   } catch {
@@ -50,21 +57,27 @@ const useChatApiStore = create((set, get) => ({
     // Get auth token for admin connections
     const token = getAuthToken();
     
-    // Determine WebSocket URL based on user type
-    let wsUrl = userType === 'admin' 
-      ? 'ws://127.0.0.1:8001/ws/admin/chat/'
-      : `ws://127.0.0.1:8001/ws/chat/${roomId}/`;
-    
-    // Add token to query parameters for admin connections
-    if (userType === 'admin' && token) {
-      wsUrl += `?token=${encodeURIComponent(token)}`;
+    // Build WebSocket URL correctly
+    let wsUrl;
+    if (userType === 'admin') {
+      // Admin WebSocket connection
+      const wsBase = import.meta.env.VITE_WS_BASE || 'ws://127.0.0.1:8001';
+      const qp = token ? `?token=${encodeURIComponent(token)}` : "";
+      wsUrl = `${wsBase}/ws/admin/chat/${qp}`;
+    } else {
+      // Customer WebSocket connection
+      const wsBase = import.meta.env.VITE_WS_BASE || 'ws://127.0.0.1:8001';
+      wsUrl = `${wsBase}/ws/chat/${roomId}/`;
     }
     
+    console.log(`[WebSocket] Connecting to: ${wsUrl}`);
+    console.log(`[WebSocket] Token present: ${!!token}`);
+    console.log(`[WebSocket] User type: ${userType}`);
     const newSocket = new WebSocket(wsUrl);
     
     newSocket.onopen = () => {
-      console.log('WebSocket connected');
-      set({ isConnected: true });
+      console.log(`${userType === 'admin' ? 'Admin' : 'Customer'} WS OPEN`);
+      set({ isConnected: true, error: null }); // Clear any previous errors
     };
     
     newSocket.onmessage = (event) => {
@@ -74,10 +87,17 @@ const useChatApiStore = create((set, get) => ({
         
         switch (type) {
           case 'chat_message':
-            // Add new message to current messages
-            set((state) => ({
-              messages: [...state.messages, message]
-            }));
+            // Add new message to current messages (avoid duplicates)
+            set((state) => {
+              const messageExists = state.messages.some(msg => msg.id === message.id);
+              if (messageExists) {
+                console.log('Message already exists, skipping duplicate:', message.id);
+                return state;
+              }
+              return {
+                messages: [...state.messages, message]
+              };
+            });
             break;
             
           case 'room_list':
@@ -92,6 +112,13 @@ const useChatApiStore = create((set, get) => ({
             
           case 'new_customer_message':
             // Notify admin of new customer message
+            console.log('New customer message received:', data);
+            get().refreshAdminChatRooms();
+            break;
+            
+          case 'admin_message_sent':
+            // Admin message was sent to a room
+            console.log('Admin message sent:', data);
             get().refreshAdminChatRooms();
             break;
             
@@ -103,14 +130,35 @@ const useChatApiStore = create((set, get) => ({
       }
     };
     
-    newSocket.onclose = () => {
-      console.log('WebSocket disconnected');
+    newSocket.onclose = (e) => {
+      console.warn(`${userType === 'admin' ? 'Admin' : 'Customer'} WS CLOSED`, e.code, e.reason);
       set({ isConnected: false });
+      
+      // Handle specific close codes
+      let errorMessage = null;
+      if (e.code === 4401) {
+        errorMessage = "Session expired or invalid. Please sign in again.";
+      } else if (e.code === 4403) {
+        errorMessage = "Your account lacks admin permissions.";
+      } else if (e.code === 4404) {
+        errorMessage = "Chat room not found.";
+      } else if (e.code === 1011) {
+        errorMessage = "Server error. Please try again.";
+      } else if (e.code !== 1000 && e.code !== 1001) {
+        errorMessage = `Connection failed (code ${e.code}). Check network/server.`;
+      }
+      
+      if (errorMessage) {
+        set({ error: errorMessage });
+      }
     };
     
-    newSocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      set({ isConnected: false });
+    newSocket.onerror = (e) => {
+      console.error(`${userType === 'admin' ? 'Admin' : 'Customer'} WS ERROR`, e);
+      set({ 
+        isConnected: false, 
+        error: "WebSocket connection error. Please check your network connection." 
+      });
     };
     
     set({ socket: newSocket });
@@ -198,11 +246,22 @@ const useChatApiStore = create((set, get) => ({
       // Connect WebSocket for this room
       get().connectWebSocket(roomId, 'customer');
       
-      set({ 
-        currentRoom: room,
-        messages: room.messages || [],
-        loading: false 
-      });
+      // Also fetch messages separately to ensure we have the latest
+      try {
+        const messagesResponse = await axios.get(`${API_BASE_URL}/public/chat-rooms/${roomId}/get_messages/`);
+        set({ 
+          currentRoom: room,
+          messages: messagesResponse.data || [],
+          loading: false 
+        });
+      } catch (msgError) {
+        console.warn('Could not fetch messages separately, using room messages:', msgError);
+        set({ 
+          currentRoom: room,
+          messages: room.messages || [],
+          loading: false 
+        });
+      }
       
       return room;
     } catch (error) {
@@ -221,20 +280,18 @@ const useChatApiStore = create((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // Send via WebSocket for real-time delivery
-      get().sendWebSocketMessage({
-        type: 'chat_message',
-        content: content.trim()
-      });
-      
-      // Also send via REST API for persistence
+      // Send via REST API for persistence (this will also trigger WebSocket broadcast)
       const response = await axios.post(`${API_BASE_URL}/public/chat-rooms/${roomId}/send_message/`, {
         content: content.trim()
       });
       
       const newMessage = response.data;
       
-      set({ loading: false });
+      // Add message to local state immediately for better UX
+      set((state) => ({
+        messages: [...state.messages, newMessage],
+        loading: false
+      }));
       
       return newMessage;
     } catch (error) {
@@ -269,14 +326,24 @@ const useChatApiStore = create((set, get) => ({
       const token = getAuthToken();
       
       if (!token) {
-        throw new Error('No authentication token found');
+        console.warn('No authentication token found for admin chat rooms');
+        set({ 
+          error: 'Authentication required. Please sign in again.',
+          loading: false 
+        });
+        return [];
       }
+      
+      console.log('Fetching admin chat rooms with token:', token.substring(0, 20) + '...');
       
       const response = await axios.get(`${API_BASE_URL}/admin/chat-rooms/`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
+      
+      console.log('Admin chat rooms response:', response.data);
       
       const conversations = response.data.results || response.data || [];
       set({ 
@@ -287,8 +354,27 @@ const useChatApiStore = create((set, get) => ({
       return conversations;
     } catch (error) {
       console.error('Error fetching admin chat rooms:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      let errorMessage = 'Failed to fetch chat rooms';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Authentication expired. Please sign in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Access denied. Admin permissions required.';
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       set({ 
-        error: error.response?.data?.detail || 'Failed to fetch chat rooms',
+        error: errorMessage,
         loading: false 
       });
       throw error;
@@ -327,14 +413,7 @@ const useChatApiStore = create((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // Send via WebSocket for real-time delivery
-      get().sendWebSocketMessage({
-        type: 'admin_message',
-        room_id: roomId,
-        content: content.trim()
-      });
-      
-      // Also send via REST API for persistence
+      // Send via REST API for persistence (this will also trigger WebSocket broadcast)
       const token = getAuthToken();
       
       if (!token) {
@@ -351,7 +430,11 @@ const useChatApiStore = create((set, get) => ({
       
       const newMessage = response.data;
       
-      set({ loading: false });
+      // Add message to local state immediately for better UX
+      set((state) => ({
+        messages: [...state.messages, newMessage],
+        loading: false
+      }));
       
       return newMessage;
     } catch (error) {
@@ -391,6 +474,17 @@ const useChatApiStore = create((set, get) => ({
   
   // Connect admin WebSocket
   connectAdminWebSocket() {
+    const token = getAuthToken();
+    if (!token) {
+      console.warn('No authentication token found for admin WebSocket');
+      set({ 
+        error: 'Authentication required for real-time chat. Please sign in again.',
+        isConnected: false 
+      });
+      return;
+    }
+    
+    console.log('Connecting admin WebSocket with token:', token.substring(0, 20) + '...');
     get().connectWebSocket(null, 'admin');
   },
   
@@ -401,6 +495,17 @@ const useChatApiStore = create((set, get) => ({
     // Connect to room-specific WebSocket if it's a customer room
     if (room && room.id) {
       get().connectWebSocket(room.id, 'customer');
+    }
+  },
+
+  // Clear error and retry connection
+  retryConnection() {
+    const { currentRoom } = get();
+    if (currentRoom && currentRoom.id) {
+      get().connectWebSocket(currentRoom.id, 'customer');
+    } else {
+      // Retry admin connection
+      get().connectAdminWebSocket();
     }
   },
   
@@ -421,7 +526,12 @@ const useChatApiStore = create((set, get) => ({
         return activeRoom;
       } else {
         // Create a new room
-        return await get().createChatRoom(customerInfo);
+        const newRoom = await get().createChatRoom(customerInfo);
+        // Connect WebSocket after room creation
+        if (newRoom && newRoom.id) {
+          get().connectWebSocket(newRoom.id, 'customer');
+        }
+        return newRoom;
       }
     } catch (error) {
       console.error('Error initializing customer chat:', error);

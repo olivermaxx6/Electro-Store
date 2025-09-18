@@ -30,7 +30,7 @@ const FooterColumns: React.FC = () => {
         { label: 'About Us', href: '/about' },
         { label: 'Contact', href: '/contact' },
         { label: 'Careers', href: '/careers' },
-        { label: 'Press', href: '/press' },
+        { label: 'Find Us', href: '/findus' },
       ],
     },
     {

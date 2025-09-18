@@ -17,6 +17,8 @@ import Privacy from '../pages/static/Privacy';
 import Terms from '../pages/static/Terms';
 import Help from '../pages/static/Help';
 import TrackOrder from '../pages/static/TrackOrder';
+import Careers from '../pages/static/Careers';
+import FindUs from '../pages/static/FindUs';
 import NotFound from '../pages/NotFound';
 import SignIn from '../pages/auth/SignIn';
 import SignUp from '../pages/auth/SignUp';
@@ -104,6 +106,14 @@ export const router = createBrowserRouter([
       {
         path: 'track-order',
         element: <TrackOrder />,
+      },
+      {
+        path: 'careers',
+        element: <Careers />,
+      },
+      {
+        path: 'findus',
+        element: <FindUs />,
       },
       {
         path: 'debug-categories',

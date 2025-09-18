@@ -5,6 +5,7 @@ import { Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 import { setProducts, setCategories, setBrands, selectProducts } from '../store/productsSlice';
 import { productRepo, categoryRepo, brandRepo } from '../lib/repo';
 import { useWebsiteContent } from '../hooks/useWebsiteContent';
+import { useStore } from '../contexts/StoreContext';
 import PromoTile from '../components/hero/PromoTile';
 import ProductCard from '../components/products/ProductCard';
 import HotDealBanner from '../components/promo/HotDealBanner';
@@ -14,6 +15,7 @@ const Home: React.FC = () => {
   const dispatch = useDispatch();
   const products = useSelector(selectProducts);
   const { content: websiteContent, loading: contentLoading, error: contentError } = useWebsiteContent();
+  const { storeSettings } = useStore();
   const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
   
   useEffect(() => {
@@ -51,7 +53,7 @@ const Home: React.FC = () => {
         <div className="container relative z-10">
           <div className="text-center mb-12">
             <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-              Welcome to <span className="text-red-600 dark:text-blue-400">Electro</span>
+              Welcome to <span className="text-red-600 dark:text-blue-400">{storeSettings.store_name}</span>
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Discover the latest in technology with our premium selection of electronics, gadgets, and accessories.

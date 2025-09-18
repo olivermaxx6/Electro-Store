@@ -40,6 +40,8 @@ export const useAuth = create((set, get) => ({
         user: data.user
       };
       localStorage.setItem('auth', JSON.stringify(authData));
+      // Also store ACCESS token directly for WebSocket connections
+      localStorage.setItem('access_token', data.access);
       set({ token: data.access, user: data.user, loading: false });
       
       // Set authorization header for future requests
@@ -97,6 +99,7 @@ export const useAuth = create((set, get) => ({
 
   logout: () => {
     localStorage.removeItem('auth');
+    localStorage.removeItem('access_token');
     delete authApi.defaults.headers.common.Authorization;
     delete api.defaults.headers.common.Authorization;
     set({ token: null, user: null });

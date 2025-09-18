@@ -8,3 +8,4 @@ channels>=4.0
 channels-redis>=4.1
 websockets>=11.0
 requests>=2.31
+uvicorn>=0.24

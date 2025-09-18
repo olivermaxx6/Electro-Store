@@ -9,12 +9,12 @@ from django.db.models import Q
 from .models import (
     Brand, Category, Product, ProductImage,
     Service, ServiceImage, WebsiteContent, StoreSettings,
-    ChatRoom, ChatMessage
+    ChatRoom, ChatMessage, Contact
 )
 from .serializers import (
     BrandSerializer, CategorySerializer, ProductSerializer, ProductImageSerializer,
     ServiceSerializer, ServiceImageSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
-    ChatRoomSerializer, ChatMessageSerializer
+    ChatRoomSerializer, ChatMessageSerializer, ContactSerializer
 )
 
 class PublicBrandViewSet(viewsets.ReadOnlyModelViewSet):
@@ -173,7 +173,47 @@ class PublicChatRoomViewSet(viewsets.ModelViewSet):
         
         # Update room status and last message time
         room.status = 'waiting'
+        room.last_message_at = message.created_at
         room.save()
+        
+        # Broadcast message via WebSocket
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            # Send to room group
+            async_to_sync(channel_layer.group_send)(
+                f'chat_{room.id}',
+                {
+                    'type': 'chat_message',
+                    'message': {
+                        'id': message.id,
+                        'content': message.content,
+                        'sender_type': message.sender_type,
+                        'sender_name': message.sender_name,
+                        'created_at': message.created_at.isoformat(),
+                        'is_read': message.is_read
+                    }
+                }
+            )
+            
+            # Notify admin group of new customer message
+            async_to_sync(channel_layer.group_send)(
+                'admin_chat',
+                {
+                    'type': 'new_customer_message',
+                    'room_id': str(room.id),
+                    'message': {
+                        'id': message.id,
+                        'content': message.content,
+                        'sender_type': message.sender_type,
+                        'sender_name': message.sender_name,
+                        'created_at': message.created_at.isoformat(),
+                        'is_read': message.is_read
+                    }
+                }
+            )
         
         serializer = ChatMessageSerializer(message)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -197,3 +237,35 @@ class PublicChatMessageViewSet(viewsets.ReadOnlyModelViewSet):
             # For now, allow access to all messages (in production, you'd use session-based filtering)
             return ChatMessage.objects.filter(room_id=room_id).order_by('created_at')
         return ChatMessage.objects.none()
+
+class PublicContactViewSet(viewsets.ModelViewSet):
+    """Public contact form submission endpoint"""
+    serializer_class = ContactSerializer
+    permission_classes = [permissions.AllowAny]
+    http_method_names = ['post']  # Only allow POST for form submission
+    
+    def get_queryset(self):
+        # Return empty queryset since we only allow creation
+        return Contact.objects.none()
+    
+    def create(self, request, *args, **kwargs):
+        """Create a new contact form submission"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({
+            'message': 'Thank you for your message. We will get back to you soon!',
+            'status': 'success'
+        }, status=status.HTTP_201_CREATED)
+
+class PublicStoreSettingsViewSet(viewsets.ViewSet):
+    """Public read-only access to store settings"""
+    permission_classes = [permissions.AllowAny]
+
+    def _get_singleton(self):
+        obj, _ = StoreSettings.objects.get_or_create(id=1)
+        return obj
+
+    def list(self, request):
+        obj = self._get_singleton()
+        return Response(StoreSettingsSerializer(obj).data)

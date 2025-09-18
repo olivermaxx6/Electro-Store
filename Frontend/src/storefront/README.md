@@ -1,6 +1,6 @@
-# Electro Storefront
+# Storefront
 
-This is the customer-facing e-commerce storefront for Electro, built with React, TypeScript, and Tailwind CSS.
+This is the customer-facing e-commerce storefront, built with React, TypeScript, and Tailwind CSS.
 
 ## Features
 
@@ -84,7 +84,7 @@ All user data is persisted to localStorage for a seamless experience.
 
 ## Styling
 
-The storefront uses Tailwind CSS with custom theme tokens that match the Electro brand:
+The storefront uses Tailwind CSS with custom theme tokens:
 
 - **Primary Color**: Red (#e62e2e)
 - **Accent Dark**: Dark gray (#0f0f14)

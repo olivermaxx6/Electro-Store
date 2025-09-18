@@ -16,7 +16,7 @@ const TopBar: React.FC = () => {
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-1">
               <Phone className="w-4 h-4" />
-              <span>{contactLoading ? 'Loading...' : contactInfo.phone_number}</span>
+              <span>{contactLoading ? 'Loading...' : contactInfo.phone}</span>
             </div>
             <div className="flex items-center space-x-1">
               <Mail className="w-4 h-4" />
@@ -24,7 +24,7 @@ const TopBar: React.FC = () => {
             </div>
             <div className="flex items-center space-x-1">
               <MapPin className="w-4 h-4" />
-              <span>{contactLoading ? 'Loading...' : contactInfo.address}</span>
+              <span>{contactLoading ? 'Loading...' : `${contactInfo.city}, ${contactInfo.country}`}</span>
             </div>
           </div>
           

@@ -14,7 +14,7 @@ try:
         ServiceViewSet, ServiceImageDestroyView, ServiceInquiryViewSet,
         OrderViewSet, AdminUserViewSet, ReviewViewSet,
         WebsiteContentViewSet, StoreSettingsViewSet,
-        ChatRoomViewSet, ChatMessageViewSet
+        ChatRoomViewSet, ChatMessageViewSet, ContactViewSet
     )
     # Product management
     router.register(r"admin/products", ProductViewSet, basename="product")
@@ -43,6 +43,9 @@ try:
     # Chat system
     router.register(r"admin/chat-rooms", ChatRoomViewSet, basename="chatroom")
     router.register(r"admin/chat-messages", ChatMessageViewSet, basename="chatmessage")
+    
+    # Contact management
+    router.register(r"admin/contacts", ContactViewSet, basename="contact")
     
 except Exception as e:
     log.exception("Router setup failed (views import error): %s", e)
