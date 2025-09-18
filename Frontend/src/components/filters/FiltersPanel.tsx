@@ -4,6 +4,7 @@ import { setFilters } from '../../store/productsSlice';
 import { selectFilters, selectBrands } from '../../store/productsSlice';
 import { FilterState } from '../../types';
 import Button from '../common/Button';
+import DualRangeSlider from './DualRangeSlider';
 
 const FiltersPanel = () => {
   const dispatch = useDispatch();
@@ -35,9 +36,9 @@ const FiltersPanel = () => {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
+    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg p-6">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold">Filters</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filters</h3>
         <Button variant="ghost" size="sm" onClick={handleClearFilters}>
           Clear All
         </Button>
@@ -46,31 +47,20 @@ const FiltersPanel = () => {
       <div className="space-y-6">
         {/* Price Range */}
         <div>
-          <h4 className="font-medium mb-3">Price Range</h4>
-          <div className="space-y-2">
-            <input
-              type="range"
-              min="0"
-              max="5000"
-              step="50"
-              value={localFilters.priceRange?.[1] || 5000}
-              onChange={(e) => {
-                const max = parseInt(e.target.value);
-                const min = localFilters.priceRange?.[0] || 0;
-                handleFilterChange('priceRange', [min, max]);
-              }}
-              className="w-full"
-            />
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>${localFilters.priceRange?.[0] || 0}</span>
-              <span>${localFilters.priceRange?.[1] || 5000}</span>
-            </div>
-          </div>
+          <h4 className="font-medium mb-3 text-gray-900 dark:text-gray-100">Price Range</h4>
+          <DualRangeSlider
+            min={0}
+            max={5000}
+            step={50}
+            value={localFilters.priceRange || [0, 5000]}
+            onChange={(value) => handleFilterChange('priceRange', value)}
+            formatValue={(val) => `£${val}`}
+          />
         </div>
 
         {/* Brand */}
         <div>
-          <h4 className="font-medium mb-3">Brand</h4>
+          <h4 className="font-medium mb-3 text-gray-900 dark:text-gray-100">Brand</h4>
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {brands.map((brand) => (
               <label key={brand} className="flex items-center">
@@ -80,7 +70,7 @@ const FiltersPanel = () => {
                   onChange={() => handleBrandToggle(brand)}
                   className="mr-2"
                 />
-                <span className="text-sm">{brand}</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">{brand}</span>
               </label>
             ))}
           </div>
@@ -88,7 +78,7 @@ const FiltersPanel = () => {
 
         {/* Rating */}
         <div>
-          <h4 className="font-medium mb-3">Minimum Rating</h4>
+          <h4 className="font-medium mb-3 text-gray-900 dark:text-gray-100">Minimum Rating</h4>
           <div className="space-y-2">
             {[4, 3, 2, 1].map((rating) => (
               <label key={rating} className="flex items-center">
@@ -99,7 +89,7 @@ const FiltersPanel = () => {
                   onChange={() => handleFilterChange('rating', rating)}
                   className="mr-2"
                 />
-                <span className="text-sm">{rating}+ Stars</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">{rating}+ Stars</span>
               </label>
             ))}
           </div>
@@ -114,7 +104,7 @@ const FiltersPanel = () => {
               onChange={(e) => handleFilterChange('onlyDiscounted', e.target.checked)}
               className="mr-2"
             />
-            <span className="text-sm">Only discounted items</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Only discounted items</span>
           </label>
         </div>
 

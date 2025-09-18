@@ -2,28 +2,18 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useCategories } from '../../hooks/useCategories';
 
 const NavBar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { categories, loading } = useCategories();
   
   // Static navigation items
-  const staticNavItems = [
+  const navItems = [
     { label: 'Home', href: '/' },
     { label: 'Shop', href: '/shop' },
+    { label: 'Services', href: '/services' },
     { label: 'Categories', href: '/categories' },
   ];
-  
-  // Dynamic category items
-  const categoryNavItems = categories.map(category => ({
-    label: category.name,
-    href: `/category/${category.id}`,
-  }));
-  
-  // Combine static and dynamic items
-  const navItems = [...staticNavItems, ...categoryNavItems];
   
   const isActive = (href: string) => {
     if (href === '/') {
@@ -38,12 +28,7 @@ const NavBar: React.FC = () => {
         <div className="flex items-center justify-between">
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-1">
-            {loading ? (
-              <div className="px-6 py-4 text-sm text-blue-100 dark:text-blue-200">
-                Loading categories...
-              </div>
-            ) : (
-              navItems.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -72,8 +57,7 @@ const NavBar: React.FC = () => {
                 {/* Hover Glow Effect */}
                 <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-white/5 to-white/10 dark:from-blue-300/5 dark:to-blue-300/10" />
               </Link>
-              ))
-            )}
+            ))}
           </div>
           
           {/* Mobile Menu Button */}
@@ -104,12 +88,7 @@ const NavBar: React.FC = () => {
           isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         )}>
           <div className="py-6 space-y-2 border-t border-white/20 dark:border-blue-300/20">
-            {loading ? (
-              <div className="py-3 px-6 text-sm text-blue-100 dark:text-blue-200">
-                Loading categories...
-              </div>
-            ) : (
-              navItems.map((item, index) => (
+            {navItems.map((item, index) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -130,8 +109,7 @@ const NavBar: React.FC = () => {
                   <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-white dark:bg-blue-300 rounded-r-full" />
                 )}
               </Link>
-              ))
-            )}
+            ))}
           </div>
         </div>
       </div>

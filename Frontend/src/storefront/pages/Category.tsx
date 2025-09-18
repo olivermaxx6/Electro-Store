@@ -1,15 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ChevronDown, Grid, List } from 'lucide-react';
-import { setProducts, setFilters, setSortBy, selectProducts, selectCategories } from '../store/productsSlice';
-import { productRepo, categoryRepo } from '../lib/repo';
+import { setProducts, setCategories, setSortBy, selectProducts, selectCategories } from '../store/productsSlice';
+import { productRepo } from '../lib/repo';
 import { formatCurrencySymbol } from '../lib/format';
 import { Currency } from '../lib/types';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import ProductCard from '../components/products/ProductCard';
 import Placeholder from '../components/common/Placeholder';
+import DualRangeSlider from '../components/filters/DualRangeSlider';
 
 const Category: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -20,6 +21,16 @@ const Category: React.FC = () => {
   const categories = useSelector(selectCategories);
   const { settings } = useStoreSettings();
   
+  // Debug: Log categories from Redux store
+  console.log('Categories from Redux store:', categories);
+  
+  // Temporary: Use local state for categories to test
+  const [localCategories, setLocalCategories] = useState<any[]>([]);
+  const [dynamicBrands, setDynamicBrands] = useState<string[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+  const [onlyDiscounted, setOnlyDiscounted] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  
   const sortBy = searchParams.get('sort') || 'popularity';
   const page = parseInt(searchParams.get('page') || '1');
   const viewMode = searchParams.get('view') || 'grid';
@@ -27,15 +38,49 @@ const Category: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('Loading categories from backend API...');
+        // Load categories from backend API
+        const response = await fetch('http://localhost:8001/api/public/categories/?top=true');
+        console.log('API Response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('API Response data:', data);
+          const categoriesData = data.results || data;
+          console.log('Categories loaded from API:', categoriesData);
+          dispatch(setCategories(categoriesData));
+          setLocalCategories(categoriesData);
+        } else {
+          console.error('API request failed with status:', response.status);
+        }
+        
+        // Load brands from backend API
+        try {
+          const brandsResponse = await fetch('http://127.0.0.1:8001/api/public/brands/');
+          if (brandsResponse.ok) {
+            const brandsData = await brandsResponse.json();
+            const brands = brandsData.results || brandsData;
+            setDynamicBrands(brands.map((brand: any) => brand.name));
+          }
+        } catch (brandsError) {
+          console.error('Failed to load brands:', brandsError);
+        } finally {
+          setBrandsLoading(false);
+        }
+        
         if (slug === 'deals') {
           // Load discounted products for deals page
           const allProducts = await productRepo.getAll();
-          const discountedProducts = allProducts.filter(p => p.discountPct && p.discountPct > 0);
+          const discountedProducts = allProducts.filter(p => p.discount_rate && p.discount_rate > 0);
           dispatch(setProducts(discountedProducts));
         } else if (slug) {
           // Load products for specific category
           const categoryProducts = await productRepo.getByCategory(slug);
           dispatch(setProducts(categoryProducts));
+        } else {
+          // Load all products for shop page (when slug is undefined)
+          const allProducts = await productRepo.getAll();
+          dispatch(setProducts(allProducts));
         }
       } catch (error) {
         console.error('Failed to load category data:', error);
@@ -60,8 +105,23 @@ const Category: React.FC = () => {
     setSearchParams(newSearchParams);
   };
   
+  // Filter products based on filters
+  let filteredProducts = [...products];
+  
+  // Apply price range filter
+  filteredProducts = filteredProducts.filter(product => 
+    product.price >= priceRange[0] && product.price <= priceRange[1]
+  );
+  
+  // Apply discount filter
+  if (onlyDiscounted) {
+    filteredProducts = filteredProducts.filter(product => 
+      product.discount_rate && product.discount_rate > 0
+    );
+  }
+  
   // Sort products based on current sort option
-  const sortedProducts = [...products].sort((a, b) => {
+  const sortedProducts = filteredProducts.sort((a, b) => {
     switch (sortBy) {
       case 'newest':
         return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0);
@@ -89,12 +149,19 @@ const Category: React.FC = () => {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {slug === 'deals' ? 'Hot Deals' : currentCategory?.name || 'Category'}
+            {slug === 'deals' 
+              ? 'Hot Deals' 
+              : slug === undefined 
+                ? 'Shop' 
+                : currentCategory?.name || 'Category'
+            }
           </h1>
           <p className="text-gray-600">
             {slug === 'deals' 
               ? 'Discover amazing deals and discounts on our best products'
-              : `Browse our collection of ${currentCategory?.name?.toLowerCase() || 'products'}`
+              : slug === undefined
+                ? 'Browse our collection of products'
+                : `Browse our collection of ${currentCategory?.name?.toLowerCase() || 'products'}`
             }
           </p>
         </div>
@@ -109,49 +176,70 @@ const Category: React.FC = () => {
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Category</h4>
                 <div className="space-y-2">
-                  {categories.map((category) => (
-                    <label key={category.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{category.name}</span>
-                    </label>
-                  ))}
+                  {localCategories.length > 0 ? (
+                    localCategories.map((category) => (
+                      <label key={category.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{category.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Loading categories...
+                    </div>
+                  )}
+                </div>
+                {/* Debug info */}
+                <div className="mt-2 text-xs text-gray-400">
+                  Categories loaded: {localCategories.length} (Redux: {categories.length})
                 </div>
               </div>
               
               {/* Price Range */}
               <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Price Range</h4>
-                <div className="space-y-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="5000"
-                    step="100"
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>{formatCurrencySymbol(settings?.currency as Currency || 'USD')}0</span>
-                    <span>{formatCurrencySymbol(settings?.currency as Currency || 'USD')}5000</span>
-                  </div>
-                </div>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Price Range</h4>
+                <DualRangeSlider
+                  min={0}
+                  max={5000}
+                  step={10}
+                  value={priceRange}
+                  onChange={setPriceRange}
+                  formatValue={(val) => `${formatCurrencySymbol(settings?.currency as Currency || 'USD')}${val}`}
+                />
+                <button
+                  onClick={() => setPriceRange([0, 5000])}
+                  className="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 underline mt-2"
+                >
+                  Reset Price Range
+                </button>
               </div>
               
               {/* Brand Filter */}
               <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Brand</h4>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Brand</h4>
                 <div className="space-y-2">
-                  {['Apple', 'Samsung', 'Sony', 'Dell', 'HP'].map((brand) => (
-                    <label key={brand} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{brand}</span>
-                    </label>
-                  ))}
+                  {brandsLoading ? (
+                    <div className="text-sm text-gray-500">Loading brands...</div>
+                  ) : dynamicBrands.length > 0 ? (
+                    dynamicBrands.map((brand) => (
+                      <label key={brand} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{brand}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">No brands available</div>
+                  )}
+                </div>
+                {/* Debug info */}
+                <div className="mt-2 text-xs text-gray-400">
+                  Brands loaded: {dynamicBrands.length}
                 </div>
               </div>
               
@@ -178,6 +266,8 @@ const Category: React.FC = () => {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
+                    checked={onlyDiscounted}
+                    onChange={(e) => setOnlyDiscounted(e.target.checked)}
                     className="rounded border-gray-300 text-primary focus:ring-primary"
                   />
                   <span className="ml-2 text-sm text-gray-700">Only discounted</span>

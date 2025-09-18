@@ -13,6 +13,7 @@ const persistConfig = {
   key: 'storefront',
   storage,
   whitelist: ['cart', 'wishlist', 'user', 'ui'],
+  // Don't persist products/categories as they should be fresh from API
 };
 
 const rootReducer = combineReducers({

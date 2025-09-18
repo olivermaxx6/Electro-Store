@@ -8,11 +8,13 @@ from rest_framework.response import Response
 from django.db.models import Q
 from .models import (
     Brand, Category, Product, ProductImage,
-    Service, ServiceImage, WebsiteContent, StoreSettings
+    Service, ServiceImage, WebsiteContent, StoreSettings,
+    ChatRoom, ChatMessage
 )
 from .serializers import (
     BrandSerializer, CategorySerializer, ProductSerializer, ProductImageSerializer,
-    ServiceSerializer, ServiceImageSerializer, WebsiteContentSerializer, StoreSettingsSerializer
+    ServiceSerializer, ServiceImageSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
+    ChatRoomSerializer, ChatMessageSerializer
 )
 
 class PublicBrandViewSet(viewsets.ReadOnlyModelViewSet):
@@ -124,3 +126,74 @@ class PublicStoreSettingsViewSet(viewsets.ViewSet):
     def retrieve(self, request, pk=None):
         obj = self._get_singleton()
         return Response(StoreSettingsSerializer(obj).data)
+
+# --- Public Chat System ---
+class PublicChatRoomViewSet(viewsets.ModelViewSet):
+    """Public chat endpoints for customers"""
+    serializer_class = ChatRoomSerializer
+    permission_classes = [permissions.AllowAny]
+    http_method_names = ['get', 'post', 'put', 'patch']
+    
+    def get_queryset(self):
+        # For now, allow access to all chat rooms (in production, you'd use session-based filtering)
+        # This is a simplified version for testing
+        return ChatRoom.objects.all()
+    
+    def perform_create(self, serializer):
+        # Create a new chat room for the customer
+        session_key = self.request.session.session_key
+        if not session_key:
+            self.request.session.create()
+            session_key = self.request.session.session_key
+        
+        # If user is authenticated, associate the chat room with the user
+        user = self.request.user if self.request.user.is_authenticated else None
+        
+        serializer.save(
+            customer_session=session_key,
+            user=user
+        )
+    
+    @action(detail=True, methods=['post'])
+    def send_message(self, request, pk=None):
+        """Send a message from customer to admin"""
+        room = self.get_object()
+        content = request.data.get('content', '').strip()
+        
+        if not content:
+            return Response({'error': 'Message content is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        message = ChatMessage.objects.create(
+            room=room,
+            sender_type='customer',
+            sender_name=room.customer_name or 'Anonymous',
+            content=content,
+            is_read=False  # Customer messages need to be read by admin
+        )
+        
+        # Update room status and last message time
+        room.status = 'waiting'
+        room.save()
+        
+        serializer = ChatMessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['get'])
+    def get_messages(self, request, pk=None):
+        """Get all messages for a chat room"""
+        room = self.get_object()
+        messages = room.messages.all().order_by('created_at')
+        serializer = ChatMessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+class PublicChatMessageViewSet(viewsets.ReadOnlyModelViewSet):
+    """Public read-only access to chat messages"""
+    serializer_class = ChatMessageSerializer
+    permission_classes = [permissions.AllowAny]
+    
+    def get_queryset(self):
+        room_id = self.request.query_params.get('room_id')
+        if room_id:
+            # For now, allow access to all messages (in production, you'd use session-based filtering)
+            return ChatMessage.objects.filter(room_id=room_id).order_by('created_at')
+        return ChatMessage.objects.none()

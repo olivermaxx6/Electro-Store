@@ -13,7 +13,8 @@ try:
         ProductViewSet, BrandViewSet, CategoryViewSet, ProductImageDestroyView,
         ServiceViewSet, ServiceImageDestroyView, ServiceInquiryViewSet,
         OrderViewSet, AdminUserViewSet, ReviewViewSet,
-        WebsiteContentViewSet, StoreSettingsViewSet
+        WebsiteContentViewSet, StoreSettingsViewSet,
+        ChatRoomViewSet, ChatMessageViewSet
     )
     # Product management
     router.register(r"admin/products", ProductViewSet, basename="product")
@@ -38,6 +39,10 @@ try:
     # Content & Settings (singleton endpoints)
     router.register(r"admin/website-content", WebsiteContentViewSet, basename="websitecontent")
     router.register(r"admin/store-settings", StoreSettingsViewSet, basename="storesettings")
+    
+    # Chat system
+    router.register(r"admin/chat-rooms", ChatRoomViewSet, basename="chatroom")
+    router.register(r"admin/chat-messages", ChatMessageViewSet, basename="chatmessage")
     
 except Exception as e:
     log.exception("Router setup failed (views import error): %s", e)

@@ -31,7 +31,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
   const breadcrumbItems = items.length > 0 ? items : autoItems;
   
   return (
-    <nav className={`flex items-center space-x-1 text-sm text-gray-500 ${className}`} aria-label="Breadcrumb">
+    <nav className={`flex items-center space-x-1 text-sm text-gray-500 dark:text-gray-400 ${className}`} aria-label="Breadcrumb">
       {breadcrumbItems.map((item, index) => (
         <React.Fragment key={index}>
           {index === 0 && (
@@ -45,12 +45,12 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
           {item.href ? (
             <Link
               to={item.href}
-              className="hover:text-gray-700 transition-colors"
+              className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
             >
               {item.label}
             </Link>
           ) : (
-            <span className="text-gray-900 font-medium" aria-current="page">
+            <span className="text-gray-900 dark:text-white font-medium" aria-current="page">
               {item.label}
             </span>
           )}

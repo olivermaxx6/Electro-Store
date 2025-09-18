@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "corsheaders",
+    "channels",
     # Local
     "adminpanel",
 ]
@@ -56,6 +57,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "core.wsgi.application"
+ASGI_APPLICATION = "core.asgi.application"
 
 DATABASES = {
     "default": {
@@ -139,4 +141,11 @@ LOGGING = {
         "adminpanel": {"handlers": ["console"], "level": "DEBUG", "propagate": True},
     },
     "root": {"handlers": ["console"], "level": "INFO"},
+}
+
+# Channels configuration
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
 }

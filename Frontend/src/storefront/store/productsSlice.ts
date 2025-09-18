@@ -133,7 +133,7 @@ export const selectFilteredProducts = (state: { products: ProductsState }) => {
   // Apply discount filter
   if (filters.onlyDiscounted) {
     filtered = filtered.filter(product => 
-      product.discountPct && product.discountPct > 0
+      product.discount_rate && product.discount_rate > 0
     );
   }
   

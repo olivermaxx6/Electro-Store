@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { selectCurrentUser, selectIsAuthenticated } from '../store/userSlice';
 import { signIn, signOut } from '../store/userSlice';
-import { useDispatch } from 'react-redux';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import Placeholder from '../components/common/Placeholder';
 
 const Account: React.FC = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const currentUser = useSelector(selectCurrentUser);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const [isSignIn, setIsSignIn] = useState(true);
@@ -30,6 +31,7 @@ const Account: React.FC = () => {
   
   const handleSignOut = () => {
     dispatch(signOut());
+    navigate('/');
   };
   
   if (isAuthenticated) {

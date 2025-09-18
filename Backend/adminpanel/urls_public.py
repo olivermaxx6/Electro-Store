@@ -7,7 +7,8 @@ from rest_framework.routers import DefaultRouter
 from django.http import JsonResponse
 from .views_public import (
     PublicBrandViewSet, PublicCategoryViewSet, PublicProductViewSet,
-    PublicServiceViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet
+    PublicServiceViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet,
+    PublicChatRoomViewSet, PublicChatMessageViewSet
 )
 
 router = DefaultRouter()
@@ -19,6 +20,8 @@ router.register(r"products", PublicProductViewSet, basename="public-product")
 router.register(r"services", PublicServiceViewSet, basename="public-service")
 router.register(r"website-content", PublicWebsiteContentViewSet, basename="public-websitecontent")
 router.register(r"store-settings", PublicStoreSettingsViewSet, basename="public-storesettings")
+router.register(r"chat-rooms", PublicChatRoomViewSet, basename="public-chatroom")
+router.register(r"chat-messages", PublicChatMessageViewSet, basename="public-chatmessage")
 
 urlpatterns = [
     path("", include(router.urls)),

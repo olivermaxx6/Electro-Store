@@ -12,13 +12,14 @@ from django.contrib.auth.models import User
 from .models import (
     Brand, Category, Product, ProductImage,
     Service, ServiceImage, ServiceInquiry,
-    Order, Review, WebsiteContent, StoreSettings
+    Order, Review, WebsiteContent, StoreSettings,
+    ChatRoom, ChatMessage
 )
 from .serializers import (
     BrandSerializer, CategorySerializer, ProductSerializer, ProductImageSerializer,
     ServiceSerializer, ServiceImageSerializer, ServiceInquirySerializer,
     OrderSerializer, ReviewSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
-    AdminUserSerializer
+    AdminUserSerializer, ChatRoomSerializer, ChatRoomListSerializer, ChatMessageSerializer
 )
 from .views_dashboard import DashboardStatsView, ProfileView, ChangePasswordView  # re-use from your existing file
 
@@ -254,7 +255,11 @@ class StoreSettingsViewSet(viewsets.ViewSet):
         obj, _ = StoreSettings.objects.get_or_create(id=1)
         return obj
 
-    def retrieve(self, request):
+    def list(self, request):
+        obj = self._get_singleton()
+        return Response(StoreSettingsSerializer(obj).data)
+
+    def retrieve(self, request, pk=None):
         obj = self._get_singleton()
         return Response(StoreSettingsSerializer(obj).data)
 
@@ -446,4 +451,58 @@ class ReviewViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
 
     http_method_names = ["get","delete","head","options","trace"]
+
+# --- Chat System ---
+class ChatRoomViewSet(viewsets.ModelViewSet):
+    """Admin viewset for managing chat rooms"""
+    queryset = ChatRoom.objects.all()
+    serializer_class = ChatRoomSerializer
+    permission_classes = [IsAdmin]
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ChatRoomListSerializer
+        return ChatRoomSerializer
+    
+    @action(detail=True, methods=['post'])
+    def send_message(self, request, pk=None):
+        """Send a message to a chat room"""
+        room = self.get_object()
+        content = request.data.get('content', '').strip()
+        
+        if not content:
+            return Response({'error': 'Message content is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        message = ChatMessage.objects.create(
+            room=room,
+            sender_type='admin',
+            sender_name=request.user.username,
+            content=content,
+            is_read=True  # Admin messages are auto-read
+        )
+        
+        # Update room status and last message time
+        room.status = 'active'
+        room.save()
+        
+        serializer = ChatMessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        """Mark all customer messages in a room as read"""
+        room = self.get_object()
+        room.messages.filter(sender_type='customer', is_read=False).update(is_read=True)
+        return Response({'status': 'marked as read'})
+
+class ChatMessageViewSet(viewsets.ReadOnlyModelViewSet):
+    """Admin viewset for reading chat messages"""
+    serializer_class = ChatMessageSerializer
+    permission_classes = [IsAdmin]
+    
+    def get_queryset(self):
+        room_id = self.request.query_params.get('room_id')
+        if room_id:
+            return ChatMessage.objects.filter(room_id=room_id).order_by('created_at')
+        return ChatMessage.objects.none()
 

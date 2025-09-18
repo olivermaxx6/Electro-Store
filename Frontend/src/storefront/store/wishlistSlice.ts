@@ -2,35 +2,70 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { WishlistItem } from '../lib/types';
 
 interface WishlistState {
-  items: WishlistItem[];
+  userWishlists: Record<string, WishlistItem[]>;
 }
 
 const initialState: WishlistState = {
-  items: [],
+  userWishlists: {},
 };
 
 const wishlistSlice = createSlice({
   name: 'wishlist',
   initialState,
   reducers: {
-    addToWishlist: (state, action: PayloadAction<string>) => {
-      const productId = action.payload;
-      const existingItem = state.items.find(item => item.productId === productId);
+    addToWishlist: (state, action: PayloadAction<{ productId: string; userId?: string }>) => {
+      const { productId, userId = 'guest' } = action.payload;
+      
+      if (!state.userWishlists[userId]) {
+        state.userWishlists[userId] = [];
+      }
+      
+      const userWishlist = state.userWishlists[userId];
+      const existingItem = userWishlist.find(item => item.productId === productId);
       
       if (!existingItem) {
-        state.items.push({
+        userWishlist.push({
           productId,
           addedAt: new Date().toISOString(),
         });
+        
+        // Save to localStorage
+        localStorage.setItem(`wishlist_${userId}`, JSON.stringify(userWishlist));
       }
     },
     
-    removeFromWishlist: (state, action: PayloadAction<string>) => {
-      state.items = state.items.filter(item => item.productId !== action.payload);
+    removeFromWishlist: (state, action: PayloadAction<{ productId: string; userId?: string }>) => {
+      const { productId, userId = 'guest' } = action.payload;
+      
+      if (state.userWishlists[userId]) {
+        state.userWishlists[userId] = state.userWishlists[userId].filter(item => item.productId !== productId);
+        localStorage.setItem(`wishlist_${userId}`, JSON.stringify(state.userWishlists[userId]));
+      }
     },
     
-    clearWishlist: (state) => {
-      state.items = [];
+    clearWishlist: (state, action: PayloadAction<{ userId?: string }>) => {
+      const { userId = 'guest' } = action.payload;
+      
+      if (state.userWishlists[userId]) {
+        state.userWishlists[userId] = [];
+        localStorage.setItem(`wishlist_${userId}`, JSON.stringify(state.userWishlists[userId]));
+      }
+    },
+    
+    loadUserWishlist: (state, action: PayloadAction<{ userId: string }>) => {
+      const { userId } = action.payload;
+      const savedWishlist = localStorage.getItem(`wishlist_${userId}`);
+      
+      if (savedWishlist) {
+        try {
+          state.userWishlists[userId] = JSON.parse(savedWishlist);
+        } catch (error) {
+          console.error('Failed to load wishlist from localStorage:', error);
+          state.userWishlists[userId] = [];
+        }
+      } else {
+        state.userWishlists[userId] = [];
+      }
     },
   },
 });
@@ -39,13 +74,21 @@ export const {
   addToWishlist,
   removeFromWishlist,
   clearWishlist,
+  loadUserWishlist,
 } = wishlistSlice.actions;
 
 // Selectors
-export const selectWishlistItems = (state: { wishlist: WishlistState }) => state.wishlist.items;
-export const selectWishlistCount = (state: { wishlist: WishlistState }) => state.wishlist.items.length;
-export const selectIsInWishlist = (productId: string) => (state: { wishlist: WishlistState }) => {
-  return state.wishlist.items.some(item => item.productId === productId);
+export const selectWishlistItems = (userId: string = 'guest') => (state: { wishlist: WishlistState }) => {
+  return state.wishlist?.userWishlists?.[userId] || [];
+};
+
+export const selectWishlistCount = (userId: string = 'guest') => (state: { wishlist: WishlistState }) => {
+  return state.wishlist?.userWishlists?.[userId]?.length || 0;
+};
+
+export const selectIsInWishlist = (productId: string, userId: string = 'guest') => (state: { wishlist: WishlistState }) => {
+  const items = state.wishlist?.userWishlists?.[userId] || [];
+  return items.some(item => item.productId === productId);
 };
 
 export default wishlistSlice.reducer;
