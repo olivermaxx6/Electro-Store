@@ -66,13 +66,27 @@ export default function ManageCategoriesPage() {
   const loadAll = async () => {
     try {
       // Get ALL categories (not just top-level) so subcategories can be created under any category
-      const [catRes, brandRes] = await Promise.all([
-        api.get('/api/admin/categories/'), // Get all categories
-        listBrands()
-      ]);
-      const cats = (catRes.data.results || catRes.data).map(c => ({
+      // Handle pagination to get all categories
+      let allCategories = [];
+      let nextUrl = '/api/public/categories/';
+      
+      while (nextUrl) {
+        const catRes = await api.get(nextUrl);
+        const categoriesData = catRes.data.results || catRes.data;
+        if (Array.isArray(categoriesData)) {
+          allCategories = [...allCategories, ...categoriesData];
+          nextUrl = catRes.data.next || null;
+        } else {
+          allCategories = categoriesData;
+          nextUrl = null;
+        }
+      }
+      
+      const cats = allCategories.map(c => ({
         id: c.id, name: c.name, parent: c.parent ?? null
       }));
+      
+      const brandRes = await listBrands();
       const brands = brandRes.data.results || brandRes.data;
       setAllCats(cats);
       setAllBrands(brands);

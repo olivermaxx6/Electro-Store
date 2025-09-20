@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { signIn, setLoading, setError } from '../../store/userSlice';
 import { selectUserLoading, selectUserError } from '../../store/userSlice';
+import { loginUser } from '../../../lib/authApi';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 
@@ -24,21 +25,21 @@ const SignIn: React.FC = () => {
     dispatch(setError(null));
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await loginUser(formData.email, formData.password);
       
-      // Mock authentication - in real app, this would be an API call
-      if (formData.email && formData.password) {
+      if (result.success) {
+        // Update Redux store with user data
         dispatch(signIn({
-          email: formData.email,
-          name: formData.email.split('@')[0], // Use email prefix as name
+          email: result.data.user.email,
+          name: result.data.user.first_name || result.data.user.username,
+          username: result.data.user.username
         }));
         navigate('/user/dashboard');
       } else {
-        dispatch(setError('Please fill in all fields'));
+        dispatch(setError(result.error || 'Login failed'));
       }
     } catch (err) {
-      dispatch(setError('Invalid email or password'));
+      dispatch(setError('An unexpected error occurred'));
     }
   };
 

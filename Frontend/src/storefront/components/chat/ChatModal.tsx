@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, MessageCircle, User } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import useChatApiStore from '../../../store/chatApiStore';
+import { selectCurrentUser } from '../../store/userSlice';
 
 interface Message {
   id: string;
@@ -23,14 +25,17 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
     loading, 
     error,
     isConnected,
+    isConnecting,
     initializeCustomerChat, 
     sendMessage, 
     getChatRoom,
     connectWebSocket,
     disconnectWebSocket,
     retryConnection,
-    clearError
+    clearError,
+    updateCustomerInfo
   } = useChatApiStore();
+  const currentUser = useSelector(selectCurrentUser);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -41,13 +46,33 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
 
   // Initialize chat when modal opens
   useEffect(() => {
-    if (isOpen && !currentRoom) {
-      initializeCustomerChat({
-        name: 'Anonymous User',
-        email: 'user@example.com'
-      }).catch(console.error);
+    if (isOpen) {
+      console.log('Chat modal opened. Current user:', currentUser);
+      console.log('Current room:', currentRoom);
+      
+      if (!currentRoom) {
+        // Create new chat room
+        const customerInfo = {
+          name: currentUser?.name || currentUser?.username || 'Anonymous User',
+          email: currentUser?.email || 'user@example.com'
+        };
+        console.log('Creating new chat room with info:', customerInfo);
+        console.log('Current user object:', currentUser);
+        initializeCustomerChat(customerInfo).catch(console.error);
+      } else {
+        // Load messages for existing room
+        console.log('Loading messages for existing room:', currentRoom.id);
+        getChatRoom(currentRoom.id).catch(console.error);
+        
+        if (currentUser?.isAuthenticated && (currentRoom.customer_name === 'Anonymous User' || !currentRoom.customer_name)) {
+          // Update existing chat room with current user info if it's still showing Anonymous or empty
+          console.log('Updating customer info for room:', currentRoom.id, 'User:', currentUser);
+          console.log('Current room customer_name:', currentRoom.customer_name);
+          updateCustomerInfo(currentRoom.id).catch(console.error);
+        }
+      }
     }
-  }, [isOpen, currentRoom, initializeCustomerChat]);
+  }, [isOpen, currentRoom, initializeCustomerChat, currentUser, updateCustomerInfo, getChatRoom]);
 
   // Cleanup WebSocket connection when modal closes
   useEffect(() => {
@@ -55,6 +80,19 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
       disconnectWebSocket();
     }
   }, [isOpen, disconnectWebSocket]);
+
+  // Ensure WebSocket connection is maintained (only when room changes)
+  useEffect(() => {
+    if (isOpen && currentRoom && !isConnected) {
+      console.log('WebSocket not connected, attempting to reconnect...');
+      // Use a timeout to prevent rapid reconnection attempts
+      const timeoutId = setTimeout(() => {
+        getChatRoom(currentRoom.id).catch(console.error);
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isOpen, currentRoom?.id]); // Only depend on room ID, not isConnected
 
   useEffect(() => {
     scrollToBottom();
@@ -97,9 +135,15 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-white">Admin Support</h3>
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div className={`w-2 h-2 rounded-full ${
+                  isConnected ? 'bg-green-500' : 
+                  isConnecting ? 'bg-yellow-500' : 
+                  'bg-red-500'
+                }`}></div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {isConnected ? 'Real-time Connected' : error ? 'Connection Failed' : 'Connecting...'}
+                  {isConnected ? 'Real-time Connected' : 
+                   isConnecting ? 'Connecting...' : 
+                   error ? 'Connection Failed' : 'Disconnected'}
                 </p>
                 {error && (
                   <button
@@ -146,14 +190,23 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
                       : 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white'
                   }`}
                 >
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`text-xs font-medium ${
+                      message.sender_type === 'customer' 
+                        ? 'text-red-100 dark:text-blue-100' 
+                        : 'text-gray-600 dark:text-gray-400'
+                    }`}>
+                      {message.sender_name || (message.sender_type === 'customer' ? 'You' : 'Admin')}
+                    </p>
+                    <p className={`text-xs ${
+                      message.sender_type === 'customer' 
+                        ? 'text-red-100 dark:text-blue-100' 
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}>
+                      {formatTime(message.created_at)}
+                    </p>
+                  </div>
                   <p className="text-sm">{message.content}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.sender_type === 'customer' 
-                      ? 'text-red-100 dark:text-blue-100' 
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>
-                    {formatTime(message.created_at)}
-                  </p>
                 </div>
               </div>
             ))

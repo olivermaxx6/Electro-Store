@@ -15,7 +15,7 @@ const DualRangeSlider: React.FC<DualRangeSliderProps> = ({
   value,
   onChange,
   step = 50,
-  formatValue = (val) => `£${val}`,
+  formatValue = (val) => `$${val}`,
 }) => {
   const [isDragging, setIsDragging] = useState<'min' | 'max' | null>(null);
   const sliderRef = useRef<HTMLDivElement>(null);

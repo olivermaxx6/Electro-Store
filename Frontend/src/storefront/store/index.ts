@@ -8,6 +8,7 @@ import wishlistSlice from './wishlistSlice';
 import userSlice from './userSlice';
 import uiSlice from './uiSlice';
 import productsSlice from './productsSlice';
+import storeSettingsSlice from './storeSettingsSlice';
 
 const persistConfig = {
   key: 'storefront',
@@ -22,6 +23,7 @@ const rootReducer = combineReducers({
   user: userSlice,
   ui: uiSlice,
   products: productsSlice,
+  storeSettings: storeSettingsSlice,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

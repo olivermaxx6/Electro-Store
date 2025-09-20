@@ -7,8 +7,8 @@ from rest_framework.routers import DefaultRouter
 from django.http import JsonResponse
 from .views_public import (
     PublicBrandViewSet, PublicCategoryViewSet, PublicProductViewSet,
-    PublicServiceViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet,
-    PublicChatRoomViewSet, PublicChatMessageViewSet, PublicContactViewSet
+    PublicServiceViewSet, PublicServiceCategoryViewSet, PublicServiceReviewViewSet, PublicReviewViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet,
+    PublicChatRoomViewSet, PublicChatMessageViewSet, PublicContactViewSet, PublicServiceQueryViewSet, PublicOrderCreateViewSet, PublicOrderTrackingViewSet
 )
 
 router = DefaultRouter()
@@ -17,12 +17,18 @@ router = DefaultRouter()
 router.register(r"brands", PublicBrandViewSet, basename="public-brand")
 router.register(r"categories", PublicCategoryViewSet, basename="public-category")
 router.register(r"products", PublicProductViewSet, basename="public-product")
+router.register(r"service-categories", PublicServiceCategoryViewSet, basename="public-servicecategory")
 router.register(r"services", PublicServiceViewSet, basename="public-service")
+router.register(r"service-reviews", PublicServiceReviewViewSet, basename="public-servicereview")
+router.register(r"reviews", PublicReviewViewSet, basename="public-review")
 router.register(r"website-content", PublicWebsiteContentViewSet, basename="public-websitecontent")
 router.register(r"store-settings", PublicStoreSettingsViewSet, basename="public-storesettings")
 router.register(r"chat-rooms", PublicChatRoomViewSet, basename="public-chatroom")
 router.register(r"chat-messages", PublicChatMessageViewSet, basename="public-chatmessage")
 router.register(r"contacts", PublicContactViewSet, basename="public-contact")
+router.register(r"service-queries", PublicServiceQueryViewSet, basename="public-servicequery")
+router.register(r"orders", PublicOrderCreateViewSet, basename="public-order")
+router.register(r"track-order", PublicOrderTrackingViewSet, basename="public-order-tracking")
 
 urlpatterns = [
     path("", include(router.urls)),

@@ -1,7 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { User, Order } from '../lib/types';
-import { loadUserCart } from './cartSlice';
-import { loadUserWishlist } from './wishlistSlice';
 
 interface UserState {
   currentUser: User | null;
@@ -23,9 +21,7 @@ export const signInWithData = createAsyncThunk(
   async (userData: { email: string; name: string; username?: string; profilePicture?: string }, { dispatch }) => {
     const userId = userData.email;
     
-    // Load user-specific cart and wishlist
-    dispatch(loadUserCart({ userId }));
-    dispatch(loadUserWishlist({ userId }));
+    // Note: Cart and wishlist are handled by Redux persist automatically
     
     return userData;
   }
@@ -36,9 +32,7 @@ export const signUpWithData = createAsyncThunk(
   async (userData: { email: string; name: string; username: string; password: string }, { dispatch }) => {
     const userId = userData.email;
     
-    // Load user-specific cart and wishlist (will be empty for new users)
-    dispatch(loadUserCart({ userId }));
-    dispatch(loadUserWishlist({ userId }));
+    // Note: Cart and wishlist are handled by Redux persist automatically (will be empty for new users)
     
     return userData;
   }
@@ -86,6 +80,9 @@ const userSlice = createSlice({
     signOut: (state) => {
       state.currentUser = null;
       state.error = null;
+      // Clear localStorage
+      localStorage.removeItem('auth');
+      localStorage.removeItem('access_token');
     },
     
     updateProfile: (state, action: PayloadAction<Partial<User>>) => {

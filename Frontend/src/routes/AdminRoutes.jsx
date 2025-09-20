@@ -10,6 +10,7 @@ import OrdersPage from '../admin/pages/admin/OrdersPage';
 import UsersPage from '../admin/pages/admin/UsersPage';
 import ContentPage from '../admin/pages/admin/ContentPage';
 import ReviewsPage from '../admin/pages/admin/ReviewsPage';
+import ServiceReviewsPage from '../admin/pages/admin/ServiceReviewsPage';
 import SettingsPage from '../admin/pages/admin/SettingsPage';
 import AdminProfilePage from '../admin/pages/admin/AdminProfilePage';
 import ChatPage from '../admin/pages/admin/ChatPage';
@@ -54,6 +55,7 @@ export default function AdminRoutes(){
       <Route path="users" element={<Private><UsersPage/></Private>} />
       <Route path="content" element={<Private><ContentPage/></Private>} />
       <Route path="reviews" element={<Private><ReviewsPage/></Private>} />
+      <Route path="service-reviews" element={<Private><ServiceReviewsPage/></Private>} />
       <Route path="settings" element={<Private><SettingsPage/></Private>} />
       <Route path="profile" element={<Private><AdminProfilePage/></Private>} />
       <Route path="chat" element={<Private><ChatPage/></Private>} />

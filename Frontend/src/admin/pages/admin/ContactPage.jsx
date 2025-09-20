@@ -1,39 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, User, Clock, CheckCircle, XCircle, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
+import { Mail, User, Clock, CheckCircle, XCircle, MessageSquare, Trash2, AlertTriangle, Wrench, Quote } from 'lucide-react';
 import { ThemeLayout, ThemeCard, SectionHeader } from '@shared/theme';
-import { listContacts, markContactAsRead, markContactAsReplied, closeContact, deleteContact } from '@shared/admin/lib/api';
+import { 
+  listContacts, markContactAsRead, markContactAsReplied, closeContact, deleteContact,
+  listServiceQueries, markServiceQueryAsRead, markServiceQueryAsReplied, closeServiceQuery, deleteServiceQuery
+} from '@shared/admin/lib/api';
 
 export default function ContactPage() {
+  const [activeTab, setActiveTab] = useState('contacts');
   const [contacts, setContacts] = useState([]);
+  const [serviceQueries, setServiceQueries] = useState([]);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedServiceQuery, setSelectedServiceQuery] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [actionContactId, setActionContactId] = useState(null);
+  const [actionServiceQueryId, setActionServiceQueryId] = useState(null);
 
-  // Fetch contacts from API
+  // Fetch contacts and service queries from API
   useEffect(() => {
-    const fetchContacts = async () => {
+    const fetchData = async () => {
       try {
-        const response = await listContacts();
-        setContacts(response.data.results || response.data);
+        setLoading(true);
+        const [contactsResponse, serviceQueriesResponse] = await Promise.all([
+          listContacts(),
+          listServiceQueries()
+        ]);
+        setContacts(contactsResponse.data.results || contactsResponse.data);
+        setServiceQueries(serviceQueriesResponse.data.results || serviceQueriesResponse.data);
       } catch (err) {
-        console.error('Failed to fetch contacts:', err);
-        setError(err.uiMessage || 'Failed to fetch contacts');
+        console.error('Failed to fetch data:', err);
+        setError(err.uiMessage || 'Failed to fetch data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchContacts();
+    fetchData();
   }, []);
 
   const handleContactSelect = (contact) => {
     setSelectedContact(contact);
+    setSelectedServiceQuery(null);
+    setActiveTab('contacts');
     // Mark as read if it's new
     if (contact.status === 'new') {
       markAsRead(contact.id);
+    }
+  };
+
+  const handleServiceQuerySelect = (query) => {
+    setSelectedServiceQuery(query);
+    setSelectedContact(null);
+    setActiveTab('service-queries');
+    // Mark as read if it's new
+    if (query.status === 'new') {
+      markServiceQueryAsReadHandler(query.id);
     }
   };
 
@@ -52,6 +76,21 @@ export default function ContactPage() {
     }
   };
 
+  const markServiceQueryAsReadHandler = async (queryId) => {
+    try {
+      await markServiceQueryAsRead(queryId);
+      // Update the service query status in the list
+      setServiceQueries(prev => prev.map(query => 
+        query.id === queryId ? { ...query, status: 'read' } : query
+      ));
+      if (selectedServiceQuery?.id === queryId) {
+        setSelectedServiceQuery(prev => ({ ...prev, status: 'read' }));
+      }
+    } catch (err) {
+      console.error('Failed to mark service query as read:', err);
+    }
+  };
+
   const markAsReplied = async (contactId) => {
     try {
       await markContactAsReplied(contactId);
@@ -66,51 +105,115 @@ export default function ContactPage() {
     }
   };
 
+  const markServiceQueryAsRepliedHandler = async (queryId) => {
+    try {
+      await markServiceQueryAsReplied(queryId);
+      setServiceQueries(prev => prev.map(query => 
+        query.id === queryId ? { ...query, status: 'replied' } : query
+      ));
+      if (selectedServiceQuery?.id === queryId) {
+        setSelectedServiceQuery(prev => ({ ...prev, status: 'replied' }));
+      }
+    } catch (err) {
+      console.error('Failed to mark service query as replied:', err);
+    }
+  };
+
   const closeContactHandler = async (contactId) => {
     setActionContactId(contactId);
+    setActionServiceQueryId(null);
+    setShowCloseConfirm(true);
+  };
+
+  const closeServiceQueryHandler = async (queryId) => {
+    setActionServiceQueryId(queryId);
+    setActionContactId(null);
     setShowCloseConfirm(true);
   };
 
   const confirmCloseContact = async () => {
     try {
-      await closeContact(actionContactId);
-      setContacts(prev => prev.map(contact => 
-        contact.id === actionContactId ? { ...contact, status: 'closed' } : contact
-      ));
-      if (selectedContact?.id === actionContactId) {
-        // Immediately close the contact details panel
-        setSelectedContact(null);
+      if (actionContactId) {
+        await closeContact(actionContactId);
+        setContacts(prev => prev.map(contact => 
+          contact.id === actionContactId ? { ...contact, status: 'closed' } : contact
+        ));
+        if (selectedContact?.id === actionContactId) {
+          setSelectedContact(null);
+        }
+      } else if (actionServiceQueryId) {
+        await closeServiceQuery(actionServiceQueryId);
+        setServiceQueries(prev => prev.map(query => 
+          query.id === actionServiceQueryId ? { ...query, status: 'closed' } : query
+        ));
+        if (selectedServiceQuery?.id === actionServiceQueryId) {
+          setSelectedServiceQuery(null);
+        }
       }
     } catch (err) {
-      console.error('Failed to close contact:', err);
+      console.error('Failed to close:', err);
     } finally {
       setShowCloseConfirm(false);
       setActionContactId(null);
+      setActionServiceQueryId(null);
     }
   };
 
   const deleteContactHandler = async (contactId) => {
     setActionContactId(contactId);
+    setActionServiceQueryId(null);
+    setShowDeleteConfirm(true);
+  };
+
+  const deleteServiceQueryHandler = async (queryId) => {
+    setActionServiceQueryId(queryId);
+    setActionContactId(null);
     setShowDeleteConfirm(true);
   };
 
   const confirmDeleteContact = async () => {
     try {
-      await deleteContact(actionContactId);
-      setContacts(prev => prev.filter(contact => contact.id !== actionContactId));
-      if (selectedContact?.id === actionContactId) {
-        setSelectedContact(null);
+      if (actionContactId) {
+        await deleteContact(actionContactId);
+        setContacts(prev => prev.filter(contact => contact.id !== actionContactId));
+        if (selectedContact?.id === actionContactId) {
+          setSelectedContact(null);
+        }
+      } else if (actionServiceQueryId) {
+        await deleteServiceQuery(actionServiceQueryId);
+        setServiceQueries(prev => prev.filter(query => query.id !== actionServiceQueryId));
+        if (selectedServiceQuery?.id === actionServiceQueryId) {
+          setSelectedServiceQuery(null);
+        }
       }
     } catch (err) {
-      console.error('Failed to delete contact:', err);
+      console.error('Failed to delete:', err);
     } finally {
       setShowDeleteConfirm(false);
       setActionContactId(null);
+      setActionServiceQueryId(null);
     }
   };
 
   const closeContactDetails = () => {
     setSelectedContact(null);
+    setSelectedServiceQuery(null);
+  };
+
+  const getQueryTypeIcon = (queryType) => {
+    switch (queryType) {
+      case 'avail_service': return <Wrench className="w-4 h-4" />;
+      case 'free_quote': return <Quote className="w-4 h-4" />;
+      default: return <MessageSquare className="w-4 h-4" />;
+    }
+  };
+
+  const getQueryTypeLabel = (queryType) => {
+    switch (queryType) {
+      case 'avail_service': return 'Avail Service';
+      case 'free_quote': return 'Free Quote';
+      default: return queryType;
+    }
   };
 
   const getStatusColor = (status) => {
@@ -148,26 +251,74 @@ export default function ContactPage() {
   };
 
   const newContactsCount = contacts.filter(contact => contact.status === 'new').length;
+  const newServiceQueriesCount = serviceQueries.filter(query => query.status === 'new').length;
 
   return (
     <ThemeLayout>
       <SectionHeader 
-        title="Contact Messages" 
+        title="Contact Messages & Service Queries" 
         icon="📧" 
         color="primary"
-        subtitle="Manage contact form submissions from customers"
+        subtitle="Manage contact form submissions and service queries from customers"
       />
       
+      {/* Tabs */}
+      <div className="mb-6">
+        <div className="flex space-x-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab('contacts')}
+            className={`flex-1 px-4 py-2 rounded-md transition-colors ${
+              activeTab === 'contacts'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <Mail className="w-4 h-4" />
+              <span>Contact Messages</span>
+              {newContactsCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {newContactsCount}
+                </span>
+              )}
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('service-queries')}
+            className={`flex-1 px-4 py-2 rounded-md transition-colors ${
+              activeTab === 'service-queries'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <Wrench className="w-4 h-4" />
+              <span>Service Queries</span>
+              {newServiceQueriesCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {newServiceQueriesCount}
+                </span>
+              )}
+            </div>
+          </button>
+        </div>
+      </div>
+      
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Contacts List */}
+        {/* Messages List */}
         <ThemeCard className="lg:col-span-1">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              Contact Messages
+              {activeTab === 'contacts' ? 'Contact Messages' : 'Service Queries'}
             </h3>
-            {newContactsCount > 0 && (
+            {activeTab === 'contacts' && newContactsCount > 0 && (
               <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
                 {newContactsCount}
+              </span>
+            )}
+            {activeTab === 'service-queries' && newServiceQueriesCount > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                {newServiceQueriesCount}
               </span>
             )}
           </div>
@@ -175,61 +326,115 @@ export default function ContactPage() {
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {loading ? (
               <div className="text-center py-8">
-                <div className="text-slate-500 dark:text-slate-400">Loading contacts...</div>
+                <div className="text-slate-500 dark:text-slate-400">Loading...</div>
               </div>
             ) : error ? (
               <div className="text-center py-8">
                 <div className="text-red-500 dark:text-red-400">{error}</div>
               </div>
-            ) : !contacts || contacts.length === 0 ? (
-              <div className="text-center py-8">
-                <Mail className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
-                <p className="text-slate-600 dark:text-slate-400">No contact messages yet</p>
-                <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
-                  Messages will appear here when customers submit the contact form
-                </p>
-              </div>
-            ) : (
-              contacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  onClick={() => handleContactSelect(contact)}
-                  className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                    selectedContact?.id === contact.id
-                      ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg">
-                      {contact.name ? contact.name.charAt(0).toUpperCase() : '👤'}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
-                          {contact.name}
-                        </p>
-                        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${getStatusColor(contact.status)}`}>
-                          {getStatusIcon(contact.status)}
-                          <span className="ml-1 capitalize">{contact.status}</span>
-                        </div>
+            ) : activeTab === 'contacts' ? (
+              !contacts || contacts.length === 0 ? (
+                <div className="text-center py-8">
+                  <Mail className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                  <p className="text-slate-600 dark:text-slate-400">No contact messages yet</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
+                    Messages will appear here when customers submit the contact form
+                  </p>
+                </div>
+              ) : (
+                contacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    onClick={() => handleContactSelect(contact)}
+                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                      selectedContact?.id === contact.id
+                        ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg">
+                        {contact.name ? contact.name.charAt(0).toUpperCase() : '👤'}
                       </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate mb-1">
-                        {contact.subject}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-500">
-                        {formatTime(contact.created_at)}
-                      </p>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
+                            {contact.name}
+                          </p>
+                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${getStatusColor(contact.status)}`}>
+                            {getStatusIcon(contact.status)}
+                            <span className="ml-1 capitalize">{contact.status}</span>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 truncate mb-1">
+                          {contact.subject}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-500">
+                          {formatTime(contact.created_at)}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                ))
+              )
+            ) : (
+              !serviceQueries || serviceQueries.length === 0 ? (
+                <div className="text-center py-8">
+                  <Wrench className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                  <p className="text-slate-600 dark:text-slate-400">No service queries yet</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
+                    Queries will appear here when customers request services or quotes
+                  </p>
                 </div>
-              ))
+              ) : (
+                serviceQueries.map((query) => (
+                  <div
+                    key={query.id}
+                    onClick={() => handleServiceQuerySelect(query)}
+                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                      selectedServiceQuery?.id === query.id
+                        ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white text-lg">
+                        {query.name ? query.name.charAt(0).toUpperCase() : '👤'}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
+                            {query.name}
+                          </p>
+                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${getStatusColor(query.status)}`}>
+                            {getStatusIcon(query.status)}
+                            <span className="ml-1 capitalize">{query.status}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            {getQueryTypeIcon(query.query_type)}
+                            <span className="ml-1">{getQueryTypeLabel(query.query_type)}</span>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 truncate mb-1">
+                          {query.service_name}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-500">
+                          {formatTime(query.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )
             )}
           </div>
         </ThemeCard>
 
-        {/* Contact Details */}
+        {/* Details */}
         <ThemeCard className="lg:col-span-2">
           {selectedContact ? (
             <div className="space-y-6">
@@ -332,12 +537,222 @@ export default function ContactPage() {
                 </div>
               </div>
             </div>
+          ) : selectedServiceQuery ? (
+            <div className="space-y-6">
+              {/* Service Query Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white text-xl">
+                    {selectedServiceQuery.name ? selectedServiceQuery.name.charAt(0).toUpperCase() : '👤'}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                      {selectedServiceQuery.name}
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {selectedServiceQuery.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${getStatusColor(selectedServiceQuery.status)}`}>
+                    {getStatusIcon(selectedServiceQuery.status)}
+                    <span className="ml-2 capitalize">{selectedServiceQuery.status}</span>
+                  </div>
+                  <button
+                    onClick={closeContactDetails}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                    title="Close details"
+                  >
+                    <XCircle className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Service Query Details */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                    Query Type
+                  </h4>
+                  <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                    {getQueryTypeIcon(selectedServiceQuery.query_type)}
+                    <span className="ml-2">{getQueryTypeLabel(selectedServiceQuery.query_type)}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                    Service
+                  </h4>
+                  <p className="text-slate-700 dark:text-slate-300">
+                    {selectedServiceQuery.service_name}
+                  </p>
+                </div>
+
+                {selectedServiceQuery.message && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                      Message
+                    </h4>
+                    <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg">
+                      <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                        {selectedServiceQuery.message}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional fields based on query type */}
+                {selectedServiceQuery.query_type === 'free_quote' && (
+                  <>
+                    {selectedServiceQuery.project_type && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                          Project Type
+                        </h4>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {selectedServiceQuery.project_type}
+                        </p>
+                      </div>
+                    )}
+                    {selectedServiceQuery.timeline && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                          Timeline
+                        </h4>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {selectedServiceQuery.timeline}
+                        </p>
+                      </div>
+                    )}
+                    {selectedServiceQuery.budget && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                          Budget
+                        </h4>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {selectedServiceQuery.budget}
+                        </p>
+                      </div>
+                    )}
+                    {selectedServiceQuery.requirements && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                          Requirements
+                        </h4>
+                        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg">
+                          <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                            {selectedServiceQuery.requirements}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {selectedServiceQuery.query_type === 'avail_service' && (
+                  <>
+                    {selectedServiceQuery.preferred_date && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                          Preferred Date
+                        </h4>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {new Date(selectedServiceQuery.preferred_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    {selectedServiceQuery.budget_range && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                          Budget Range
+                        </h4>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {selectedServiceQuery.budget_range}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Contact Information */}
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedServiceQuery.phone && (
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                        Phone
+                      </h4>
+                      <p className="text-slate-700 dark:text-slate-300">
+                        {selectedServiceQuery.phone}
+                      </p>
+                    </div>
+                  )}
+                  {selectedServiceQuery.company && (
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                        Company
+                      </h4>
+                      <p className="text-slate-700 dark:text-slate-300">
+                        {selectedServiceQuery.company}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+                  <Clock className="w-4 h-4" />
+                  <span>Received {formatTime(selectedServiceQuery.created_at)}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                {/* Main Action Buttons */}
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => markServiceQueryAsReadHandler(selectedServiceQuery.id)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      selectedServiceQuery.status === 'read' || selectedServiceQuery.status === 'replied'
+                        ? 'bg-blue-700 text-white cursor-default'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                    disabled={selectedServiceQuery.status === 'read' || selectedServiceQuery.status === 'replied'}
+                  >
+                    Read
+                  </button>
+                  <button
+                    onClick={() => closeServiceQueryHandler(selectedServiceQuery.id)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      selectedServiceQuery.status === 'closed'
+                        ? 'bg-gray-700 text-white cursor-default'
+                        : 'bg-gray-600 text-white hover:bg-gray-700'
+                    }`}
+                    disabled={selectedServiceQuery.status === 'closed'}
+                  >
+                    Closed
+                  </button>
+                </div>
+                
+                {/* Delete Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => deleteServiceQueryHandler(selectedServiceQuery.id)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                    title="Permanently delete this service query"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-96">
               <div className="text-center">
                 <Mail className="w-16 h-16 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
                 <p className="text-slate-600 dark:text-slate-400">
-                  Select a contact message to view details
+                  Select a message or query to view details
                 </p>
               </div>
             </div>
@@ -352,17 +767,18 @@ export default function ContactPage() {
             <div className="flex items-center space-x-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-yellow-500" />
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                Close Conversation
+                Close {actionContactId ? 'Conversation' : 'Service Query'}
               </h3>
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
-              Are you sure you want to close this conversation? This action can be undone by marking it as read again.
+              Are you sure you want to close this {actionContactId ? 'conversation' : 'service query'}? This action can be undone by marking it as read again.
             </p>
             <div className="flex space-x-3 justify-end">
               <button
                 onClick={() => {
                   setShowCloseConfirm(false);
                   setActionContactId(null);
+                  setActionServiceQueryId(null);
                 }}
                 className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
@@ -372,7 +788,7 @@ export default function ContactPage() {
                 onClick={confirmCloseContact}
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
-                Close Conversation
+                Close {actionContactId ? 'Conversation' : 'Service Query'}
               </button>
             </div>
           </div>
@@ -386,17 +802,18 @@ export default function ContactPage() {
             <div className="flex items-center space-x-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-red-500" />
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                Delete Conversation
+                Delete {actionContactId ? 'Conversation' : 'Service Query'}
               </h3>
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
-              <strong>Warning:</strong> This action cannot be undone. The conversation and all its data will be permanently deleted.
+              <strong>Warning:</strong> This action cannot be undone. The {actionContactId ? 'conversation' : 'service query'} and all its data will be permanently deleted.
             </p>
             <div className="flex space-x-3 justify-end">
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false);
                   setActionContactId(null);
+                  setActionServiceQueryId(null);
                 }}
                 className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >

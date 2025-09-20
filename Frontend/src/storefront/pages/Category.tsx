@@ -11,6 +11,7 @@ import Breadcrumbs from '../components/common/Breadcrumbs';
 import ProductCard from '../components/products/ProductCard';
 import Placeholder from '../components/common/Placeholder';
 import DualRangeSlider from '../components/filters/DualRangeSlider';
+import TitleUpdater from '../components/common/TitleUpdater';
 
 const Category: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -26,33 +27,65 @@ const Category: React.FC = () => {
   
   // Temporary: Use local state for categories to test
   const [localCategories, setLocalCategories] = useState<any[]>([]);
-  const [dynamicBrands, setDynamicBrands] = useState<string[]>([]);
+  const [dynamicBrands, setDynamicBrands] = useState<{name: string, slug: string}[]>([]);
   const [brandsLoading, setBrandsLoading] = useState(true);
   const [onlyDiscounted, setOnlyDiscounted] = useState(false);
+  const [onlyNewArrivals, setOnlyNewArrivals] = useState(false);
+  const [onlyTopSelling, setOnlyTopSelling] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
   
   const sortBy = searchParams.get('sort') || 'popularity';
   const page = parseInt(searchParams.get('page') || '1');
   const viewMode = searchParams.get('view') || 'grid';
   
+  // Initialize discounted filter from URL parameter
+  useEffect(() => {
+    const discountedParam = searchParams.get('discounted');
+    if (discountedParam === 'true') {
+      setOnlyDiscounted(true);
+    }
+    
+    const newArrivalsParam = searchParams.get('new-arrivals');
+    if (newArrivalsParam === 'true') {
+      setOnlyNewArrivals(true);
+    }
+    
+    const topSellingParam = searchParams.get('top-selling');
+    if (topSellingParam === 'true') {
+      setOnlyTopSelling(true);
+    }
+  }, [searchParams]);
+  
   useEffect(() => {
     const loadData = async () => {
       try {
         console.log('Loading categories from backend API...');
-        // Load categories from backend API
-        const response = await fetch('http://localhost:8001/api/public/categories/?top=true');
-        console.log('API Response status:', response.status);
+        // Load ALL categories from backend API (including subcategories)
+        // Handle pagination to get all categories
+        let allCategories: any[] = [];
+        let nextUrl = 'http://127.0.0.1:8001/api/public/categories/';
         
-        if (response.ok) {
-          const data = await response.json();
-          console.log('API Response data:', data);
-          const categoriesData = data.results || data;
-          console.log('Categories loaded from API:', categoriesData);
-          dispatch(setCategories(categoriesData));
-          setLocalCategories(categoriesData);
-        } else {
-          console.error('API request failed with status:', response.status);
+        while (nextUrl) {
+          const response = await fetch(nextUrl);
+          console.log('API Response status:', response.status);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('API Response data page:', data);
+            allCategories = [...allCategories, ...(data.results || [])];
+            nextUrl = data.next || null;
+          } else {
+            console.error('API request failed with status:', response.status);
+            break;
+          }
         }
+        
+        console.log('All categories loaded from API:', allCategories);
+        dispatch(setCategories(allCategories));
+        setLocalCategories(allCategories);
         
         // Load brands from backend API
         try {
@@ -60,7 +93,8 @@ const Category: React.FC = () => {
           if (brandsResponse.ok) {
             const brandsData = await brandsResponse.json();
             const brands = brandsData.results || brandsData;
-            setDynamicBrands(brands.map((brand: any) => brand.name));
+            // Store both name and slug for brands
+            setDynamicBrands(brands.map((brand: any) => ({ name: brand.name, slug: brand.slug })));
           }
         } catch (brandsError) {
           console.error('Failed to load brands:', brandsError);
@@ -80,6 +114,14 @@ const Category: React.FC = () => {
         } else {
           // Load all products for shop page (when slug is undefined)
           const allProducts = await productRepo.getAll();
+          console.log('Loaded products:', allProducts.length);
+          console.log('Sample products with categories:', allProducts.slice(0, 3).map(p => ({ 
+            title: p.title, 
+            category: p.category, 
+            categorySlug: p.categorySlug,
+            brand: p.brand,
+            brandSlug: p.brandSlug
+          })));
           dispatch(setProducts(allProducts));
         }
       } catch (error) {
@@ -104,6 +146,50 @@ const Category: React.FC = () => {
     newSearchParams.set('view', newView);
     setSearchParams(newSearchParams);
   };
+
+  const handleCategoryToggle = (categorySlug: string) => {
+    console.log('Category toggle clicked:', categorySlug);
+    setSelectedCategories(prev => {
+      const newSelection = prev.includes(categorySlug) 
+        ? prev.filter(c => c !== categorySlug)
+        : [...prev, categorySlug];
+      console.log('New category selection:', newSelection);
+      return newSelection;
+    });
+  };
+
+  const handleBrandToggle = (brand: string) => {
+    setSelectedBrands(prev => 
+      prev.includes(brand) 
+        ? prev.filter(b => b !== brand)
+        : [...prev, brand]
+    );
+  };
+
+  const handleRatingToggle = (rating: number) => {
+    setSelectedRatings(prev => 
+      prev.includes(rating) 
+        ? prev.filter(r => r !== rating)
+        : [...prev, rating]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSelectedCategories([]);
+    setSelectedBrands([]);
+    setSelectedRatings([]);
+    setOnlyDiscounted(false);
+    setOnlyNewArrivals(false);
+    setOnlyTopSelling(false);
+    setPriceRange([0, 5000]);
+    
+    // Clear URL parameters
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('discounted');
+    newSearchParams.delete('new-arrivals');
+    newSearchParams.delete('top-selling');
+    setSearchParams(newSearchParams);
+  };
   
   // Filter products based on filters
   let filteredProducts = [...products];
@@ -116,8 +202,69 @@ const Category: React.FC = () => {
   // Apply discount filter
   if (onlyDiscounted) {
     filteredProducts = filteredProducts.filter(product => 
-      product.discount_rate && product.discount_rate > 0
+      product.discountPct && product.discountPct > 0
     );
+  }
+
+  // Apply new arrivals filter
+  if (onlyNewArrivals) {
+    filteredProducts = filteredProducts.filter(product => 
+      product.isNew === true
+    );
+  }
+
+  // Apply top selling filter
+  if (onlyTopSelling) {
+    filteredProducts = filteredProducts.filter(product => 
+      product.is_top_selling === true
+    );
+  }
+
+  // Apply category filter (including subcategories)
+  if (selectedCategories.length > 0) {
+    console.log('Applying category filter:', selectedCategories);
+    console.log('Available categories:', localCategories.map(cat => ({ name: cat.name, slug: cat.slug, parent: cat.parent })));
+    
+    filteredProducts = filteredProducts.filter(product => {
+      const productCategorySlug = product.categorySlug || '';
+      console.log(`Checking product: ${product.title}, categorySlug: ${productCategorySlug}`);
+      
+      // Check if product's category matches any selected category
+      if (selectedCategories.includes(productCategorySlug)) {
+        console.log(`Direct match found for ${product.title}`);
+        return true;
+      }
+      
+      // Check if product's category is a subcategory of any selected top-level category
+      const productCategory = localCategories.find(cat => cat.slug === productCategorySlug);
+      if (productCategory && productCategory.parent) {
+        // Find parent category by ID (parent is the ID, not slug)
+        const parentCategory = localCategories.find(cat => cat.id === productCategory.parent);
+        if (parentCategory && selectedCategories.includes(parentCategory.slug)) {
+          console.log(`Hierarchical match found for ${product.title} (parent: ${parentCategory.name})`);
+          return true;
+        }
+      }
+      
+      return false;
+    });
+    
+    console.log(`After category filter: ${filteredProducts.length} products`);
+  }
+
+  // Apply brand filter
+  if (selectedBrands.length > 0) {
+    filteredProducts = filteredProducts.filter(product => 
+      selectedBrands.includes(product.brandSlug || '')
+    );
+  }
+
+  // Apply rating filter
+  if (selectedRatings.length > 0) {
+    filteredProducts = filteredProducts.filter(product => {
+      const productRating = Math.floor(product.rating || 0);
+      return selectedRatings.some(rating => productRating >= rating);
+    });
   }
   
   // Sort products based on current sort option
@@ -141,14 +288,15 @@ const Category: React.FC = () => {
   const totalPages = Math.ceil(sortedProducts.length / pageSize);
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+      <TitleUpdater pageTitle={currentCategory?.name || slug || 'Shop'} />
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumbs */}
         <Breadcrumbs className="mb-6" />
         
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100 mb-2">
             {slug === 'deals' 
               ? 'Hot Deals' 
               : slug === undefined 
@@ -156,7 +304,7 @@ const Category: React.FC = () => {
                 : currentCategory?.name || 'Category'
             }
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-slate-300">
             {slug === 'deals' 
               ? 'Discover amazing deals and discounts on our best products'
               : slug === undefined
@@ -169,31 +317,69 @@ const Category: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
           <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Filters</h3>
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 underline"
+                >
+                  Clear All
+                </button>
+              </div>
               
               {/* Category Filter */}
               <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Category</h4>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-slate-100 mb-3">Category</h4>
                 <div className="space-y-2">
                   {localCategories.length > 0 ? (
-                    localCategories.map((category) => (
-                      <label key={category.id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300 text-primary focus:ring-primary"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">{category.name}</span>
-                      </label>
-                    ))
+                    (() => {
+                      // Group categories by parent
+                      const topLevelCategories = localCategories.filter(cat => !cat.parent);
+                      const subcategories = localCategories.filter(cat => cat.parent);
+                      
+                      return topLevelCategories.map((parentCategory) => (
+                        <div key={parentCategory.id} className="space-y-1">
+                          {/* Parent Category */}
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(parentCategory.slug)}
+                              onChange={() => handleCategoryToggle(parentCategory.slug)}
+                              className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                            />
+                            <span className="ml-2 text-sm font-medium text-gray-900 dark:text-slate-100">
+                              {parentCategory.name}
+                            </span>
+                          </label>
+                          
+                          {/* Subcategories */}
+                          {subcategories
+                            .filter(subcat => subcat.parent === parentCategory.id)
+                            .map((subcategory) => (
+                              <label key={subcategory.id} className="flex items-center ml-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedCategories.includes(subcategory.slug)}
+                                  onChange={() => handleCategoryToggle(subcategory.slug)}
+                                  className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                                />
+                                <span className="ml-2 text-sm text-gray-600 dark:text-slate-400">
+                                  {subcategory.name}
+                                </span>
+                              </label>
+                            ))}
+                        </div>
+                      ));
+                    })()
                   ) : (
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 dark:text-slate-400">
                       Loading categories...
                     </div>
                   )}
                 </div>
                 {/* Debug info */}
-                <div className="mt-2 text-xs text-gray-400">
+                <div className="mt-2 text-xs text-gray-400 dark:text-slate-500">
                   Categories loaded: {localCategories.length} (Redux: {categories.length})
                 </div>
               </div>
@@ -211,7 +397,7 @@ const Category: React.FC = () => {
                 />
                 <button
                   onClick={() => setPriceRange([0, 5000])}
-                  className="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 underline mt-2"
+                  className="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300 underline mt-2"
                 >
                   Reset Price Range
                 </button>
@@ -219,41 +405,45 @@ const Category: React.FC = () => {
               
               {/* Brand Filter */}
               <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Brand</h4>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-slate-100 mb-3">Brand</h4>
                 <div className="space-y-2">
                   {brandsLoading ? (
-                    <div className="text-sm text-gray-500">Loading brands...</div>
+                    <div className="text-sm text-gray-500 dark:text-slate-400">Loading brands...</div>
                   ) : dynamicBrands.length > 0 ? (
                     dynamicBrands.map((brand) => (
-                      <label key={brand} className="flex items-center">
+                      <label key={brand.slug} className="flex items-center">
                         <input
                           type="checkbox"
-                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                          checked={selectedBrands.includes(brand.slug)}
+                          onChange={() => handleBrandToggle(brand.slug)}
+                          className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
                         />
-                        <span className="ml-2 text-sm text-gray-700">{brand}</span>
+                        <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">{brand.name}</span>
                       </label>
                     ))
                   ) : (
-                    <div className="text-sm text-gray-500">No brands available</div>
+                    <div className="text-sm text-gray-500 dark:text-slate-400">No brands available</div>
                   )}
                 </div>
                 {/* Debug info */}
-                <div className="mt-2 text-xs text-gray-400">
+                <div className="mt-2 text-xs text-gray-400 dark:text-slate-500">
                   Brands loaded: {dynamicBrands.length}
                 </div>
               </div>
               
               {/* Rating Filter */}
               <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Rating</h4>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-slate-100 mb-3">Rating</h4>
                 <div className="space-y-2">
                   {[4, 3, 2, 1].map((rating) => (
                     <label key={rating} className="flex items-center">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                        checked={selectedRatings.includes(rating)}
+                        onChange={() => handleRatingToggle(rating)}
+                        className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
                       />
-                      <span className="ml-2 text-sm text-gray-700">
+                      <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">
                         {rating}+ Stars
                       </span>
                     </label>
@@ -262,15 +452,68 @@ const Category: React.FC = () => {
               </div>
               
               {/* Discount Filter */}
-              <div>
+              <div className="mb-4">
                 <label className="flex items-center">
                   <input
                     type="checkbox"
                     checked={onlyDiscounted}
-                    onChange={(e) => setOnlyDiscounted(e.target.checked)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    onChange={(e) => {
+                      setOnlyDiscounted(e.target.checked);
+                      const newSearchParams = new URLSearchParams(searchParams);
+                      if (e.target.checked) {
+                        newSearchParams.set('discounted', 'true');
+                      } else {
+                        newSearchParams.delete('discounted');
+                      }
+                      setSearchParams(newSearchParams);
+                    }}
+                    className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Only discounted</span>
+                  <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">Only discounted</span>
+                </label>
+              </div>
+
+              {/* New Arrivals Filter */}
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={onlyNewArrivals}
+                    onChange={(e) => {
+                      setOnlyNewArrivals(e.target.checked);
+                      const newSearchParams = new URLSearchParams(searchParams);
+                      if (e.target.checked) {
+                        newSearchParams.set('new-arrivals', 'true');
+                      } else {
+                        newSearchParams.delete('new-arrivals');
+                      }
+                      setSearchParams(newSearchParams);
+                    }}
+                    className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">New Arrivals</span>
+                </label>
+              </div>
+
+              {/* Top Selling Filter */}
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={onlyTopSelling}
+                    onChange={(e) => {
+                      setOnlyTopSelling(e.target.checked);
+                      const newSearchParams = new URLSearchParams(searchParams);
+                      if (e.target.checked) {
+                        newSearchParams.set('top-selling', 'true');
+                      } else {
+                        newSearchParams.delete('top-selling');
+                      }
+                      setSearchParams(newSearchParams);
+                    }}
+                    className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">Top Selling</span>
                 </label>
               </div>
             </div>
@@ -281,7 +524,7 @@ const Category: React.FC = () => {
             {/* Sort and View Controls */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-600 dark:text-slate-400">
                   Showing {startIndex + 1}-{Math.min(startIndex + pageSize, sortedProducts.length)} of {sortedProducts.length} products
                 </span>
               </div>
@@ -292,27 +535,27 @@ const Category: React.FC = () => {
                   <select
                     value={sortBy}
                     onChange={(e) => handleSortChange(e.target.value)}
-                    className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="appearance-none bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-md px-3 py-2 pr-8 text-sm text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="popularity">Sort by Popularity</option>
                     <option value="newest">Sort by Newest</option>
                     <option value="price-low">Price: Low to High</option>
                     <option value="price-high">Price: High to Low</option>
                   </select>
-                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-400 pointer-events-none" />
                 </div>
                 
                 {/* View Toggle */}
-                <div className="flex border border-gray-300 rounded-md">
+                <div className="flex border border-gray-300 dark:border-slate-600 rounded-md">
                   <button
                     onClick={() => handleViewChange('grid')}
-                    className={`p-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                    className={`p-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-300'}`}
                   >
                     <Grid className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleViewChange('list')}
-                    className={`p-2 ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                    className={`p-2 ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-300'}`}
                   >
                     <List className="w-4 h-4" />
                   </button>
@@ -336,7 +579,7 @@ const Category: React.FC = () => {
                 <Placeholder size="lg" className="mx-auto mb-4">
                   <div className="text-gray-400">No products found</div>
                 </Placeholder>
-                <p className="text-gray-600">No products match your current filters.</p>
+                <p className="text-gray-600 dark:text-slate-400">No products match your current filters.</p>
               </div>
             )}
             
@@ -351,7 +594,7 @@ const Category: React.FC = () => {
                       setSearchParams(newSearchParams);
                     }}
                     disabled={page === 1}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    className="px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-900 dark:text-slate-100"
                   >
                     Previous
                   </button>
@@ -367,7 +610,7 @@ const Category: React.FC = () => {
                       className={`px-3 py-2 text-sm border rounded-md ${
                         pageNum === page
                           ? 'bg-primary text-white border-primary'
-                          : 'border-gray-300 hover:bg-gray-50'
+                          : 'border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-900 dark:text-slate-100'
                       }`}
                     >
                       {pageNum}
@@ -381,7 +624,7 @@ const Category: React.FC = () => {
                       setSearchParams(newSearchParams);
                     }}
                     disabled={page === totalPages}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    className="px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-900 dark:text-slate-100"
                   >
                     Next
                   </button>

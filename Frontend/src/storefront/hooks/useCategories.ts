@@ -33,10 +33,8 @@ export const useCategories = (): UseCategoriesReturn => {
       }
       
       const data = await response.json();
-      console.log('Categories API response:', data);
       // Handle paginated response structure
       const categoriesData = data.results || data;
-      console.log('Categories data:', categoriesData);
       setCategories(categoriesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch categories');

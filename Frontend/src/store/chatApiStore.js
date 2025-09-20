@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import axios from 'axios';
 import { makeWsUrl } from '../lib/wsUrl';
 
+// Import admin API
+import { api as adminApi } from '../admin/lib/api';
+
 // API base URL
 const API_BASE_URL = 'http://127.0.0.1:8001/api';
 
@@ -38,19 +41,39 @@ const useChatApiStore = create((set, get) => ({
   loading: false,
   error: null,
   
+  // User change tracking
+  lastToken: getAuthToken(),
+  
   // WebSocket connections
   socket: null,
   isConnected: false,
+  isConnecting: false,
   
   // Current user ID (for demo purposes)
   currentUserId: generateUserId(),
   
   // WebSocket connection management
   connectWebSocket(roomId, userType = 'customer') {
-    const { socket } = get();
+    const { socket, currentRoom, isConnecting } = get();
+    
+    // Don't reconnect if already connected to the same room
+    if (socket && currentRoom && currentRoom.id === roomId && socket.readyState === WebSocket.OPEN) {
+      console.log(`[WebSocket] Already connected to room ${roomId}, skipping reconnection`);
+      return socket;
+    }
+    
+    // Don't start new connection if already connecting
+    if (isConnecting) {
+      console.log(`[WebSocket] Already connecting, skipping new connection attempt`);
+      return socket;
+    }
+    
+    // Set connecting state
+    set({ isConnecting: true });
     
     // Close existing connection
     if (socket) {
+      console.log(`[WebSocket] Closing existing connection to connect to room ${roomId}`);
       socket.close();
     }
     
@@ -73,17 +96,23 @@ const useChatApiStore = create((set, get) => ({
     console.log(`[WebSocket] Connecting to: ${wsUrl}`);
     console.log(`[WebSocket] Token present: ${!!token}`);
     console.log(`[WebSocket] User type: ${userType}`);
-    const newSocket = new WebSocket(wsUrl);
+    console.log(`[WebSocket] Room ID: ${roomId}`);
     
-    newSocket.onopen = () => {
-      console.log(`${userType === 'admin' ? 'Admin' : 'Customer'} WS OPEN`);
-      set({ isConnected: true, error: null }); // Clear any previous errors
-    };
+    try {
+      const newSocket = new WebSocket(wsUrl);
+      
+      newSocket.onopen = () => {
+        console.log(`${userType === 'admin' ? 'Admin' : 'Customer'} WS OPEN`);
+        console.log(`[WebSocket] ${userType} connection established successfully`);
+        set({ isConnected: true, isConnecting: false, error: null }); // Clear any previous errors
+      };
     
     newSocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         const { type, message, rooms } = data;
+        
+        console.log(`[WebSocket] ${userType} received message:`, { type, data });
         
         switch (type) {
           case 'chat_message':
@@ -113,13 +142,44 @@ const useChatApiStore = create((set, get) => ({
           case 'new_customer_message':
             // Notify admin of new customer message
             console.log('New customer message received:', data);
+            console.log('Refreshing admin chat rooms...');
             get().refreshAdminChatRooms();
+            
+            // If this message is for the currently selected room, add it to messages
+            const { currentRoom } = get();
+            if (currentRoom && data.room_id === currentRoom.id) {
+              console.log('Adding message to current room:', data.message);
+              set((state) => {
+                const messageExists = state.messages.some(msg => msg.id === data.message.id);
+                if (!messageExists) {
+                  return {
+                    messages: [...state.messages, data.message]
+                  };
+                }
+                return state;
+              });
+            }
             break;
             
           case 'admin_message_sent':
             // Admin message was sent to a room
             console.log('Admin message sent:', data);
             get().refreshAdminChatRooms();
+            
+            // Add admin message to current room messages
+            const { currentRoom: adminCurrentRoom } = get();
+            if (adminCurrentRoom && data.room_id === adminCurrentRoom.id) {
+              console.log('Adding admin message to current room:', data.message);
+              set((state) => {
+                const messageExists = state.messages.some(msg => msg.id === data.message.id);
+                if (!messageExists) {
+                  return {
+                    messages: [...state.messages, data.message]
+                  };
+                }
+                return state;
+              });
+            }
             break;
             
           default:
@@ -132,7 +192,7 @@ const useChatApiStore = create((set, get) => ({
     
     newSocket.onclose = (e) => {
       console.warn(`${userType === 'admin' ? 'Admin' : 'Customer'} WS CLOSED`, e.code, e.reason);
-      set({ isConnected: false });
+      set({ isConnected: false, isConnecting: false });
       
       // Handle specific close codes
       let errorMessage = null;
@@ -151,18 +211,31 @@ const useChatApiStore = create((set, get) => ({
       if (errorMessage) {
         set({ error: errorMessage });
       }
+      
+      // Don't auto-reconnect for certain error codes
+      if (e.code === 4401 || e.code === 4403) {
+        console.log('Not attempting reconnection due to authentication/authorization error');
+        return;
+      }
     };
     
-    newSocket.onerror = (e) => {
-      console.error(`${userType === 'admin' ? 'Admin' : 'Customer'} WS ERROR`, e);
-      set({ 
-        isConnected: false, 
-        error: "WebSocket connection error. Please check your network connection." 
-      });
-    };
+      newSocket.onerror = (e) => {
+        console.error(`${userType === 'admin' ? 'Admin' : 'Customer'} WS ERROR`, e);
+        console.error(`[WebSocket] ${userType} connection error:`, e);
+        set({ 
+          isConnected: false, 
+          isConnecting: false,
+          error: "WebSocket connection error. Please check your network connection." 
+        });
+      };
     
-    set({ socket: newSocket });
-    return newSocket;
+      set({ socket: newSocket });
+      return newSocket;
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      set({ isConnected: false, error: 'Failed to create WebSocket connection' });
+      return null;
+    }
   },
   
   disconnectWebSocket() {
@@ -187,10 +260,17 @@ const useChatApiStore = create((set, get) => ({
     set({ loading: true, error: null });
     
     try {
+      // Get authentication token for the request
+      const token = getAuthToken();
+      
       const response = await axios.post(`${API_BASE_URL}/public/chat-rooms/`, {
         customer_name: customerInfo.name || 'Anonymous User',
         customer_email: customerInfo.email || 'user@example.com',
         customer_phone: customerInfo.phone || '',
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       const room = response.data;
@@ -218,7 +298,17 @@ const useChatApiStore = create((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await axios.get(`${API_BASE_URL}/public/chat-rooms/`);
+      // Check if user has changed and clear state if needed
+      get().checkUserChange();
+      
+      // Get authentication token for the request
+      const token = getAuthToken();
+      
+      const response = await axios.get(`${API_BASE_URL}/public/chat-rooms/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const conversations = response.data.results || response.data || [];
       set({ 
         conversations: Array.isArray(conversations) ? conversations : [],
@@ -240,10 +330,17 @@ const useChatApiStore = create((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await axios.get(`${API_BASE_URL}/public/chat-rooms/${roomId}/`);
+      // Get authentication token for the request
+      const token = getAuthToken();
+      
+      const response = await axios.get(`${API_BASE_URL}/public/chat-rooms/${roomId}/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const room = response.data;
       
-      // Connect WebSocket for this room
+      // Connect WebSocket for this room (only if not already connected)
       get().connectWebSocket(roomId, 'customer');
       
       // Also fetch messages separately to ensure we have the latest
@@ -274,24 +371,59 @@ const useChatApiStore = create((set, get) => ({
     }
   },
   
+  async updateCustomerInfo(roomId) {
+    try {
+      // Get authentication token for the request
+      const token = getAuthToken();
+      
+      const response = await axios.patch(`${API_BASE_URL}/public/chat-rooms/${roomId}/update_customer_info/`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Update the current room with new customer info
+      const { currentRoom } = get();
+      if (currentRoom && currentRoom.id === roomId) {
+        set({
+          currentRoom: {
+            ...currentRoom,
+            customer_name: response.data.customer_name,
+            customer_email: response.data.customer_email
+          }
+        });
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error updating customer info:', error);
+      // Don't throw error as this is not critical
+      return null;
+    }
+  },
+  
   async sendMessage(roomId, content) {
     if (!content.trim()) return;
     
     set({ loading: true, error: null });
     
     try {
+      // Get authentication token for the request
+      const token = getAuthToken();
+      
       // Send via REST API for persistence (this will also trigger WebSocket broadcast)
       const response = await axios.post(`${API_BASE_URL}/public/chat-rooms/${roomId}/send_message/`, {
         content: content.trim()
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       const newMessage = response.data;
       
-      // Add message to local state immediately for better UX
-      set((state) => ({
-        messages: [...state.messages, newMessage],
-        loading: false
-      }));
+      // Don't add to local state here - let WebSocket handle it to avoid duplicates
+      set({ loading: false });
       
       return newMessage;
     } catch (error) {
@@ -336,16 +468,14 @@ const useChatApiStore = create((set, get) => ({
       
       console.log('Fetching admin chat rooms with token:', token.substring(0, 20) + '...');
       
-      const response = await axios.get(`${API_BASE_URL}/admin/chat-rooms/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await adminApi.get('/api/admin/chat-rooms/');
       
       console.log('Admin chat rooms response:', response.data);
       
       const conversations = response.data.results || response.data || [];
+      console.log('Processed conversations:', conversations);
+      console.log('Number of conversations:', conversations.length);
+      
       set({ 
         conversations: Array.isArray(conversations) ? conversations : [],
         loading: false 
@@ -384,26 +514,85 @@ const useChatApiStore = create((set, get) => ({
   async refreshAdminChatRooms() {
     // Refresh admin chat rooms without showing loading state
     try {
+      console.log('Refreshing admin chat rooms...');
       const token = getAuthToken();
       
       if (!token) {
         throw new Error('No authentication token found');
       }
       
-      const response = await axios.get(`${API_BASE_URL}/admin/chat-rooms/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await adminApi.get('/api/admin/chat-rooms/');
+      console.log('Admin chat rooms response:', response.data);
       
       const conversations = response.data.results || response.data || [];
       set({ 
         conversations: Array.isArray(conversations) ? conversations : []
       });
+      console.log('Updated conversations:', conversations);
       
       return conversations;
     } catch (error) {
       console.error('Error refreshing admin chat rooms:', error);
+    }
+  },
+
+  async getAdminChatRoom(roomId) {
+    set({ loading: true, error: null });
+    
+    try {
+      const token = getAuthToken();
+      console.log('Admin getAdminChatRoom - Token found:', !!token);
+      console.log('Admin getAdminChatRoom - Room ID:', roomId);
+      
+      if (!token) {
+        console.error('No authentication token found for admin chat room');
+        throw new Error('No authentication token found');
+      }
+      
+      console.log('Making request to:', `/api/admin/chat-rooms/${roomId}/`);
+      const response = await adminApi.get(`/api/admin/chat-rooms/${roomId}/`);
+      console.log('Admin chat room response:', response.data);
+      
+      const room = response.data;
+      
+      // Also fetch messages separately to ensure we have the latest
+      try {
+        const messagesResponse = await adminApi.get(`/api/admin/chat-rooms/${roomId}/get_messages/`);
+        set({ 
+          currentRoom: room,
+          messages: messagesResponse.data || [],
+          loading: false 
+        });
+      } catch (msgError) {
+        console.warn('Could not fetch messages separately, using room messages:', msgError);
+        set({ 
+          currentRoom: room,
+          messages: room.messages || [],
+          loading: false 
+        });
+      }
+      
+      return room;
+    } catch (error) {
+      console.error('Error fetching admin chat room:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 401) {
+        console.error('Authentication failed - redirecting to sign in');
+        // This might trigger a redirect to sign-in page
+      }
+      
+      set({ 
+        error: error.response?.data?.detail || 'Failed to fetch chat room',
+        loading: false 
+      });
+      throw error;
     }
   },
   
@@ -420,21 +609,14 @@ const useChatApiStore = create((set, get) => ({
         throw new Error('No authentication token found');
       }
       
-      const response = await axios.post(`${API_BASE_URL}/admin/chat-rooms/${roomId}/send_message/`, {
+      const response = await adminApi.post(`/api/admin/chat-rooms/${roomId}/send_message/`, {
         content: content.trim()
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
       });
       
       const newMessage = response.data;
       
-      // Add message to local state immediately for better UX
-      set((state) => ({
-        messages: [...state.messages, newMessage],
-        loading: false
-      }));
+      // Don't add to local state here - let WebSocket handle it to avoid duplicates
+      set({ loading: false });
       
       return newMessage;
     } catch (error) {
@@ -455,11 +637,7 @@ const useChatApiStore = create((set, get) => ({
         throw new Error('No authentication token found');
       }
       
-      await axios.post(`${API_BASE_URL}/admin/chat-rooms/${roomId}/mark_as_read/`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await adminApi.post(`/api/admin/chat-rooms/${roomId}/mark_as_read/`, {});
       
       // Update local state to reflect read status
       set((state) => ({
@@ -513,19 +691,49 @@ const useChatApiStore = create((set, get) => ({
     set({ error: null });
   },
   
+  // Clear all chat state (useful when user changes)
+  clearChatState() {
+    console.log('Clearing chat state due to user change');
+    set({
+      conversations: [],
+      currentRoom: null,
+      messages: [],
+      loading: false,
+      error: null,
+      isConnected: false,
+      isConnecting: false,
+      socket: null
+    });
+  },
+  
+  // Check if user has changed and clear state if needed
+  checkUserChange() {
+    const currentToken = getAuthToken();
+    const { lastToken } = get();
+    
+    if (currentToken !== lastToken) {
+      console.log('User token changed, clearing chat state');
+      get().clearChatState();
+      set({ lastToken: currentToken });
+    }
+  },
+  
   // Initialize chat room for customer
   async initializeCustomerChat(customerInfo = {}) {
     try {
-      // First try to get existing chat rooms
+      // Check if user has changed and clear state if needed
+      get().checkUserChange();
+      
+      // First try to get existing chat rooms for this user
       const rooms = await get().getChatRooms();
       
       if (rooms.length > 0) {
-        // Use the most recent active room
+        // Use the most recent active room for this user
         const activeRoom = rooms.find(room => room.status === 'active') || rooms[0];
         await get().getChatRoom(activeRoom.id);
         return activeRoom;
       } else {
-        // Create a new room
+        // Create a new room for this user
         const newRoom = await get().createChatRoom(customerInfo);
         // Connect WebSocket after room creation
         if (newRoom && newRoom.id) {

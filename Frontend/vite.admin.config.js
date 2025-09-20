@@ -10,8 +10,10 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: '127.0.0.1',
     port: 5174,
     strictPort: true,
+    open: false,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8001',
@@ -24,6 +26,10 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  optimizeDeps: {
+    force: true,
+    include: ['react', 'react-dom', 'zustand', 'axios', 'socket.io-client']
   },
   resolve: {
     alias: {

@@ -23,7 +23,7 @@ const NavBar: React.FC = () => {
   };
   
   return (
-    <nav className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 sticky top-0 z-40 shadow-xl backdrop-blur-sm border-b border-blue-500/20 dark:border-blue-600/30">
+    <nav className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 sticky top-0 z-40 shadow-xl backdrop-blur-sm border-b border-red-500/20 dark:border-blue-600/30">
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between">
           {/* Desktop Navigation */}
@@ -36,7 +36,7 @@ const NavBar: React.FC = () => {
                   'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
                   isActive(item.href)
                     ? 'text-white'
-                    : 'text-blue-100 dark:text-blue-200 hover:text-white'
+                    : 'text-red-100 dark:text-blue-200 hover:text-white'
                 )}
               >
                 <span className="relative z-10">{item.label}</span>
@@ -63,20 +63,21 @@ const NavBar: React.FC = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-3 rounded-lg bg-white/10 dark:bg-blue-300/10 text-white hover:bg-white/20 dark:hover:bg-blue-300/20 transition-all duration-300 backdrop-blur-sm border border-white/20 dark:border-blue-300/20"
+            className="lg:hidden p-2 sm:p-3 rounded-lg bg-white/10 dark:bg-blue-300/10 text-white hover:bg-white/20 dark:hover:bg-blue-300/20 transition-all duration-300 backdrop-blur-sm border border-white/20 dark:border-blue-300/20"
+            aria-label="Toggle mobile menu"
           >
-            <div className="relative w-6 h-6">
+            <div className="relative w-5 h-5 sm:w-6 sm:h-6">
               <div className={clsx(
                 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300',
                 isMobileMenuOpen ? 'opacity-0 rotate-90' : 'opacity-100 rotate-0'
               )}>
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div className={clsx(
                 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300',
                 isMobileMenuOpen ? 'opacity-100 rotate-0' : 'opacity-0 -rotate-90'
               )}>
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
             </div>
           </button>
@@ -87,16 +88,16 @@ const NavBar: React.FC = () => {
           'lg:hidden overflow-hidden transition-all duration-500 ease-in-out',
           isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         )}>
-          <div className="py-6 space-y-2 border-t border-white/20 dark:border-blue-300/20">
+          <div className="py-4 sm:py-6 space-y-1 sm:space-y-2 border-t border-white/20 dark:border-blue-300/20">
             {navItems.map((item, index) => (
               <Link
                 key={item.href}
                 to={item.href}
                 className={clsx(
-                  'block py-3 px-6 text-sm font-semibold transition-all duration-300 ease-in-out rounded-lg mx-2 group',
+                  'block py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base font-semibold transition-all duration-300 ease-in-out rounded-lg mx-2 group',
                   isActive(item.href)
                     ? 'text-white bg-white/20 dark:bg-blue-300/20 shadow-lg'
-                    : 'text-blue-100 dark:text-blue-200 hover:text-white hover:bg-white/10 dark:hover:bg-blue-300/10 hover:shadow-md'
+                    : 'text-red-100 dark:text-blue-200 hover:text-white hover:bg-white/10 dark:hover:bg-blue-300/10 hover:shadow-md'
                 )}
                 style={{ 
                   animationDelay: `${index * 50}ms`,
@@ -106,7 +107,7 @@ const NavBar: React.FC = () => {
               >
                 <span className="relative z-10">{item.label}</span>
                 {isActive(item.href) && (
-                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-white dark:bg-blue-300 rounded-r-full" />
+                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-4 sm:h-6 bg-white dark:bg-blue-300 rounded-r-full" />
                 )}
               </Link>
             ))}

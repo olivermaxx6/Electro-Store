@@ -5,6 +5,8 @@ export interface StoreSettings {
   currency: string;
   tax_rate: number;
   shipping_rate: number;
+  standard_shipping_rate: number;
+  express_shipping_rate: number;
 }
 
 export interface UseStoreSettingsReturn {
@@ -26,14 +28,13 @@ export const useStoreSettings = (): UseStoreSettingsReturn => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_BASE_URL}/store-settings/1/`);
+      const response = await fetch(`${API_BASE_URL}/store-settings/`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch store settings: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('Store settings API response:', data);
       setSettings(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch store settings');

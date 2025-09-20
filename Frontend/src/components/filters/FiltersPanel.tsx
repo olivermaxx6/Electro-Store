@@ -5,11 +5,14 @@ import { selectFilters, selectBrands } from '../../store/productsSlice';
 import { FilterState } from '../../types';
 import Button from '../common/Button';
 import DualRangeSlider from './DualRangeSlider';
+import { formatCurrencySymbol } from '../../lib/format';
+import { useStoreSettings } from '../../hooks/useStoreSettings';
 
 const FiltersPanel = () => {
   const dispatch = useDispatch();
   const filters = useSelector(selectFilters);
   const brands = useSelector(selectBrands);
+  const { settings } = useStoreSettings();
   const [localFilters, setLocalFilters] = useState<FilterState>(filters);
 
   const handleFilterChange = (key: keyof FilterState, value: any) => {
@@ -54,7 +57,7 @@ const FiltersPanel = () => {
             step={50}
             value={localFilters.priceRange || [0, 5000]}
             onChange={(value) => handleFilterChange('priceRange', value)}
-            formatValue={(val) => `£${val}`}
+            formatValue={(val) => `${formatCurrencySymbol(settings?.currency as any || 'USD')}${val}`}
           />
         </div>
 

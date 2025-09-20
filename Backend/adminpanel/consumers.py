@@ -134,7 +134,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Save message to database"""
         try:
             room = ChatRoom.objects.get(id=self.room_id)
-            sender_name = 'Customer' if sender_type == 'customer' else 'Admin'
+            
+            # Use proper customer name for customer messages
+            if sender_type == 'customer':
+                sender_name = room.customer_name or 'Anonymous'
+                if not sender_name or sender_name == 'Anonymous':
+                    if room.user:
+                        if room.user.first_name and room.user.last_name:
+                            sender_name = f"{room.user.first_name} {room.user.last_name}"
+                        elif room.user.first_name:
+                            sender_name = room.user.first_name
+                        elif room.user.username:
+                            sender_name = room.user.username
+            else:
+                sender_name = 'Admin'
             
             message = ChatMessage.objects.create(
                 room=room,
@@ -172,6 +185,12 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
             logger.info("Admin WS connect path=%s", self.scope.get("path"))
             user = self.scope.get("user")
             jwt_error = self.scope.get("jwt_error")
+            logger.info("Admin WS user=%s, is_anonymous=%s, is_staff=%s, is_superuser=%s", 
+                       getattr(user, "username", "None"), 
+                       getattr(user, "is_anonymous", True),
+                       getattr(user, "is_staff", False),
+                       getattr(user, "is_superuser", False))
+            
             if not user or getattr(user, "is_anonymous", True):
                 logger.warning("Admin WS unauthorized jwt_error=%s", jwt_error)
                 await self.close(code=4401)
@@ -306,7 +325,9 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
     def get_active_rooms(self):
         """Get list of active chat rooms"""
         rooms = ChatRoom.objects.all().order_by('-last_message_at')
-        return [
+        logger.info(f"Found {rooms.count()} chat rooms for admin")
+        
+        room_data = [
             {
                 'id': str(room.id),
                 'customer_name': room.customer_name,
@@ -318,6 +339,9 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
             }
             for room in rooms
         ]
+        
+        logger.info(f"Returning {len(room_data)} rooms to admin: {[r['customer_name'] for r in room_data]}")
+        return room_data
 
     @database_sync_to_async
     def save_admin_message(self, room_id, content):
@@ -328,8 +352,6 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
             
             # Create a more descriptive sender name with user info
             sender_name = f"{user.first_name} {user.last_name}".strip() or user.username
-            if user.email:
-                sender_name += f" ({user.email})"
             
             message = ChatMessage.objects.create(
                 room=room,

@@ -1,4 +1,5 @@
 import os
+import uuid
 from uuid import uuid4
 from django.db import models
 from django.db.models.functions import Lower
@@ -9,16 +10,33 @@ from django.core.exceptions import ValidationError
 # --- Attributes ---
 class Brand(models.Model):
     name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=120, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["name"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self.generate_slug()
+        super().save(*args, **kwargs)
+
+    def generate_slug(self):
+        from django.utils.text import slugify
+        base_slug = slugify(self.name)
+        slug = base_slug
+        counter = 1
+        while Brand.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        return slug
 
     def __str__(self):
         return self.name
 
 class Category(models.Model):
     name = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=120, null=True, blank=True)
     # self-referential FK for subcategories
     parent = models.ForeignKey(
         "self",
@@ -36,7 +54,26 @@ class Category(models.Model):
                 Lower("name"), "parent",
                 name="uniq_category_name_per_parent_ci",
             ),
+            models.UniqueConstraint(
+                "slug", "parent",
+                name="uniq_category_slug_per_parent",
+            ),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self.generate_slug()
+        super().save(*args, **kwargs)
+
+    def generate_slug(self):
+        from django.utils.text import slugify
+        base_slug = slugify(self.name)
+        slug = base_slug
+        counter = 1
+        while Category.objects.filter(slug=slug, parent=self.parent).exclude(pk=self.pk).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        return slug
 
     def __str__(self):
         return f"{self.parent.name + ' / ' if self.parent else ''}{self.name}"
@@ -52,6 +89,9 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")
     # IMPORTANT: JSONField default=dict so it's never None (avoids KeyErrors/TypeErrors)
     technical_specs = models.JSONField(blank=True, default=dict)
+    view_count = models.PositiveIntegerField(default=0, help_text="Number of times this product has been viewed")
+    isNew = models.BooleanField(default=False, help_text="Mark this product as new arrival to display in new products section")
+    is_top_selling = models.BooleanField(default=False, help_text="Mark this product as top selling to display on home page")
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta: ordering = ["-created_at"]
     def __str__(self): return self.name
@@ -85,13 +125,30 @@ class Order(models.Model):
         ("delivered", "Delivered"),
         ("cancelled", "Cancelled"),
     ]
+    
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    tracking_id = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
+    payment_id = models.CharField(max_length=200, blank=True)
+    
+    # Customer Information
+    customer_email = models.EmailField(blank=True)
+    customer_phone = models.CharField(max_length=20, blank=True)
+    shipping_address = models.JSONField(default=dict)  # Store complete address info
+    
+    # Pricing Information
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_price = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    # Order Details
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-    created_at = models.DateTimeField(auto_now_add=True)
+    payment_method = models.CharField(max_length=50, default="credit_card")
     shipping_name = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self): return f"Order #{self.pk}"
+    def __str__(self): return f"Order #{self.pk} - {self.tracking_id}"
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
@@ -100,11 +157,39 @@ class OrderItem(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
 # --- Services ---
+class ServiceCategory(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True)
+    ordering = models.PositiveIntegerField(default=0, help_text="Order in which categories appear")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Service Category"
+        verbose_name_plural = "Service Categories"
+        ordering = ['ordering', 'name']
+
+    def __str__(self):
+        return self.name
+
 class Service(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     form_fields = models.JSONField(default=list, blank=True)  # [{label,type}]
+    category = models.ForeignKey(ServiceCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="services")
+    
+    # Additional service details
+    rating = models.DecimalField(max_digits=2, decimal_places=1, default=0.0, help_text="Service rating (0.0-5.0)")
+    review_count = models.PositiveIntegerField(default=0, help_text="Number of reviews")
+    view_count = models.PositiveIntegerField(default=0, help_text="Number of times this service has been viewed")
+    overview = models.TextField(blank=True, help_text="Detailed service overview")
+    included_features = models.JSONField(default=list, blank=True, help_text="List of included features")
+    process_steps = models.JSONField(default=list, blank=True, help_text="Service process steps with durations")
+    key_features = models.JSONField(default=list, blank=True, help_text="Key service features")
+    contact_info = models.JSONField(default=dict, blank=True, help_text="Contact information (phone, email)")
+    availability = models.CharField(max_length=200, blank=True, help_text="Service availability information")
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self): return self.name
@@ -126,11 +211,43 @@ class ServiceInquiry(models.Model):
 
 # --- Reviews ---
 class Review(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="reviews")
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    author_name = models.CharField(max_length=200, help_text="Name of the reviewer", default="Anonymous")
     rating = models.PositiveSmallIntegerField()  # 1-5
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['product', 'user']  # Prevent duplicate reviews from same user
+        
+    def __str__(self):
+        return f"{self.author_name} - {self.product.name} ({self.rating}★)"
+
+class ServiceReview(models.Model):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name="reviews")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    author_name = models.CharField(max_length=200, help_text="Name of the reviewer")
+    rating = models.PositiveSmallIntegerField(help_text="Overall rating (1-5)")
+    comment = models.TextField(blank=True)
+    
+    # Detailed ratings
+    service_quality = models.PositiveSmallIntegerField(default=0, help_text="Service quality rating (1-5)")
+    communication = models.PositiveSmallIntegerField(default=0, help_text="Communication rating (1-5)")
+    timeliness = models.PositiveSmallIntegerField(default=0, help_text="Timeliness rating (1-5)")
+    value_for_money = models.PositiveSmallIntegerField(default=0, help_text="Value for money rating (1-5)")
+    
+    verified = models.BooleanField(default=False, help_text="Whether this is a verified purchase/service")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['service', 'user']  # Prevent duplicate reviews from same user
+        
+    def __str__(self):
+        return f"{self.author_name} - {self.service.name} ({self.rating}★)"
 
 # --- Website Content & Settings ---
 class WebsiteContent(models.Model):
@@ -185,7 +302,11 @@ class StoreSettings(models.Model):
     favicon = models.ImageField(upload_to="store/", null=True, blank=True, help_text="Favicon for the website (recommended size: 32x32 or 16x16 pixels)")
     currency = models.CharField(max_length=10, default="USD")
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)      # percent
-    shipping_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0) # flat
+    shipping_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0) # flat (legacy field)
+    
+    # Individual shipping options
+    standard_shipping_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0, help_text="Standard Shipping rate (5-7 business days)")
+    express_shipping_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0, help_text="Express Shipping rate (2-3 business days)")
     
     # Store address fields for Find Us page
     street_address = models.CharField(max_length=200, blank=True, help_text="Street address")
@@ -270,3 +391,45 @@ class Contact(models.Model):
     
     def __str__(self):
         return f"{self.name} - {self.subject}"
+
+class ServiceQuery(models.Model):
+    """Service query submissions from service pages"""
+    QUERY_TYPE_CHOICES = [
+        ('avail_service', 'Avail This Service'),
+        ('free_quote', 'Get Free Quote')
+    ]
+    
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('read', 'Read'),
+        ('replied', 'Replied'),
+        ('closed', 'Closed')
+    ]
+    
+    query_type = models.CharField(max_length=20, choices=QUERY_TYPE_CHOICES)
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='queries')
+    name = models.CharField(max_length=200)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20, blank=True)
+    company = models.CharField(max_length=200, blank=True)
+    message = models.TextField(blank=True)
+    
+    # Additional fields for quote requests
+    project_type = models.CharField(max_length=100, blank=True)
+    timeline = models.CharField(max_length=100, blank=True)
+    budget = models.CharField(max_length=100, blank=True)
+    requirements = models.TextField(blank=True)
+    
+    # Additional fields for service requests
+    preferred_date = models.DateField(null=True, blank=True)
+    budget_range = models.CharField(max_length=100, blank=True)
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.name} - {self.get_query_type_display()} for {self.service.name}"

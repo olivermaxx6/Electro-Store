@@ -14,7 +14,26 @@ class LoginView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         resp = super().post(request, *args, **kwargs)
         if resp.status_code == 200:
-            user = User.objects.get(username=request.data.get("username"))
+            # Get the authenticated user from the token
+            # The username field might contain either username or email
+            username_or_email = request.data.get("username")
+            try:
+                # Try to find user by username first, then by email
+                user = User.objects.get(username=username_or_email)
+            except User.DoesNotExist:
+                try:
+                    user = User.objects.get(email=username_or_email)
+                except User.DoesNotExist:
+                    # Fallback: get user from the token
+                    from rest_framework_simplejwt.tokens import AccessToken
+                    token = resp.data.get('access')
+                    if token:
+                        decoded_token = AccessToken(token)
+                        user_id = decoded_token['user_id']
+                        user = User.objects.get(id=user_id)
+                    else:
+                        return resp
+            
             data = resp.data
             data["user"] = UserSerializer(user).data
             return Response(data)

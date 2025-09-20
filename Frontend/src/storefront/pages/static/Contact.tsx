@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Clock } from 'lucide-react';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
+import TitleUpdater from '../../components/common/TitleUpdater';
 import { useContactInfo } from '../../hooks/useContactInfo';
 
 const Contact: React.FC = () => {
@@ -47,6 +48,7 @@ const Contact: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+      <TitleUpdater pageTitle="Contact" />
       <div className="container mx-auto px-4 py-8">
         <Breadcrumbs className="mb-6" />
         

@@ -4,8 +4,23 @@ import { ThemeLayout, ThemeCard, SectionHeader } from '@shared/theme';
 import useChatApiStore from '@shared/store/chatApiStore';
 import { useAuth } from '@shared/admin/store/authStore';
 
+// User Avatar Component
+const UserAvatar = ({ name, size = 'w-10 h-10', className = '' }) => {
+  const displayName = name || 'Anonymous';
+  const initial = displayName.charAt(0).toUpperCase();
+  
+  return (
+    <div className={`${size} bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg font-semibold ${className}`}>
+      {displayName !== 'Anonymous' ? initial : <User className="w-5 h-5" />}
+    </div>
+  );
+};
+
 
 export default function ChatPage() {
+  const chatStore = useChatApiStore();
+  console.log('Chat store functions:', Object.keys(chatStore));
+  
   const { 
     conversations, 
     currentRoom, 
@@ -14,14 +29,14 @@ export default function ChatPage() {
     error,
     isConnected,
     getAdminChatRooms, 
-    getChatRoom, 
+    getAdminChatRoom, 
     sendAdminMessage, 
     markAsRead,
     setCurrentRoom,
     connectAdminWebSocket,
     disconnectWebSocket,
     clearError
-  } = useChatApiStore();
+  } = chatStore;
   const { user } = useAuth();
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [newMessage, setNewMessage] = useState('');
@@ -31,8 +46,11 @@ export default function ChatPage() {
   useEffect(() => {
     const loadChatData = async () => {
       try {
+        console.log('Loading admin chat data...');
         await getAdminChatRooms();
+        console.log('Admin chat rooms loaded, connecting WebSocket...');
         connectAdminWebSocket();
+        console.log('Admin WebSocket connected');
       } catch (error) {
         console.error('Failed to load chat data:', error);
         // Error is already handled in the store
@@ -46,6 +64,37 @@ export default function ChatPage() {
       disconnectWebSocket();
     };
   }, [getAdminChatRooms, connectAdminWebSocket, disconnectWebSocket]);
+
+  // Auto-refresh conversations when new messages arrive
+  useEffect(() => {
+    if (conversations && conversations.length > 0) {
+      console.log('Conversations updated, refreshing list...');
+      console.log('Current conversations:', conversations);
+      // The WebSocket handler already calls refreshAdminChatRooms()
+      // This effect just logs the update for debugging
+    }
+  }, [conversations]);
+  
+  // Debug WebSocket connection status
+  useEffect(() => {
+    console.log('Admin WebSocket connection status:', isConnected);
+    if (!isConnected) {
+      console.log('Admin WebSocket not connected, attempting to reconnect...');
+      connectAdminWebSocket();
+    }
+  }, [isConnected, connectAdminWebSocket]);
+
+  // Periodic refresh as fallback (every 5 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isConnected) {
+        console.log('WebSocket not connected, refreshing conversations...');
+        getAdminChatRooms().catch(console.error);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isConnected, getAdminChatRooms]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,9 +114,9 @@ export default function ChatPage() {
   // Load room messages when selection changes
   useEffect(() => {
     if (selectedRoom) {
-      getChatRoom(selectedRoom.id).catch(console.error);
+      getAdminChatRoom(selectedRoom.id).catch(console.error);
     }
-  }, [selectedRoom, getChatRoom]);
+  }, [selectedRoom, getAdminChatRoom]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -78,6 +127,16 @@ export default function ChatPage() {
       setNewMessage('');
     } catch (error) {
       console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      console.log('Manual refresh triggered');
+      await getAdminChatRooms();
+      console.log('Conversations refreshed successfully');
+    } catch (error) {
+      console.error('Failed to refresh conversations:', error);
     }
   };
 
@@ -103,9 +162,18 @@ export default function ChatPage() {
   const totalUnreadCount = (conversations || []).reduce((sum, room) => sum + (room.unread_count || 0), 0);
 
   // Handle room selection and mark as read
-  const handleRoomSelect = (room) => {
+  const handleRoomSelect = async (room) => {
+    console.log('Selecting room:', room);
     setSelectedRoom(room);
-    markAsRead(room.id);
+    
+    try {
+      // Load the room details and messages using admin endpoint
+      await getAdminChatRoom(room.id);
+      // Mark as read
+      await markAsRead(room.id);
+    } catch (error) {
+      console.error('Error loading room:', error);
+    }
   };
 
   return (
@@ -180,11 +248,36 @@ export default function ChatPage() {
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               Conversations
             </h3>
-            {totalUnreadCount > 0 && (
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                {totalUnreadCount}
-              </span>
-            )}
+            <div className="flex items-center space-x-2">
+              <div className={`flex items-center space-x-1 text-xs ${
+                isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  isConnected ? 'bg-green-500' : 'bg-red-500'
+                }`}></div>
+                <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+              </div>
+              {totalUnreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {totalUnreadCount}
+                </span>
+              )}
+              <button
+                onClick={async () => {
+                  try {
+                    await getAdminChatRooms();
+                  } catch (error) {
+                    console.error('Failed to refresh conversations:', error);
+                  }
+                }}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                title="Refresh conversations"
+              >
+                <svg className="w-4 h-4 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
           </div>
           
           <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -217,9 +310,7 @@ export default function ChatPage() {
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg">
-                      {room.customer_name ? room.customer_name.charAt(0).toUpperCase() : '👤'}
-                    </div>
+                    <UserAvatar name={room.customer_name} />
                     {room.status === 'active' && (
                       <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
                     )}
@@ -258,9 +349,7 @@ export default function ChatPage() {
               <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg">
-                      {selectedRoom.customer_name ? selectedRoom.customer_name.charAt(0).toUpperCase() : '👤'}
-                    </div>
+                    <UserAvatar name={selectedRoom.customer_name} />
                     {selectedRoom.status === 'active' && (
                       <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
                     )}
@@ -302,8 +391,14 @@ export default function ChatPage() {
                             : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white'
                         }`}
                       >
-                        <p className="text-sm">{message.content}</p>
-                        <div className="flex items-center justify-between mt-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className={`text-xs font-medium ${
+                            message.sender_type === 'admin' 
+                              ? 'text-blue-100' 
+                              : 'text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {message.sender_name || (message.sender_type === 'admin' ? 'Admin' : 'Customer')}
+                          </p>
                           <p className={`text-xs ${
                             message.sender_type === 'admin' 
                               ? 'text-blue-100' 
@@ -311,10 +406,13 @@ export default function ChatPage() {
                           }`}>
                             {getMessageTime(message.created_at)}
                           </p>
-                          {message.sender_type === 'admin' && (
-                            <CheckCircle className="w-3 h-3 text-blue-100" />
-                          )}
                         </div>
+                        <p className="text-sm">{message.content}</p>
+                        {message.sender_type === 'admin' && (
+                          <div className="flex justify-end mt-1">
+                            <CheckCircle className="w-3 h-3 text-blue-100" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))

@@ -1,19 +1,7 @@
 import React from 'react';
 import { Star, Calendar, User, Clock, MessageSquare, DollarSign } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
-
-interface ServiceReview {
-  id: string;
-  author: string;
-  rating: number;
-  comment: string;
-  date: string;
-  verified?: boolean;
-  serviceQuality: number;
-  communication: number;
-  timeliness: number;
-  valueForMoney: number;
-}
+import { ServiceReview } from '../../../lib/servicesApi';
 
 interface ServiceReviewListProps {
   reviews: ServiceReview[];
@@ -72,10 +60,10 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
     if (reviews.length === 0) return { serviceQuality: 0, communication: 0, timeliness: 0, valueForMoney: 0 };
     
     const totals = reviews.reduce((acc, review) => ({
-      serviceQuality: acc.serviceQuality + review.serviceQuality,
+      serviceQuality: acc.serviceQuality + review.service_quality,
       communication: acc.communication + review.communication,
       timeliness: acc.timeliness + review.timeliness,
-      valueForMoney: acc.valueForMoney + review.valueForMoney,
+      valueForMoney: acc.valueForMoney + review.value_for_money,
     }), { serviceQuality: 0, communication: 0, timeliness: 0, valueForMoney: 0 });
 
     return {
@@ -283,7 +271,7 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
                       <span className={`font-medium ${
                         isDark ? 'text-slate-200' : 'text-gray-900'
                       }`}>
-                        {review.author}
+                        {review.author_name}
                       </span>
                       {review.verified && (
                         <span className={`px-2 py-1 text-xs rounded-full ${
@@ -310,7 +298,7 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
                   isDark ? 'text-slate-400' : 'text-gray-500'
                 }`}>
                   <Calendar className="w-4 h-4" />
-                  <span>{formatDate(review.date)}</span>
+                  <span>{formatDate(review.created_at)}</span>
                 </div>
               </div>
               
@@ -320,7 +308,7 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
                   <div className={`text-xs ${
                     isDark ? 'text-slate-400' : 'text-gray-500'
                   }`}>Service Quality</div>
-                  <StarRating rating={review.serviceQuality} size="sm" />
+                  <StarRating rating={review.service_quality} size="sm" />
                 </div>
                 <div className="text-center">
                   <div className={`text-xs ${
@@ -338,7 +326,7 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
                   <div className={`text-xs ${
                     isDark ? 'text-slate-400' : 'text-gray-500'
                   }`}>Value for Money</div>
-                  <StarRating rating={review.valueForMoney} size="sm" />
+                  <StarRating rating={review.value_for_money} size="sm" />
                 </div>
               </div>
               

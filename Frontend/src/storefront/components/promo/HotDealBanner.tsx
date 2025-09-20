@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, ArrowRight } from 'lucide-react';
 import { useWebsiteContent } from '../../hooks/useWebsiteContent';
 import { Link } from 'react-router-dom';
+import { getBannerImageUrl } from '../../utils/imageUtils';
 
 interface TimeLeft {
   days: number;
@@ -117,6 +118,12 @@ const HotDealBanner: React.FC = () => {
     endDate: content.deal1_end_date
   };
 
+  // Use deal2 image but same content as main deal
+  const secondDeal = {
+    title: mainDeal.title, // Use same title as main deal
+    image: content.deal2_image
+  };
+
   return (
     <div className="py-20 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }}>
       <div className="container mx-auto px-4">
@@ -127,7 +134,7 @@ const HotDealBanner: React.FC = () => {
             <div className="relative">
               {mainDeal.image ? (
                 <img 
-                  src={mainDeal.image} 
+                  src={getBannerImageUrl(mainDeal.image) || ''} 
                   alt={mainDeal.title} 
                   className="w-80 h-80 object-cover rounded-2xl shadow-2xl transform hover:scale-105 transition-transform duration-300"
                 />
@@ -175,7 +182,7 @@ const HotDealBanner: React.FC = () => {
 
             {/* Shop Now Button */}
             <Link 
-              to="/shop"
+              to="/shop?discounted=true"
               className="inline-flex items-center space-x-3 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
               style={{
                 background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 50%, var(--color-primary-700) 100%)',
@@ -198,9 +205,15 @@ const HotDealBanner: React.FC = () => {
           {/* Right Product Image */}
           <div className="lg:col-span-1 flex justify-center lg:justify-start">
             <div className="relative">
-              {mainDeal.image ? (
+              {secondDeal.image ? (
                 <img 
-                  src={mainDeal.image} 
+                  src={getBannerImageUrl(secondDeal.image) || ''} 
+                  alt={secondDeal.title} 
+                  className="w-80 h-80 object-cover rounded-2xl shadow-2xl transform hover:scale-105 transition-transform duration-300"
+                />
+              ) : mainDeal.image ? (
+                <img 
+                  src={getBannerImageUrl(mainDeal.image) || ''} 
                   alt={mainDeal.title} 
                   className="w-80 h-80 object-cover rounded-2xl shadow-2xl transform hover:scale-105 transition-transform duration-300"
                 />
@@ -210,7 +223,7 @@ const HotDealBanner: React.FC = () => {
                     <div className="w-24 h-24 bg-gray-600 dark:bg-gray-500 rounded-lg mb-4 mx-auto flex items-center justify-center">
                       <span className="text-2xl">🎧</span>
                     </div>
-                    <p className="text-lg font-semibold">{mainDeal.title}</p>
+                    <p className="text-lg font-semibold">{secondDeal.title}</p>
                   </div>
                 </div>
               )}

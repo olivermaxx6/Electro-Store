@@ -58,6 +58,7 @@ const SignUp: React.FC = () => {
           username: formData.username,
           email: formData.email,
           password: formData.password,
+          first_name: formData.username, // Add first_name field
         }),
       });
 
@@ -67,6 +68,33 @@ const SignUp: React.FC = () => {
       }
 
       const result = await response.json();
+      
+      // After successful registration, automatically log the user in
+      const loginResponse = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        throw new Error('Auto-login after registration failed');
+      }
+
+      const loginResult = await loginResponse.json();
+      
+      // Store auth data in localStorage
+      const authData = {
+        access: loginResult.access,
+        refresh: loginResult.refresh,
+        user: loginResult.user
+      };
+      localStorage.setItem('auth', JSON.stringify(authData));
+      localStorage.setItem('access_token', loginResult.access);
       
       // Sign the user in after successful registration and load their data
       dispatch(signUpWithData({

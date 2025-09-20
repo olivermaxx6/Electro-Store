@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "channels",
     # Local
     "adminpanel",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -80,6 +81,12 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Custom authentication backends
+AUTHENTICATION_BACKENDS = [
+    "accounts.authentication.EmailOrUsernameModelBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
