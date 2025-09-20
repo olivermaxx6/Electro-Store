@@ -66,53 +66,53 @@ const Help: React.FC = () => {
   ];
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <div className="container mx-auto px-4 py-8">
         <Breadcrumbs className="mb-6" />
         
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-8">Help Center</h1>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8 transition-colors duration-300">Help Center</h1>
           
           {/* Search */}
-          <div className="bg-white rounded-lg border border-gray-200 p-8 mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Search for help</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 mb-8 transition-colors duration-300">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4 transition-colors duration-300">Search for help</h2>
             <div className="relative">
               <input
                 type="text"
                 placeholder="Search for help articles, FAQs, or topics..."
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300"
               />
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
             </div>
           </div>
           
           {/* Help Categories */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {helpCategories.map((category, index) => (
-              <div key={index} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer">
+              <div key={index} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all duration-300 cursor-pointer">
                 <category.icon className="w-8 h-8 text-primary mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{category.title}</h3>
-                <p className="text-gray-600">{category.description}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 transition-colors duration-300">{category.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 transition-colors duration-300">{category.description}</p>
               </div>
             ))}
           </div>
           
           {/* FAQ Section */}
-          <div className="bg-white rounded-lg border border-gray-200 p-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Frequently Asked Questions</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 transition-colors duration-300">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6 transition-colors duration-300">Frequently Asked Questions</h2>
             
             <div className="space-y-6">
               {faqs.map((faq, index) => (
-                <div key={index} className="border-b border-gray-200 pb-6 last:border-b-0">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{faq.question}</h3>
-                  <p className="text-gray-600">{faq.answer}</p>
+                <div key={index} className="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-b-0 transition-colors duration-300">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 transition-colors duration-300">{faq.question}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 transition-colors duration-300">{faq.answer}</p>
                 </div>
               ))}
             </div>
           </div>
           
           {/* Contact Support */}
-          <div className="bg-primary rounded-lg p-8 mt-8 text-white text-center">
+          <div className="bg-blue-600 rounded-lg p-8 mt-8 text-white text-center">
             <h2 className="text-2xl font-semibold mb-4">Still need help?</h2>
             <p className="mb-6 opacity-90">
               Can't find what you're looking for? Our support team is here to help.
@@ -120,13 +120,13 @@ const Help: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="/contact"
-                className="bg-white text-primary px-6 py-3 rounded-md font-semibold hover:bg-gray-100 transition-colors"
+                className="bg-white text-blue-600 px-6 py-3 rounded-md font-semibold hover:bg-gray-100 transition-colors"
               >
                 Contact Support
               </a>
               <a
                 href={`mailto:${loading || error ? 'contact@store.com' : contactInfo.email || 'contact@store.com'}`}
-                className="border border-white text-white px-6 py-3 rounded-md font-semibold hover:bg-white hover:text-primary transition-colors"
+                className="border border-white text-white px-6 py-3 rounded-md font-semibold hover:bg-white hover:text-blue-600 transition-colors"
               >
                 Email Us
               </a>

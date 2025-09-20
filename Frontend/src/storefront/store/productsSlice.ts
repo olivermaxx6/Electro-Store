@@ -136,6 +136,20 @@ export const selectFilteredProducts = (state: { products: ProductsState }) => {
       product.discount_rate && product.discount_rate > 0
     );
   }
+
+  // Apply new arrivals filter
+  if (filters.onlyNewArrivals) {
+    filtered = filtered.filter(product => 
+      product.isNew === true
+    );
+  }
+
+  // Apply top selling filter
+  if (filters.onlyTopSelling) {
+    filtered = filtered.filter(product => 
+      product.is_top_selling === true
+    );
+  }
   
   // Apply sorting
   switch (sortBy) {

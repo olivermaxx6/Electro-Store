@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import AdminRoutes from '@shared/routes/AdminRoutes';
+import AdminRoutes from './routes/AdminRoutes';
 import AdminLayout from './components/layout/AdminLayout';
 import ErrorBoundary from './components/system/ErrorBoundary';
 import { useAuth } from './store/authStore';
@@ -13,6 +13,7 @@ function App() {
     // Initialize auth store
     init();
   }, [init]);
+
 
   return (
     <ErrorBoundary>

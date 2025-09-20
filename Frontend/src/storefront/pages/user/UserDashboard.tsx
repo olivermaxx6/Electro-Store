@@ -9,7 +9,6 @@ import {
   MessageCircle, 
   Package,
   Calendar,
-  DollarSign,
   LogOut,
   User as UserIcon
 } from 'lucide-react';
@@ -18,11 +17,14 @@ import { selectCartItemCount } from '../../store/cartSlice';
 import { selectWishlistCount } from '../../store/wishlistSlice';
 import { signOut } from '../../store/userSlice';
 import { useStore } from '../../contexts/StoreContext';
+import { formatPrice } from '../../lib/format';
+import { useStoreSettings } from '../../hooks/useStoreSettings';
 import ThemeToggle from '../../components/common/ThemeToggle';
 
 const UserDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { storeSettings } = useStore();
+  const { settings } = useStoreSettings();
   const currentUser = useSelector(selectCurrentUser);
   const cartCount = useSelector(selectCartItemCount(currentUser?.id || 'guest'));
   const wishlistCount = useSelector(selectWishlistCount(currentUser?.id || 'guest'));
@@ -155,7 +157,7 @@ const UserDashboard: React.FC = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-medium text-gray-900 dark:text-white">${order.total}</p>
+                <p className="font-medium text-gray-900 dark:text-white">{formatPrice(order.total, (settings?.currency as any) || 'USD')}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{order.status}</p>
               </div>
             </div>
@@ -183,7 +185,7 @@ const UserDashboard: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400">Ordered on {order.date}</p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">${order.total}</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{formatPrice(order.total, (settings?.currency as any) || 'USD')}</p>
               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                 order.status === 'Delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
                 order.status === 'Shipped' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
@@ -217,7 +219,7 @@ const UserDashboard: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400">Quantity: {item.quantity}</p>
             </div>
             <div className="text-right">
-              <p className="font-semibold text-gray-900 dark:text-white">${item.price}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(item.price, (settings?.currency as any) || 'USD')}</p>
             </div>
           </div>
         </div>
@@ -246,7 +248,7 @@ const UserDashboard: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400">Added to wishlist</p>
             </div>
             <div className="text-right">
-              <p className="font-semibold text-gray-900 dark:text-white">${item.price}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(item.price, (settings?.currency as any) || 'USD')}</p>
             </div>
           </div>
         </div>
@@ -348,7 +350,7 @@ const UserDashboard: React.FC = () => {
                   <span className="text-white font-bold text-lg">E</span>
                 </div>
                 <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {storeSettings.store_name}<span className="text-red-600 dark:text-blue-400">.</span>
+                  {storeSettings?.store_name || 'Store'}<span className="text-red-600 dark:text-blue-400">.</span>
                 </span>
               </Link>
             </div>

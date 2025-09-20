@@ -24,7 +24,7 @@ const BottomBar: React.FC = () => {
         <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
           {/* Copyright */}
           <div className="text-sm text-gray-400 dark:text-gray-300">
-            © 2024 {storeSettings.store_name}. All rights reserved.
+            © 2024 {storeSettings?.store_name || 'Store'}. All rights reserved.
           </div>
           
           {/* Payment Methods */}

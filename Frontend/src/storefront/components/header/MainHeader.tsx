@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Heart, ShoppingCart, Menu, ChevronDown, User } from 'lucide-react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { selectCartItemCount } from '../../store/cartSlice';
 import { selectWishlistCount } from '../../store/wishlistSlice';
 import { selectCurrentUser } from '../../store/userSlice';
-import { useStore } from '../../contexts/StoreContext';
+import { useStoreSettings } from '../../hooks/useStoreSettings';
 
 const MainHeader: React.FC = () => {
+  const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -17,7 +18,9 @@ const MainHeader: React.FC = () => {
   const userId = currentUser?.id || 'guest';
   const cartCount = useSelector(selectCartItemCount(userId));
   const wishlistCount = useSelector(selectWishlistCount(userId));
-  const { storeSettings } = useStore();
+  const { settings: storeSettings } = useStoreSettings();
+  
+  // Note: Cart loading is handled by Redux persist automatically
   
   // Load categories from backend
   useEffect(() => {
@@ -51,30 +54,30 @@ const MainHeader: React.FC = () => {
   return (
     <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
 
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            {storeSettings.store_logo ? (
+            {storeSettings?.store_logo ? (
               <img 
                 src={storeSettings.store_logo} 
-                alt={storeSettings.store_name} 
+                alt={storeSettings.store_name || 'Store'} 
                 className="w-8 h-8 rounded-full object-cover"
               />
             ) : (
               <div className="w-8 h-8 bg-red-600 dark:bg-blue-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-lg">
-                  {storeSettings.store_name.charAt(0).toUpperCase()}
+                  {storeSettings?.store_name ? storeSettings.store_name.charAt(0).toUpperCase() : 'S'}
                 </span>
               </div>
             )}
-            <span className="text-2xl font-bold text-gray-900 dark:text-white">
-              {storeSettings.store_name}<span className="text-red-600 dark:text-blue-400">.</span>
+            <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+              {storeSettings?.store_name || 'Store'}<span className="text-red-600 dark:text-blue-400">.</span>
             </span>
           </Link>
           
 
-          {/* Category Dropdown */}
+          {/* Category Dropdown - Hidden on mobile, visible on desktop */}
           <div className="relative hidden lg:block">
             <button
               onClick={() => setIsCategoryOpen(!isCategoryOpen)}
@@ -88,6 +91,13 @@ const MainHeader: React.FC = () => {
             {isCategoryOpen && (
               <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-md shadow-lg z-50">
                 <div className="py-2">
+                  <Link
+                    to="/categories"
+                    className="block px-4 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-gray-900 dark:text-white font-medium border-b border-gray-200 dark:border-slate-600"
+                    onClick={() => setIsCategoryOpen(false)}
+                  >
+                    View All Categories
+                  </Link>
                   {loading ? (
                     <div className="px-4 py-2 text-gray-500 dark:text-gray-400">
                       Loading categories...
@@ -96,7 +106,7 @@ const MainHeader: React.FC = () => {
                     categories.map((category) => (
                       <Link
                         key={category.id}
-                        to={`/category/${category.id}`}
+                        to={`/allsubcategories?category=${category.id}&name=${encodeURIComponent(category.name)}`}
                         className="block px-4 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-gray-900 dark:text-white"
                         onClick={() => setIsCategoryOpen(false)}
                       >
@@ -110,20 +120,20 @@ const MainHeader: React.FC = () => {
           </div>
           
           {/* Search Bar */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-lg mx-8">
+          <form onSubmit={handleSearch} className="w-full lg:flex-1 lg:max-w-lg lg:mx-8">
             <div className="relative">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search for products..."
-                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-sm sm:text-base"
               />
               <button
                 type="submit"
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
-                <Search className="w-5 h-5" />
+                <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           </form>
@@ -131,14 +141,14 @@ const MainHeader: React.FC = () => {
 
           
           {/* Mini Cart, Wishlist, and User */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 sm:space-x-4">
             <Link
               to="/wishlist"
               className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors"
             >
-              <Heart className="w-6 h-6" />
+              <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 dark:bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-red-600 dark:bg-blue-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs">
                   {wishlistCount}
                 </span>
               )}
@@ -148,9 +158,9 @@ const MainHeader: React.FC = () => {
               to="/cart"
               className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors"
             >
-              <ShoppingCart className="w-6 h-6" />
+              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 dark:bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-red-600 dark:bg-blue-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs">
                   {cartCount}
                 </span>
               )}
@@ -161,7 +171,7 @@ const MainHeader: React.FC = () => {
               to={currentUser ? "/user/dashboard" : "/user/sign-in"}
               className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors"
             >
-              <User className="w-6 h-6" />
+              <User className="w-5 h-5 sm:w-6 sm:h-6" />
             </Link>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { signIn } from '../../store/userSlice';
+import { loginUser } from '../../../lib/authApi';
 import ThemeToggle from '../../components/common/ThemeToggle';
 
 const SignIn: React.FC = () => {
@@ -32,21 +33,21 @@ const SignIn: React.FC = () => {
     setError('');
 
     try {
-      // Simulate API call - replace with actual authentication
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await loginUser(formData.email, formData.password);
       
-      // For demo purposes, accept any email/password
-      if (formData.email && formData.password) {
+      if (result.success) {
+        // Update Redux store with user data
         dispatch(signIn({
-          email: formData.email,
-          name: formData.email.split('@')[0] // Extract name from email
+          email: result.data.user.email,
+          name: result.data.user.first_name || result.data.user.username,
+          username: result.data.user.username
         }));
         navigate('/user/dashboard');
       } else {
-        setError('Please fill in all fields');
+        setError(result.error || 'Login failed');
       }
     } catch (err) {
-      setError('Invalid email or password');
+      setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }

@@ -3,8 +3,8 @@ from django.db import IntegrityError, transaction
 from django.contrib.auth.models import User
 from .models import (
     Brand, Category, Product, ProductImage,
-    Service, ServiceImage, ServiceInquiry,
-    Order, OrderItem, Review, WebsiteContent, StoreSettings,
+    Service, ServiceImage, ServiceInquiry, ServiceQuery, ServiceCategory,
+    Order, OrderItem, Review, ServiceReview, WebsiteContent, StoreSettings,
     ChatRoom, ChatMessage, Contact
 )
 
@@ -33,8 +33,8 @@ class BrandSerializer(SafeModelSerializer):
 
     class Meta:
         model = Brand
-        fields = ["id", "name", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "name", "slug", "created_at"]
+        read_only_fields = ["id", "slug", "created_at"]
 
     def validate_name(self, value):
         v = value.strip()
@@ -49,19 +49,11 @@ class CategorySerializer(SafeModelSerializer):
         required=False,
     )
     name = serializers.CharField(max_length=120)
-    slug = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
         fields = ["id", "name", "slug", "parent", "created_at"]
         read_only_fields = ["id", "slug", "created_at"]
-
-    def get_slug(self, obj):
-        """Generate slug from category name"""
-        import re
-        slug = re.sub(r'[^\w\s-]', '', obj.name.lower())
-        slug = re.sub(r'[-\s]+', '-', slug)
-        return slug.strip('-')
 
     def validate_name(self, v):
         v = (v or "").strip()
@@ -84,6 +76,10 @@ class ProductSerializer(SafeModelSerializer):
     technical_specs = serializers.JSONField(required=False)
     # Make discount_rate optional and allow empty values
     discount_rate = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
+    
+    # Add nested serializers for read-only brand and category data
+    brand_data = BrandSerializer(source='brand', read_only=True)
+    category_data = CategorySerializer(source='category', read_only=True)
 
     class Meta:
         model = Product
@@ -91,8 +87,9 @@ class ProductSerializer(SafeModelSerializer):
             "id", "name", "description",
             "price", "discount_rate", "stock",
             "brand", "category",
-            "technical_specs",
-            "images", "created_at",
+            "brand_data", "category_data",
+            "technical_specs", "view_count",
+            "isNew", "is_top_selling", "images", "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -164,9 +161,18 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ["id","user","total_price","status","created_at","shipping_name","items"]
+        fields = [
+            "id", "user", "tracking_id", "payment_id", "customer_email", "customer_phone",
+            "shipping_address", "subtotal", "shipping_cost", "tax_amount", "total_price",
+            "status", "payment_method", "shipping_name", "created_at", "updated_at", "items"
+        ]
 
 # --- Services ---
+class ServiceCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServiceCategory
+        fields = ["id","name","description","ordering","is_active","created_at"]
+
 class ServiceImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceImage
@@ -174,10 +180,16 @@ class ServiceImageSerializer(serializers.ModelSerializer):
 
 class ServiceSerializer(serializers.ModelSerializer):
     images = ServiceImageSerializer(many=True, read_only=True)
+    category = ServiceCategorySerializer(read_only=True)
+    category_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Service
-        fields = ["id","name","description","price","form_fields","created_at","images"]
+        fields = [
+            "id","name","description","price","form_fields","created_at","images",
+            "rating","review_count","view_count","overview","included_features","process_steps",
+            "key_features","contact_info","availability","category","category_id"
+        ]
 
 class ServiceInquirySerializer(serializers.ModelSerializer):
     service_name = serializers.CharField(source="service.name", read_only=True)
@@ -192,9 +204,62 @@ class ServiceInquirySerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
     user_name = serializers.CharField(source="user.username", read_only=True)
+    
     class Meta:
         model = Review
-        fields = ["id","product","product_name","user","user_name","rating","comment","created_at"]
+        fields = ["id","product","product_name","user","user_name","author_name","rating","comment","created_at"]
+        read_only_fields = ["created_at", "user"]  # Make user read-only since it's set in perform_create
+    
+    def validate(self, data):
+        """Validate that user hasn't already reviewed this product"""
+        product = data.get('product')
+        user = data.get('user')
+        
+        if product and user:
+            # Check if user already reviewed this product
+            existing_review = Review.objects.filter(
+                product=product, 
+                user=user
+            ).first()
+            
+            if existing_review:
+                raise serializers.ValidationError({
+                    'product': 'You have already reviewed this product.'
+                })
+        
+        return data
+
+class ServiceReviewSerializer(serializers.ModelSerializer):
+    service_name = serializers.CharField(source="service.name", read_only=True)
+    user_name = serializers.CharField(source="user.username", read_only=True)
+    
+    class Meta:
+        model = ServiceReview
+        fields = [
+            "id", "service", "service_name", "user", "user_name", "author_name",
+            "rating", "comment", "service_quality", "communication", "timeliness",
+            "value_for_money", "verified", "created_at", "updated_at"
+        ]
+        read_only_fields = ["created_at", "updated_at", "user"]  # Make user read-only since it's set in perform_create
+    
+    def validate(self, data):
+        """Validate that user hasn't already reviewed this service"""
+        service = data.get('service')
+        user = data.get('user')
+        
+        if service and user:
+            # Check if user already reviewed this service
+            existing_review = ServiceReview.objects.filter(
+                service=service, 
+                user=user
+            ).first()
+            
+            if existing_review:
+                raise serializers.ValidationError({
+                    'service': 'You have already reviewed this service.'
+                })
+        
+        return data
 
 # --- Content & Settings ---
 class WebsiteContentSerializer(serializers.ModelSerializer):
@@ -207,6 +272,7 @@ class WebsiteContentSerializer(serializers.ModelSerializer):
             "banner3_image", "banner3_text", "banner3_link",
             "logo", 
             "deal1_title", "deal1_subtitle", "deal1_discount", "deal1_description", "deal1_image", "deal1_end_date",
+            "deal2_title", "deal2_subtitle", "deal2_discount", "deal2_description", "deal2_image", "deal2_end_date",
             "street_address", "city", "postcode", "country",
             "phone", "email"
         ]
@@ -214,7 +280,7 @@ class WebsiteContentSerializer(serializers.ModelSerializer):
 class StoreSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreSettings
-        fields = ["id","store_name","store_logo","about_us_picture","favicon","currency","tax_rate","shipping_rate","street_address","city","postcode","country","phone","email","monday_friday_hours","saturday_hours","sunday_hours"]
+        fields = ["id","store_name","store_logo","about_us_picture","favicon","currency","tax_rate","shipping_rate","standard_shipping_rate","express_shipping_rate","street_address","city","postcode","country","phone","email","monday_friday_hours","saturday_hours","sunday_hours"]
 
 # --- Users (admin-facing) ---
 class AdminUserSerializer(serializers.ModelSerializer):
@@ -280,4 +346,20 @@ class ContactSerializer(SafeModelSerializer):
     class Meta:
         model = Contact
         fields = ["id", "name", "email", "subject", "message", "status", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+class ServiceQuerySerializer(SafeModelSerializer):
+    """Serializer for service query submissions"""
+    service_name = serializers.CharField(source='service.name', read_only=True)
+    query_type_display = serializers.CharField(source='get_query_type_display', read_only=True)
+    
+    class Meta:
+        model = ServiceQuery
+        fields = [
+            "id", "query_type", "query_type_display", "service", "service_name",
+            "name", "email", "phone", "company", "message",
+            "project_type", "timeline", "budget", "requirements",
+            "preferred_date", "budget_range",
+            "status", "created_at", "updated_at"
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]

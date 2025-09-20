@@ -41,6 +41,8 @@
   /* Layout */
   --container-max: 1280px;
   --container-padding: 1.5rem;
+  --container-padding-mobile: 1rem;
+  --container-padding-tablet: 1.25rem;
   
   /* Typography */
   --font-family: 'Inter', 'Poppins', system-ui, sans-serif;

@@ -18,6 +18,8 @@ import { selectCurrentUser, selectUserOrders } from '../../store/userSlice';
 import { selectCartItemCount } from '../../store/cartSlice';
 import { selectWishlistCount } from '../../store/wishlistSlice';
 import { signOut } from '../../store/userSlice';
+import { formatPrice } from '../../lib/format';
+import { useStoreSettings } from '../../hooks/useStoreSettings';
 import { useStore } from '../../contexts/StoreContext';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import ChatModal from '../../components/chat/ChatModal';
@@ -25,6 +27,7 @@ import ChatModal from '../../components/chat/ChatModal';
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { storeSettings } = useStore();
+  const { settings } = useStoreSettings();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const currentUser = useSelector(selectCurrentUser);
   const orders = useSelector(selectUserOrders);
@@ -135,7 +138,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">${order.total}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(order.total, (settings?.currency as any) || 'USD')}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{order.status}</p>
                 </div>
               </div>
@@ -176,7 +179,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">${order.total}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(order.total, (settings?.currency as any) || 'USD')}</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{order.status}</p>
                   </div>
                 </div>
@@ -349,7 +352,7 @@ const Dashboard: React.FC = () => {
                   <span className="text-white font-bold text-lg">E</span>
                 </div>
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
-                  {storeSettings.store_name}<span className="text-red-600 dark:text-blue-400">.</span>
+                  {storeSettings?.store_name || 'Store'}<span className="text-red-600 dark:text-blue-400">.</span>
                 </span>
               </Link>
             </div>

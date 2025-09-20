@@ -45,9 +45,9 @@ export default function ProductsPage(){
   const [cTopCat, setCTopCat] = useState('');
   const [cSubcat, setCSubcat] = useState('');
   const [cSpecs, setCSpecs] = useState([{key:'',value:''}]);
-  const [cMainImage, setCMainImage] = useState(null);
-  const [cSecondImage, setCSecondImage] = useState(null);
-  const [cThirdImage, setCThirdImage] = useState(null);
+  const [cImages, setCImages] = useState([]);
+  const [cIsNewArrival, setCIsNewArrival] = useState(false);
+  const [cIsTopSelling, setCIsTopSelling] = useState(false);
 
   // FILTERS
   const [q, setQ] = useState('');
@@ -71,9 +71,9 @@ export default function ProductsPage(){
   const [eSubcat, setESubcat] = useState('');
   const [eSpecs, setESpecs] = useState([{key:'',value:''}]);
   const [eFiles, setEFiles] = useState([]);
-  const [eMainImage, setEMainImage] = useState(null);
-  const [eSecondImage, setESecondImage] = useState(null);
-  const [eThirdImage, setEThirdImage] = useState(null);
+  const [eImages, setEImages] = useState([]);
+  const [eIsNewArrival, setEIsNewArrival] = useState(false);
+  const [eIsTopSelling, setEIsTopSelling] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -177,50 +177,44 @@ export default function ProductsPage(){
     setEBrand(p.brand||'');
     setETopCat(''); setESubcat(p.category||'');
     setESpecs(objectToKv(p.technical_specs||{}));
+    setEIsNewArrival(p.isNew||false);
+    setEIsTopSelling(p.is_top_selling||false);
     setEFiles([]);
-    setEMainImage(null); setESecondImage(null); setEThirdImage(null);
+    setEImages([]);
   };
 
   // create handlers
   const addSpec = () => setCSpecs([...cSpecs, {key:'',value:''}]);
   const rmSpec  = (i) => setCSpecs(cSpecs.filter((_,idx)=>idx!==i));
   const chSpec  = (i,f,v) => setCSpecs(cSpecs.map((r,idx)=> idx===i? {...r,[f]:v} : r));
-  const onCreateMainImage = (e) => {
+  const onCreateImages = (e) => {
     const files = onlyImages(e.target.files);
-    setCMainImage(files[0] || null);
+    setCImages(prev => [...prev, ...files]);
   };
-  const onCreateSecondImage = (e) => {
-    const files = onlyImages(e.target.files);
-    setCSecondImage(files[0] || null);
-  };
-  const onCreateThirdImage = (e) => {
-    const files = onlyImages(e.target.files);
-    setCThirdImage(files[0] || null);
+  
+  const removeCreateImage = (index) => {
+    setCImages(prev => prev.filter((_, i) => i !== index));
   };
 
   // edit image handlers
-  const onEditMainImage = (e) => {
+  const onEditImages = (e) => {
     const files = onlyImages(e.target.files);
-    setEMainImage(files[0] || null);
+    setEImages(prev => [...prev, ...files]);
   };
-  const onEditSecondImage = (e) => {
-    const files = onlyImages(e.target.files);
-    setESecondImage(files[0] || null);
-  };
-  const onEditThirdImage = (e) => {
-    const files = onlyImages(e.target.files);
-    setEThirdImage(files[0] || null);
+  
+  const removeEditImage = (index) => {
+    setEImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const createHandler = async () => {
     setMsg(null);
-    console.log('Form state:', { cName, cBrand, cTopCat, cSubcat, cMainImage, cPrice, cStock, cDiscount });
+    console.log('Form state:', { cName, cBrand, cTopCat, cSubcat, cImages, cPrice, cStock, cDiscount });
     
     if (!cName.trim()) return setMsg({kind:'error',text:'Name is required.'});
     if (!cBrand) return setMsg({kind:'error',text:'Select a Brand.'});
     const category = cSubcat || cTopCat;
     if (!category) return setMsg({kind:'error',text:'Select Category/Subcategory.'});
-    if (!cMainImage) return setMsg({kind:'error',text:'Main product image is required.'});
+    if (cImages.length === 0) return setMsg({kind:'error',text:'At least one product image is required.'});
     
     console.log('Validation passed, proceeding with product creation...');
     
@@ -240,20 +234,20 @@ export default function ProductsPage(){
         brand: Number(cBrand),
         category: Number(category),
         technical_specs: kvToObject(cSpecs),
+        isNew: cIsNewArrival,
+        is_top_selling: cIsTopSelling,
       };
       console.log('Creating product with payload:', payload);
       const { data: prod } = await createProduct(payload);
       console.log('Product created successfully:', prod);
-      const allImages = [cMainImage, cSecondImage, cThirdImage].filter(img => img);
-      if (allImages.length) { await uploadProductImages(prod.id, allImages); }
+      if (cImages.length) { await uploadProductImages(prod.id, cImages); }
       // reset
       setCName(''); setCDesc(''); setCPrice(''); setCDiscount(''); setCStock('');
       setCBrand(''); setCTopCat(''); setCSubcat('');
       setCSpecs([{key:'',value:''}]); 
-      setCMainImage(null); setCSecondImage(null); setCThirdImage(null);
+      setCImages([]);
       await loadList();
       setMsg({kind:'success', text:'Product created successfully!'});
-      console.log('=== PRODUCT CREATION SUCCESS ===');
     } catch(err){
       console.error('=== PRODUCT CREATION ERROR ===');
       console.error('Error object:', err);
@@ -273,7 +267,6 @@ export default function ProductsPage(){
       setMsg({kind:'error', text: errorMessage});
     } finally { 
       setBusy(false);
-      console.log('=== PRODUCT CREATION COMPLETE ===');
     }
   };
 
@@ -298,13 +291,14 @@ export default function ProductsPage(){
         brand: eBrand ? Number(eBrand) : null,
         category: Number(category),
         technical_specs: kvToObject(eSpecs),
+        isNew: eIsNewArrival,
+        is_top_selling: eIsTopSelling,
       };
       await updateProduct(editing.id, payload);
       
       // Handle image uploads
-      const allImages = [eMainImage, eSecondImage, eThirdImage].filter(img => img);
-      if (allImages.length) {
-        await uploadProductImages(editing.id, allImages);
+      if (eImages.length) {
+        await uploadProductImages(editing.id, eImages);
       }
       if (eFiles.length) await uploadProductImages(editing.id, eFiles);
       const fresh = (await getProduct(editing.id)).data;
@@ -515,6 +509,68 @@ export default function ProductsPage(){
             </div>
           </div>
 
+          {/* New Arrivals Section */}
+          <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-sm">🆕</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">New Arrivals</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={cIsNewArrival}
+                  onChange={(e) => setCIsNewArrival(e.target.checked)}
+                  className="w-5 h-5 text-blue-600 bg-white border-2 border-blue-300 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                  Mark as New Arrival
+                </span>
+              </label>
+              <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                {cIsNewArrival ? '✅ Will appear in New Arrivals section' : '❌ Will not appear in New Arrivals section'}
+              </div>
+            </div>
+            <div className="mt-4 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-2xl">
+              <div className="text-blue-700 dark:text-blue-300 text-sm font-medium">
+                💡 New arrival products will be displayed in the "NEW PRODUCTS" section on the home page to showcase your latest additions.
+              </div>
+            </div>
+          </div>
+
+          {/* Top Selling Section */}
+          <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-3xl border border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-sm">⭐</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Top Selling Product</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={cIsTopSelling}
+                  onChange={(e) => setCIsTopSelling(e.target.checked)}
+                  className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
+                />
+                <span className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                  Mark as Top Selling Product
+                </span>
+              </label>
+              <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+                {cIsTopSelling ? '✅ Will appear on home page' : '❌ Will not appear on home page'}
+              </div>
+            </div>
+            <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
+              <div className="text-green-700 dark:text-green-300 text-sm font-medium">
+                💡 Top selling products will be displayed in a special section on the home page to highlight your best products.
+              </div>
+            </div>
+          </div>
+
           {/* Images */}
           <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-3xl border border-purple-200 dark:border-purple-800">
             <div className="flex items-center gap-3 mb-6">
@@ -523,90 +579,57 @@ export default function ProductsPage(){
               </div>
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Product Images</h3>
             </div>
-            <div className="grid gap-6 md:grid-cols-3">
-              {/* Main Product Image */}
-              <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-6 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
-                <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-white text-lg">📷</span>
+            {/* Multiple Image Upload */}
+            <div className="space-y-6">
+              {/* Upload Area */}
+              <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-8 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <span className="text-white text-2xl">📸</span>
                 </div>
-                <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Main Product Image</div>
-                <div className="text-red-500 text-sm font-medium mb-4">Required *</div>
+                <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Upload Product Images</div>
+                <div className="text-red-500 text-sm font-medium mb-4">At least one image is required *</div>
                 <input 
                   type="file" 
                   accept=".jpg,.jpeg,.png" 
-                  onChange={onCreateMainImage}
+                  multiple
+                  onChange={onCreateImages}
                   className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-800 transition-all duration-200"
                 />
-                {cMainImage && (
-                  <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
-                    <div className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
-                      <span>✓</span>
-                      <span className="text-sm">{cMainImage.name}</span>
-                    </div>
-                  </div>
-                )}
-                {!cMainImage && (
-                  <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
-                    No file chosen
-                  </div>
-                )}
+                <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
+                  You can select multiple images at once (JPG, PNG only)
+                </div>
               </div>
 
-              {/* Second Product Image */}
-              <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-6 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-white text-lg">🖼️</span>
+              {/* Selected Images Preview */}
+              {cImages.length > 0 && (
+                <div className="space-y-4">
+                  <div className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                    Selected Images ({cImages.length})
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {cImages.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <div className="aspect-square bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-slate-600">
+                          <img 
+                            src={URL.createObjectURL(image)} 
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <button
+                          onClick={() => removeCreateImage(index)}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
+                        >
+                          ×
+                        </button>
+                        <div className="mt-2 text-xs text-center text-slate-600 dark:text-slate-400 truncate">
+                          {image.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Second Product Image</div>
-                <div className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-4">Optional</div>
-                <input 
-                  type="file" 
-                  accept=".jpg,.jpeg,.png" 
-                  onChange={onCreateSecondImage}
-                  className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-800 transition-all duration-200"
-                />
-                {cSecondImage && (
-                  <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
-                    <div className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
-                      <span>✓</span>
-                      <span className="text-sm">{cSecondImage.name}</span>
-                    </div>
-                  </div>
-                )}
-                {!cSecondImage && (
-                  <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
-                    No file chosen
-                  </div>
-                )}
-              </div>
-
-              {/* Third Product Image */}
-              <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-6 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
-                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-white text-lg">🎨</span>
-                </div>
-                <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Third Product Image</div>
-                <div className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-4">Optional</div>
-                <input 
-                  type="file" 
-                  accept=".jpg,.jpeg,.png" 
-                  onChange={onCreateThirdImage}
-                  className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-800 transition-all duration-200"
-                />
-                {cThirdImage && (
-                  <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
-                    <div className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
-                      <span>✓</span>
-                      <span className="text-sm">{cThirdImage.name}</span>
-                    </div>
-                  </div>
-                )}
-                {!cThirdImage && (
-                  <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
-                    No file chosen
-                  </div>
-                )}
-              </div>
+              )}
             </div>
             <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl">
               <div className="text-blue-700 dark:text-blue-300 text-sm font-medium">
@@ -939,6 +962,68 @@ export default function ProductsPage(){
               </div>
             </div>
 
+            {/* New Arrivals Section */}
+            <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">🆕</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">New Arrivals</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={eIsNewArrival}
+                    onChange={(e) => setEIsNewArrival(e.target.checked)}
+                    className="w-5 h-5 text-blue-600 bg-white border-2 border-blue-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                    Mark as New Arrival
+                  </span>
+                </label>
+                <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                  {eIsNewArrival ? '✅ Will appear in New Arrivals section' : '❌ Will not appear in New Arrivals section'}
+                </div>
+              </div>
+              <div className="mt-4 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-2xl">
+                <div className="text-blue-700 dark:text-blue-300 text-sm font-medium">
+                  💡 New arrival products will be displayed in the "NEW PRODUCTS" section on the home page to showcase your latest additions.
+                </div>
+              </div>
+            </div>
+
+            {/* Top Selling Section */}
+            <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-3xl border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">⭐</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Top Selling Product</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={eIsTopSelling}
+                    onChange={(e) => setEIsTopSelling(e.target.checked)}
+                    className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
+                  />
+                  <span className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                    Mark as Top Selling Product
+                  </span>
+                </label>
+                <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+                  {eIsTopSelling ? '✅ Will appear on home page' : '❌ Will not appear on home page'}
+                </div>
+              </div>
+              <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
+                <div className="text-green-700 dark:text-green-300 text-sm font-medium">
+                  💡 Top selling products will be displayed in a special section on the home page to highlight your best products.
+                </div>
+              </div>
+            </div>
+
             <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-3xl border border-purple-200 dark:border-purple-800">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
@@ -977,91 +1062,58 @@ export default function ProductsPage(){
               </div>
 
               {/* New Image Uploads */}
-              <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Add New Images</div>
-              <div className="grid gap-6 md:grid-cols-3">
-                {/* Main Product Image */}
-                <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-6 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-white text-lg">📷</span>
+              <div className="space-y-6">
+                <div className="text-lg font-semibold text-slate-700 dark:text-slate-300">Add New Images</div>
+                
+                {/* Upload Area */}
+                <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-8 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-white text-2xl">📸</span>
                   </div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Main Product Image</div>
-                  <div className="text-red-500 text-sm font-medium mb-4">Required *</div>
-                  <input 
-                    type="file" 
-                    accept=".jpg,.jpeg,.png" 
-                    onChange={onEditMainImage}
-                    className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-800 transition-all duration-200"
-                  />
-                  {eMainImage && (
-                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
-                      <div className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
-                        <span>✓</span>
-                        <span className="text-sm">{eMainImage.name}</span>
-                      </div>
-                    </div>
-                  )}
-                  {!eMainImage && (
-                    <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
-                      No file chosen
-                    </div>
-                  )}
-                </div>
-
-                {/* Second Product Image */}
-                <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-6 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-white text-lg">🖼️</span>
-                  </div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Second Product Image</div>
+                  <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Upload Additional Images</div>
                   <div className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-4">Optional</div>
                   <input 
                     type="file" 
                     accept=".jpg,.jpeg,.png" 
-                    onChange={onEditSecondImage}
+                    multiple
+                    onChange={onEditImages}
                     className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-800 transition-all duration-200"
                   />
-                  {eSecondImage && (
-                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
-                      <div className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
-                        <span>✓</span>
-                        <span className="text-sm">{eSecondImage.name}</span>
-                      </div>
-                    </div>
-                  )}
-                  {!eSecondImage && (
-                    <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
-                      No file chosen
-                    </div>
-                  )}
+                  <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
+                    You can select multiple images at once (JPG, PNG only)
+                  </div>
                 </div>
 
-                {/* Third Product Image */}
-                <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-3xl p-6 text-center bg-white/50 dark:bg-slate-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-white text-lg">🎨</span>
+                {/* Selected Images Preview */}
+                {eImages.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                      New Images to Upload ({eImages.length})
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {eImages.map((image, index) => (
+                        <div key={index} className="relative group">
+                          <div className="aspect-square bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-slate-600">
+                            <img 
+                              src={URL.createObjectURL(image)} 
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <button
+                            onClick={() => removeEditImage(index)}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                          <div className="mt-2 text-xs text-center text-slate-600 dark:text-slate-400 truncate">
+                            {image.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Third Product Image</div>
-                  <div className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-4">Optional</div>
-                  <input 
-                    type="file" 
-                    accept=".jpg,.jpeg,.png" 
-                    onChange={onEditThirdImage}
-                    className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-800 transition-all duration-200"
-                  />
-                  {eThirdImage && (
-                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl">
-                      <div className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
-                        <span>✓</span>
-                        <span className="text-sm">{eThirdImage.name}</span>
-                      </div>
-                    </div>
-                  )}
-                  {!eThirdImage && (
-                    <div className="mt-4 text-slate-500 dark:text-slate-400 text-sm">
-                      No file chosen
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl">
                 <div className="text-blue-700 dark:text-blue-300 text-sm font-medium">

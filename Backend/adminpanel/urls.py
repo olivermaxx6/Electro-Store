@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views_auth import AdminLoginView, AdminRefreshView, MeView, AdminProfileUpdateView, AdminPasswordChangeView
 from .views_debug import health_ping, request_echo  # same paths as before
+from .views_dashboard import DashboardStatsView, ProfileView, ChangePasswordView
 
 log = logging.getLogger("adminpanel")
 router = DefaultRouter()
@@ -11,10 +12,10 @@ router = DefaultRouter()
 try:
     from .views import (
         ProductViewSet, BrandViewSet, CategoryViewSet, ProductImageDestroyView,
-        ServiceViewSet, ServiceImageDestroyView, ServiceInquiryViewSet,
-        OrderViewSet, AdminUserViewSet, ReviewViewSet,
+        ServiceViewSet, ServiceCategoryViewSet, ServiceImageDestroyView, ServiceInquiryViewSet,
+        OrderViewSet, AdminUserViewSet, ReviewViewSet, ServiceReviewViewSet,
         WebsiteContentViewSet, StoreSettingsViewSet,
-        ChatRoomViewSet, ChatMessageViewSet, ContactViewSet
+        ChatRoomViewSet, ChatMessageViewSet, ContactViewSet, ServiceQueryViewSet
     )
     # Product management
     router.register(r"admin/products", ProductViewSet, basename="product")
@@ -23,6 +24,7 @@ try:
     router.register(r"admin/product-images", ProductImageDestroyView, basename="productimage")
     
     # Service management
+    router.register(r"admin/service-categories", ServiceCategoryViewSet, basename="servicecategory")
     router.register(r"admin/services", ServiceViewSet, basename="service")
     router.register(r"admin/service-images", ServiceImageDestroyView, basename="serviceimage")
     router.register(r"admin/service-inquiries", ServiceInquiryViewSet, basename="serviceinquiry")
@@ -35,6 +37,7 @@ try:
     
     # Review management
     router.register(r"admin/reviews", ReviewViewSet, basename="review")
+    router.register(r"admin/service-reviews", ServiceReviewViewSet, basename="servicereview")
     
     # Content & Settings (singleton endpoints)
     router.register(r"admin/website-content", WebsiteContentViewSet, basename="websitecontent")
@@ -46,6 +49,7 @@ try:
     
     # Contact management
     router.register(r"admin/contacts", ContactViewSet, basename="contact")
+    router.register(r"admin/service-queries", ServiceQueryViewSet, basename="servicequery")
     
 except Exception as e:
     log.exception("Router setup failed (views import error): %s", e)
@@ -61,6 +65,11 @@ urlpatterns = [
     path("auth/me/", MeView.as_view(), name="admin-me"),
     path("auth/profile/", AdminProfileUpdateView.as_view(), name="admin-profile-update"),
     path("auth/password/", AdminPasswordChangeView.as_view(), name="admin-password-change"),
+
+    # ---- DASHBOARD ----
+    path("admin/dashboard/stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
+    path("admin/profile/", ProfileView.as_view(), name="admin-profile"),
+    path("admin/password/", ChangePasswordView.as_view(), name="admin-password"),
 
     # ---- DEBUG (unchanged paths) ----
     path("admin/health/ping/", health_ping),

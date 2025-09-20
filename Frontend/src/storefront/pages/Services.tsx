@@ -1,111 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { ChevronDown, Grid, List, Star, Clock, CheckCircle, ArrowRight } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import Placeholder from '../components/common/Placeholder';
 import DualRangeSlider from '../components/filters/DualRangeSlider';
+import TitleUpdater from '../components/common/TitleUpdater';
+import { getServices, getServiceCategories, getServiceReviews, calculateServiceStats, incrementServiceView, Service, ServiceCategory } from '../../lib/servicesApi';
+import { formatPrice } from '../lib/format';
+import { useStoreSettings } from '../hooks/useStoreSettings';
 
-// Mock services data - in a real app, this would come from an API
-const servicesData = [
-  {
-    id: 1,
-    title: 'Website Development',
-    description: 'Professional website development using modern technologies like React, Node.js, and more.',
-    price: 299,
-    duration: '2-3 weeks',
-    rating: 4.8,
-    reviewCount: 124,
-    image: '/api/placeholder/300/200',
-    features: ['Responsive Design', 'SEO Optimized', 'Fast Loading', 'Mobile Friendly'],
-    category: 'Development'
-  },
-  {
-    id: 2,
-    title: 'Mobile App Development',
-    description: 'Native and cross-platform mobile app development for iOS and Android.',
-    price: 599,
-    duration: '4-6 weeks',
-    rating: 4.9,
-    reviewCount: 89,
-    image: '/api/placeholder/300/200',
-    features: ['Cross-Platform', 'Native Performance', 'App Store Ready', 'Push Notifications'],
-    category: 'Development'
-  },
-  {
-    id: 3,
-    title: 'E-commerce Solutions',
-    description: 'Complete e-commerce platform development with payment integration and inventory management.',
-    price: 799,
-    duration: '6-8 weeks',
-    rating: 4.7,
-    reviewCount: 156,
-    image: '/api/placeholder/300/200',
-    features: ['Payment Gateway', 'Inventory Management', 'Order Tracking', 'Analytics Dashboard'],
-    category: 'E-commerce'
-  },
-  {
-    id: 4,
-    title: 'Digital Marketing',
-    description: 'Comprehensive digital marketing strategies including SEO, social media, and PPC campaigns.',
-    price: 199,
-    duration: 'Ongoing',
-    rating: 4.6,
-    reviewCount: 203,
-    image: '/api/placeholder/300/200',
-    features: ['SEO Optimization', 'Social Media', 'PPC Campaigns', 'Analytics Reports'],
-    category: 'Marketing'
-  },
-  {
-    id: 5,
-    title: 'UI/UX Design',
-    description: 'Beautiful and intuitive user interface and user experience design for web and mobile.',
-    price: 399,
-    duration: '3-4 weeks',
-    rating: 4.9,
-    reviewCount: 98,
-    image: '/api/placeholder/300/200',
-    features: ['User Research', 'Wireframing', 'Prototyping', 'Design System'],
-    category: 'Design'
-  },
-  {
-    id: 6,
-    title: 'Cloud Migration',
-    description: 'Seamless migration of your applications and data to cloud platforms like AWS, Azure, or GCP.',
-    price: 899,
-    duration: '4-8 weeks',
-    rating: 4.8,
-    reviewCount: 67,
-    image: '/api/placeholder/300/200',
-    features: ['Zero Downtime', 'Security Assessment', 'Cost Optimization', '24/7 Support'],
-    category: 'Infrastructure'
-  },
-  {
-    id: 7,
-    title: 'Data Analytics',
-    description: 'Advanced data analytics and business intelligence solutions to drive informed decisions.',
-    price: 499,
-    duration: '2-4 weeks',
-    rating: 4.7,
-    reviewCount: 145,
-    image: '/api/placeholder/300/200',
-    features: ['Data Visualization', 'Predictive Analytics', 'Custom Dashboards', 'Real-time Reports'],
-    category: 'Analytics'
-  },
-  {
-    id: 8,
-    title: 'Technical Consulting',
-    description: 'Expert technical consultation to help you make informed technology decisions.',
-    price: 149,
-    duration: '1-2 days',
-    rating: 4.8,
-    reviewCount: 178,
-    image: '/api/placeholder/300/200',
-    features: ['Technology Audit', 'Architecture Review', 'Best Practices', 'Implementation Plan'],
-    category: 'Consulting'
-  }
-];
-
-const categories = ['All', 'Development', 'E-commerce', 'Marketing', 'Design', 'Infrastructure', 'Analytics', 'Consulting'];
+// Transform API service data to match the component's expected format
+const transformServiceData = (apiService: Service, reviewsStats?: { averageRating: number; reviewCount: number }) => ({
+  id: apiService.id,
+  title: apiService.name,
+  description: apiService.description,
+  price: parseFloat(apiService.price.toString()),
+  duration: apiService.availability || 'Contact for details',
+  rating: reviewsStats?.averageRating || parseFloat(apiService.rating.toString()),
+  reviewCount: reviewsStats?.reviewCount || apiService.review_count,
+  viewCount: apiService.view_count || 0,
+  image: apiService.images?.[0]?.image || null,
+  features: apiService.key_features || [],
+  category: apiService.category?.name || 'Uncategorized'
+});
 
 const Services: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -113,6 +30,106 @@ const Services: React.FC = () => {
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'popularity');
   const [viewMode, setViewMode] = useState(searchParams.get('view') || 'grid');
   const [priceRange, setPriceRange] = useState<[number, number]>([100, 1000]);
+  const [selectedDurations, setSelectedDurations] = useState<string[]>([]);
+  
+  // Dynamic data state
+  const [servicesData, setServicesData] = useState<any[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Store settings for currency
+  const { settings } = useStoreSettings();
+  
+  // Debug logging
+  console.log('Services page - settings:', settings);
+  console.log('Services page - currency:', settings?.currency);
+
+  // Fetch services and categories on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const [servicesResponse, categoriesResponse] = await Promise.all([
+          getServices(),
+          getServiceCategories()
+        ]);
+        
+        // Transform services data with review statistics
+        const transformedServices = await Promise.all(
+          servicesResponse.map(async (service) => {
+            try {
+              const reviews = await getServiceReviews(service.id.toString());
+              const stats = calculateServiceStats(reviews);
+              return transformServiceData(service, stats);
+            } catch (error) {
+              console.error(`Failed to fetch reviews for service ${service.id}:`, error);
+              return transformServiceData(service);
+            }
+          })
+        );
+        setServicesData(transformedServices);
+        
+        // Build categories list
+        const categoryNames = categoriesResponse.map((cat: ServiceCategory) => cat.name);
+        setCategories(['All', ...categoryNames]);
+        
+        console.log('Fetched services:', servicesResponse);
+        console.log('Transformed services:', transformedServices);
+        console.log('Fetched categories:', categoryNames);
+        
+      } catch (err) {
+        console.error('Failed to fetch services data:', err);
+        setError('Failed to load services. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Add a refresh function that can be called manually
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [servicesResponse, categoriesResponse] = await Promise.all([
+        getServices(),
+        getServiceCategories()
+      ]);
+      
+      // Transform services data with review statistics
+      const transformedServices = await Promise.all(
+        servicesResponse.map(async (service) => {
+          try {
+            const reviews = await getServiceReviews(service.id.toString());
+            const stats = calculateServiceStats(reviews);
+            return transformServiceData(service, stats);
+          } catch (error) {
+            console.error(`Failed to fetch reviews for service ${service.id}:`, error);
+            return transformServiceData(service);
+          }
+        })
+      );
+      setServicesData(transformedServices);
+      
+      // Build categories list
+      const categoryNames = categoriesResponse.map((cat: ServiceCategory) => cat.name);
+      setCategories(['All', ...categoryNames]);
+      
+      console.log('Refreshed categories:', categoryNames);
+      
+    } catch (err) {
+      console.error('Failed to refresh services data:', err);
+      setError('Failed to refresh services. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSortChange = (newSort: string) => {
     setSortBy(newSort);
@@ -139,7 +156,15 @@ const Services: React.FC = () => {
     setSearchParams(newSearchParams);
   };
 
-  // Filter services by category and price range
+  const handleDurationChange = (duration: string) => {
+    setSelectedDurations(prev => 
+      prev.includes(duration) 
+        ? prev.filter(d => d !== duration)
+        : [...prev, duration]
+    );
+  };
+
+  // Filter services by category, price range, and duration
   let filteredServices = selectedCategory === 'All' 
     ? servicesData 
     : servicesData.filter(service => service.category === selectedCategory);
@@ -148,6 +173,17 @@ const Services: React.FC = () => {
   filteredServices = filteredServices.filter(service => 
     service.price >= priceRange[0] && service.price <= priceRange[1]
   );
+  
+  // Apply duration filter
+  if (selectedDurations.length > 0) {
+    filteredServices = filteredServices.filter(service => {
+      const serviceDuration = service.duration.toLowerCase();
+      return selectedDurations.some(duration => 
+        serviceDuration.includes(duration.toLowerCase()) || 
+        (duration === 'ongoing' && serviceDuration.includes('ongoing'))
+      );
+    });
+  }
 
   // Sort services based on current sort option
   const sortedServices = [...filteredServices].sort((a, b) => {
@@ -172,10 +208,23 @@ const Services: React.FC = () => {
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow">
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="lg:w-64 flex-shrink-0">
-              <div className="w-full h-48 bg-gray-200 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-                <Placeholder size="md">
-                  <div className="text-gray-400 dark:text-gray-500">Service Image</div>
-                </Placeholder>
+              <div className="w-full h-48 bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
+                {service.image ? (
+                  <img 
+                    src={service.image} 
+                    alt={service.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`w-full h-full flex items-center justify-center ${service.image ? 'hidden' : ''}`}>
+                  <Placeholder size="md">
+                    <div className="text-gray-400 dark:text-gray-500">Service Image</div>
+                  </Placeholder>
+                </div>
               </div>
             </div>
             
@@ -192,6 +241,11 @@ const Services: React.FC = () => {
                         {service.rating} ({service.reviewCount} reviews)
                       </span>
                     </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        👁️ {service.viewCount} views
+                      </span>
+                    </div>
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     {service.title}
@@ -203,7 +257,7 @@ const Services: React.FC = () => {
                 
                 <div className="lg:text-right">
                   <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                    ${service.price}
+                    {formatPrice(service.price, (settings?.currency as any) || 'USD')}
                   </div>
                   <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mb-4">
                     <Clock className="w-4 h-4" />
@@ -225,6 +279,13 @@ const Services: React.FC = () => {
                 <Link 
                   to={`/service/${service.id}`}
                   className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  onClick={async () => {
+                    try {
+                      await incrementServiceView(service.id);
+                    } catch (error) {
+                      console.error('Failed to increment service view:', error);
+                    }
+                  }}
                 >
                   Learn More
                   <ArrowRight className="w-4 h-4" />
@@ -239,10 +300,23 @@ const Services: React.FC = () => {
     // Grid view
     return (
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-shadow">
-        <div className="h-48 bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
-          <Placeholder size="md">
-            <div className="text-gray-400 dark:text-gray-500">Service Image</div>
-          </Placeholder>
+        <div className="h-48 bg-gray-200 dark:bg-slate-700 overflow-hidden">
+          {service.image ? (
+            <img 
+              src={service.image} 
+              alt={service.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <div className={`w-full h-full flex items-center justify-center ${service.image ? 'hidden' : ''}`}>
+            <Placeholder size="md">
+              <div className="text-gray-400 dark:text-gray-500">Service Image</div>
+            </Placeholder>
+          </div>
         </div>
         
         <div className="p-6">
@@ -254,6 +328,11 @@ const Services: React.FC = () => {
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {service.rating}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                👁️ {service.viewCount}
               </span>
             </div>
           </div>
@@ -273,7 +352,7 @@ const Services: React.FC = () => {
           
           <div className="flex items-center justify-between mb-4">
             <div className="text-xl font-bold text-gray-900 dark:text-white">
-              ${service.price}
+              {formatPrice(service.price, (settings?.currency as any) || 'USD')}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
               {service.reviewCount} reviews
@@ -297,6 +376,13 @@ const Services: React.FC = () => {
           <Link 
             to={`/service/${service.id}`}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            onClick={async () => {
+              try {
+                await incrementServiceView(service.id);
+              } catch (error) {
+                console.error('Failed to increment service view:', error);
+              }
+            }}
           >
             Learn More
             <ArrowRight className="w-4 h-4" />
@@ -308,19 +394,68 @@ const Services: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+      <TitleUpdater pageTitle="Services" />
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumbs */}
         <Breadcrumbs className="mb-6" />
         
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Our Services
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Professional technology services to help your business grow and succeed
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Our Services
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300">
+                Professional technology services to help your business grow and succeed
+              </p>
+            </div>
+            <button
+              onClick={refreshData}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+          </div>
         </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-300">Loading services...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 mb-8">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                  Error loading services
+                </h3>
+                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  {error}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content - only show when not loading and no error */}
+        {!loading && !error && (
         
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
@@ -352,7 +487,7 @@ const Services: React.FC = () => {
                   step={50}
                   value={priceRange}
                   onChange={setPriceRange}
-                  formatValue={(val) => `$${val}`}
+                  formatValue={(val) => formatPrice(val, (settings?.currency as any) || 'USD')}
                 />
               </div>
               
@@ -363,6 +498,8 @@ const Services: React.FC = () => {
                     <label key={duration} className="flex items-center">
                       <input
                         type="checkbox"
+                        checked={selectedDurations.includes(duration)}
+                        onChange={() => handleDurationChange(duration)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
                       />
                       <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{duration}</span>
@@ -447,6 +584,7 @@ const Services: React.FC = () => {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

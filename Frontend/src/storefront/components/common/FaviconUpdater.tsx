@@ -5,7 +5,7 @@ const FaviconUpdater: React.FC = () => {
   const { storeSettings } = useStore();
 
   useEffect(() => {
-    if (storeSettings.favicon) {
+    if (storeSettings?.favicon) {
       // Remove existing favicon links
       const existingFavicons = document.querySelectorAll('link[rel*="icon"]');
       existingFavicons.forEach(link => link.remove());
@@ -25,7 +25,7 @@ const FaviconUpdater: React.FC = () => {
       appleTouchIcon.href = storeSettings.favicon;
       document.head.appendChild(appleTouchIcon);
     }
-  }, [storeSettings.favicon]);
+  }, [storeSettings?.favicon]);
 
   return null; // This component doesn't render anything
 };

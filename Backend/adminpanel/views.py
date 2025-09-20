@@ -11,14 +11,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.models import User
 from .models import (
     Brand, Category, Product, ProductImage,
-    Service, ServiceImage, ServiceInquiry,
-    Order, Review, WebsiteContent, StoreSettings,
+    Service, ServiceImage, ServiceInquiry, ServiceQuery, ServiceCategory,
+    Order, Review, ServiceReview, WebsiteContent, StoreSettings,
     ChatRoom, ChatMessage, Contact
 )
 from .serializers import (
     BrandSerializer, CategorySerializer, ProductSerializer, ProductImageSerializer,
-    ServiceSerializer, ServiceImageSerializer, ServiceInquirySerializer,
-    OrderSerializer, ReviewSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
+    ServiceSerializer, ServiceImageSerializer, ServiceInquirySerializer, ServiceQuerySerializer, ServiceCategorySerializer,
+    OrderSerializer, ReviewSerializer, ServiceReviewSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
     AdminUserSerializer, ChatRoomSerializer, ChatRoomListSerializer, ChatMessageSerializer,
     ContactSerializer
 )
@@ -75,6 +75,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().select_related("brand", "category").prefetch_related("images").order_by("-created_at")
     serializer_class = ProductSerializer
     permission_classes = [IsAdmin]
+    pagination_class = None  # Disable pagination for admin products
 
     # Search & filters via query params: q, brand, category
     def get_queryset(self):
@@ -143,12 +144,34 @@ class ProductViewSet(viewsets.ModelViewSet):
         img.delete()
         return Response(status=204)
 
+    @action(detail=False, methods=['get'], permission_classes=[])
+    def top_selling(self, request):
+        """Get top selling products for public display"""
+        top_selling_products = Product.objects.filter(
+            is_top_selling=True
+        ).select_related("brand", "category").prefetch_related("images").order_by("-created_at")
+        
+        serializer = self.get_serializer(top_selling_products, many=True)
+        return Response(serializer.data)
+
 class ProductImageDestroyView(mixins.DestroyModelMixin, viewsets.GenericViewSet):
     queryset = ProductImage.objects.all()
     serializer_class = ProductImageSerializer
     permission_classes = [IsAdmin]
 
 # --- Services ---
+class ServiceCategoryViewSet(viewsets.ModelViewSet):
+    queryset = ServiceCategory.objects.all().order_by('ordering', 'name')
+    serializer_class = ServiceCategorySerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        q = self.request.query_params.get("q")
+        if q:
+            qs = qs.filter(name__icontains=q)
+        return qs
+
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all().order_by("-created_at")
     serializer_class = ServiceSerializer
@@ -477,8 +500,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         
         # Create a more descriptive sender name with user info
         sender_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-        if request.user.email:
-            sender_name += f" ({request.user.email})"
         
         message = ChatMessage.objects.create(
             room=room,
@@ -535,6 +556,14 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         serializer = ChatMessageSerializer(message)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+    @action(detail=True, methods=['get'])
+    def get_messages(self, request, pk=None):
+        """Get all messages for a chat room"""
+        room = self.get_object()
+        messages = room.messages.all().order_by('created_at')
+        serializer = ChatMessageSerializer(messages, many=True)
+        return Response(serializer.data)
+    
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
         """Mark all customer messages in a room as read"""
@@ -585,4 +614,60 @@ class ContactViewSet(viewsets.ModelViewSet):
         contact.status = 'closed'
         contact.save()
         return Response({'status': 'closed'})
+
+class ServiceQueryViewSet(viewsets.ModelViewSet):
+    """Admin viewset for managing service query submissions"""
+    serializer_class = ServiceQuerySerializer
+    permission_classes = [IsAdmin]
+    http_method_names = ['get', 'patch', 'put', 'delete', 'head', 'options', 'trace']
+    
+    def get_queryset(self):
+        return ServiceQuery.objects.all().order_by('-created_at')
+    
+    @action(detail=True, methods=['patch'])
+    def mark_as_read(self, request, pk=None):
+        """Mark a service query as read"""
+        query = self.get_object()
+        query.status = 'read'
+        query.save()
+        return Response({'status': 'marked as read'})
+    
+    @action(detail=True, methods=['patch'])
+    def mark_as_replied(self, request, pk=None):
+        """Mark a service query as replied"""
+        query = self.get_object()
+        query.status = 'replied'
+        query.save()
+        return Response({'status': 'marked as replied'})
+    
+    @action(detail=True, methods=['patch'])
+    def close(self, request, pk=None):
+        """Close a service query"""
+        query = self.get_object()
+        query.status = 'closed'
+        query.save()
+        return Response({'status': 'closed'})
+
+
+# --- Service Reviews ---
+class ServiceReviewViewSet(viewsets.ModelViewSet):
+    queryset = ServiceReview.objects.all().order_by("-created_at")
+    serializer_class = ServiceReviewSerializer
+    permission_classes = [IsAdmin]
+    
+    @action(detail=True, methods=['patch'])
+    def mark_verified(self, request, pk=None):
+        """Mark a service review as verified"""
+        review = self.get_object()
+        review.verified = True
+        review.save()
+        return Response({'status': 'marked as verified'})
+    
+    @action(detail=True, methods=['patch'])
+    def mark_unverified(self, request, pk=None):
+        """Mark a service review as unverified"""
+        review = self.get_object()
+        review.verified = False
+        review.save()
+        return Response({'status': 'marked as unverified'})
 

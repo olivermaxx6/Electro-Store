@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import Placeholder from '../common/Placeholder';
+import { getBannerImageUrl } from '../../utils/imageUtils';
 
 interface PromoTileProps {
   title: string;
@@ -24,7 +25,7 @@ const PromoTile: React.FC<PromoTileProps> = ({
     <div className={`group relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 ${className}`}>
       {/* Background Image */}
       {image ? (
-        <div className="w-full h-80 bg-cover bg-center bg-no-repeat transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${image})` }} />
+        <div className="w-full h-80 bg-cover bg-center bg-no-repeat transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${getBannerImageUrl(image)})` }} />
       ) : (
         <Placeholder ratio="16/9" className="w-full h-80">
           <div className="bg-gradient-to-br from-red-500 via-red-600 to-red-700 dark:from-blue-500 dark:via-blue-600 dark:to-blue-700 w-full h-full flex items-center justify-center relative overflow-hidden">

@@ -19,12 +19,18 @@ import Help from '../pages/static/Help';
 import TrackOrder from '../pages/static/TrackOrder';
 import Careers from '../pages/static/Careers';
 import FindUs from '../pages/static/FindUs';
+import ShippingInfo from '../pages/static/ShippingInfo';
+import Returns from '../pages/static/Returns';
+import Warranty from '../pages/static/Warranty';
+import Support from '../pages/static/Support';
 import NotFound from '../pages/NotFound';
 import SignIn from '../pages/auth/SignIn';
 import SignUp from '../pages/auth/SignUp';
 import Dashboard from '../pages/user/Dashboard';
 import Settings from '../pages/user/Settings';
-import DebugCategories from '../pages/DebugCategories';
+import Categories from '../pages/Categories';
+import AllSubcategories from '../pages/AllSubcategories';
+import OrderConfirmation from '../pages/OrderConfirmation';
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +68,10 @@ export const router = createBrowserRouter([
       {
         path: 'checkout',
         element: <Checkout />,
+      },
+      {
+        path: 'order-confirmation/:trackingId',
+        element: <OrderConfirmation />,
       },
       {
         path: 'account',
@@ -116,9 +126,29 @@ export const router = createBrowserRouter([
         element: <FindUs />,
       },
       {
-        path: 'debug-categories',
-        element: <DebugCategories />,
+        path: 'shipping',
+        element: <ShippingInfo />,
       },
+      {
+        path: 'returns',
+        element: <Returns />,
+      },
+      {
+        path: 'warranty',
+        element: <Warranty />,
+      },
+      {
+        path: 'support',
+        element: <Support />,
+      },
+          {
+            path: 'categories',
+            element: <Categories />,
+          },
+          {
+            path: 'allsubcategories',
+            element: <AllSubcategories />,
+          },
       {
         path: '*',
         element: <NotFound />,

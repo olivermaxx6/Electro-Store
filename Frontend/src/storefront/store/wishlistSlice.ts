@@ -16,6 +16,12 @@ const wishlistSlice = createSlice({
     addToWishlist: (state, action: PayloadAction<{ productId: string; userId?: string }>) => {
       const { productId, userId = 'guest' } = action.payload;
       
+      console.log('ADD TO WISHLIST:', { 
+        productId, 
+        productIdType: typeof productId, 
+        userId 
+      });
+      
       if (!state.userWishlists[userId]) {
         state.userWishlists[userId] = [];
       }
@@ -28,10 +34,14 @@ const wishlistSlice = createSlice({
           productId,
           addedAt: new Date().toISOString(),
         });
+        console.log('Added to wishlist:', { productId, addedAt: new Date().toISOString() });
         
-        // Save to localStorage
-        localStorage.setItem(`wishlist_${userId}`, JSON.stringify(userWishlist));
+        // Note: Redux persist will handle localStorage saving
+      } else {
+        console.log('Item already in wishlist:', productId);
       }
+      
+      console.log('Wishlist after add:', userWishlist);
     },
     
     removeFromWishlist: (state, action: PayloadAction<{ productId: string; userId?: string }>) => {
@@ -39,7 +49,7 @@ const wishlistSlice = createSlice({
       
       if (state.userWishlists[userId]) {
         state.userWishlists[userId] = state.userWishlists[userId].filter(item => item.productId !== productId);
-        localStorage.setItem(`wishlist_${userId}`, JSON.stringify(state.userWishlists[userId]));
+        // Note: Redux persist will handle localStorage saving
       }
     },
     
@@ -48,25 +58,11 @@ const wishlistSlice = createSlice({
       
       if (state.userWishlists[userId]) {
         state.userWishlists[userId] = [];
-        localStorage.setItem(`wishlist_${userId}`, JSON.stringify(state.userWishlists[userId]));
+        // Note: Redux persist will handle localStorage saving
       }
     },
     
-    loadUserWishlist: (state, action: PayloadAction<{ userId: string }>) => {
-      const { userId } = action.payload;
-      const savedWishlist = localStorage.getItem(`wishlist_${userId}`);
-      
-      if (savedWishlist) {
-        try {
-          state.userWishlists[userId] = JSON.parse(savedWishlist);
-        } catch (error) {
-          console.error('Failed to load wishlist from localStorage:', error);
-          state.userWishlists[userId] = [];
-        }
-      } else {
-        state.userWishlists[userId] = [];
-      }
-    },
+    // Note: loadUserWishlist removed - Redux persist handles rehydration automatically
   },
 });
 
@@ -74,7 +70,6 @@ export const {
   addToWishlist,
   removeFromWishlist,
   clearWishlist,
-  loadUserWishlist,
 } = wishlistSlice.actions;
 
 // Selectors

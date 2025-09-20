@@ -16,6 +16,7 @@ export type Product = {
   oldPrice?: number;
   rating?: number; // 0-5
   ratingCount?: number;
+  viewCount?: number;
   isNew?: boolean;
   discountPct?: number;
   specs?: Record<string, string>;
@@ -61,7 +62,7 @@ export type User = {
   isAuthenticated: boolean;
 };
 
-export type Currency = "USD" | "EUR" | "GBP";
+export type Currency = "USD" | "EUR" | "GBP" | "JPY" | "CAD" | "AUD" | "CHF" | "CNY" | "INR" | "KRW" | "SGD" | "HKD" | "NZD" | "SEK" | "NOK" | "DKK" | "PLN" | "CZK" | "HUF" | "RUB" | "BRL" | "MXN" | "ZAR" | "TRY" | "AED" | "SAR" | "THB" | "MYR" | "IDR" | "PHP";
 
 export type SortOption = "popularity" | "newest" | "price-low" | "price-high";
 

@@ -12,6 +12,7 @@ import { addToast } from '../store/uiSlice';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import Placeholder from '../components/common/Placeholder';
 import Price from '../components/products/Price';
+import TitleUpdater from '../components/common/TitleUpdater';
 
 const Wishlist: React.FC = () => {
   const dispatch = useDispatch();
@@ -45,6 +46,7 @@ const Wishlist: React.FC = () => {
   if (wishlistItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <TitleUpdater pageTitle="Wishlist" />
         <div className="container mx-auto px-4 py-8">
           <Breadcrumbs className="mb-6" />
           
@@ -53,8 +55,8 @@ const Wishlist: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Your wishlist is empty</h2>
             <p className="text-gray-600 dark:text-gray-300 mb-8">Save items you love for later by adding them to your wishlist.</p>
             <Link
-              to="/"
-              className="inline-flex items-center space-x-2 bg-primary text-white px-6 py-3 rounded-md hover:bg-primary-600 transition-colors"
+              to="/shop"
+              className="inline-flex items-center space-x-2 bg-blue-600 dark:bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Start Shopping</span>
@@ -67,6 +69,7 @@ const Wishlist: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <TitleUpdater pageTitle="Wishlist" />
       <div className="container mx-auto px-4 py-8">
         <Breadcrumbs className="mb-6" />
         
@@ -76,7 +79,18 @@ const Wishlist: React.FC = () => {
           {wishlistProducts.map((product) => (
             <div key={product!.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
               <Link to={`/product/${product!.id}`} className="block">
-                <Placeholder ratio="4/3" className="w-full h-48">
+                {product!.image ? (
+                  <img 
+                    src={product!.image} 
+                    alt={product!.title}
+                    className="w-full h-48 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <Placeholder ratio="4/3" className={`w-full h-48 ${product!.image ? 'hidden' : ''}`}>
                   <div className="text-gray-400 dark:text-gray-500">Product Image</div>
                 </Placeholder>
               </Link>
@@ -96,7 +110,7 @@ const Wishlist: React.FC = () => {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleMoveToCart(product!.id)}
-                    className="flex-1 bg-primary dark:bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-primary-600 dark:hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1 text-sm"
+                    className="flex-1 bg-blue-600 dark:bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1 text-sm"
                   >
                     <ShoppingCart className="w-4 h-4" />
                     <span>Add to Cart</span>

@@ -12,7 +12,8 @@ const NotFound: React.FC = () => {
         const response = await fetch('http://127.0.0.1:8001/api/public/categories/?top=true');
         if (response.ok) {
           const data = await response.json();
-          setCategories(data.results || data);
+          const categoriesData = data.results || data;
+          setCategories(categoriesData);
         }
       } catch (error) {
         console.error('Failed to load categories:', error);

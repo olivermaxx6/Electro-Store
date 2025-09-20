@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banner Test - Electronics Store</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', 'Poppins', system-ui, sans-serif;
+            background-color: #ffffff;
+            color: #1f2937;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+        
+        .hero-section {
+            padding: 5rem 0;
+            background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+        }
+        
+        .hero-content {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .hero-title {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .banner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .banner {
+            position: relative;
+            height: 320px;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            transition: all 0.5s ease;
+            cursor: pointer;
+        }
+        
+        .banner:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .banner-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.7s ease;
+        }
+        
+        .banner:hover .banner-image {
+            transform: scale(1.1);
+        }
+        
+        .banner-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0.7) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 2rem;
+            color: white;
+        }
+        
+        .banner-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .banner-subtitle {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            margin-bottom: 1.5rem;
+            max-width: 250px;
+        }
+        
+        .banner-btn {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .banner-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .status {
+            background: #059669;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .error {
+            background: #dc2626;
+        }
+        
+        .info {
+            background: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">Welcome to Electronics</h1>
+                <p class="hero-subtitle">Discover the latest in technology with our premium selection of electronics, gadgets, and accessories.</p>
+            </div>
+            
+            <div id="status" class="status">
+                ✅ Banner Test Page - All banners should be visible below
+            </div>
+            
+            <div class="banner-grid">
+                <div class="banner" onclick="window.location.href='/products?category=new'">
+                    <img src="http://127.0.0.1:8001/media/banner/20250814_1252_image.png" 
+                         alt="New Arrivals" 
+                         class="banner-image"
+                         onerror="handleImageError(this, 'Banner 1')">
+                    <div class="banner-overlay">
+                        <h2 class="banner-title">New Arrivals</h2>
+                        <p class="banner-subtitle">Discover the latest tech innovations</p>
+                        <a href="/products?category=new" class="banner-btn">Shop Now</a>
+                    </div>
+                </div>
+                
+                <div class="banner" onclick="window.location.href='/products?category=deals'">
+                    <img src="http://127.0.0.1:8001/media/banner/20250814_1252_image_a47c0Ah.png" 
+                         alt="Best Deals" 
+                         class="banner-image"
+                         onerror="handleImageError(this, 'Banner 2')">
+                    <div class="banner-overlay">
+                        <h2 class="banner-title">Best Deals</h2>
+                        <p class="banner-subtitle">Save up to 50% on selected items</p>
+                        <a href="/products?category=deals" class="banner-btn">View Deals</a>
+                    </div>
+                </div>
+                
+                <div class="banner" onclick="window.location.href='/brands'">
+                    <img src="http://127.0.0.1:8001/media/banner/20250814_1252_image_4RcqUzv.png" 
+                         alt="Premium Brands" 
+                         class="banner-image"
+                         onerror="handleImageError(this, 'Banner 3')">
+                    <div class="banner-overlay">
+                        <h2 class="banner-title">Premium Brands</h2>
+                        <p class="banner-subtitle">Shop from top electronics brands</p>
+                        <a href="/brands" class="banner-btn">Explore</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function handleImageError(img, bannerName) {
+            console.error(`Failed to load image for ${bannerName}:`, img.src);
+            const status = document.getElementById('status');
+            status.textContent = `❌ Error loading ${bannerName} image from: ${img.src}`;
+            status.className = 'status error';
+        }
+        
+        // Test image loading
+        window.addEventListener('load', function() {
+            const images = document.querySelectorAll('.banner-image');
+            let loadedCount = 0;
+            
+            images.forEach((img, index) => {
+                if (img.complete && img.naturalHeight !== 0) {
+                    loadedCount++;
+                }
+            });
+            
+            const status = document.getElementById('status');
+            if (loadedCount === images.length) {
+                status.textContent = `✅ All ${loadedCount} banner images loaded successfully!`;
+                status.className = 'status';
+            } else {
+                status.textContent = `⚠️ Only ${loadedCount}/${images.length} banner images loaded`;
+                status.className = 'status info';
+            }
+        });
+    </script>
+</body>
+</html>

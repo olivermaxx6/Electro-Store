@@ -5,6 +5,7 @@ import { selectCurrentUser, selectIsAuthenticated } from '../store/userSlice';
 import { signIn, signOut } from '../store/userSlice';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import Placeholder from '../components/common/Placeholder';
+import TitleUpdater from '../components/common/TitleUpdater';
 
 const Account: React.FC = () => {
   const dispatch = useDispatch();
@@ -37,6 +38,7 @@ const Account: React.FC = () => {
   if (isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
+        <TitleUpdater pageTitle="My Account" />
         <div className="container mx-auto px-4 py-8">
           <Breadcrumbs className="mb-6" />
           
@@ -116,6 +118,7 @@ const Account: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-50">
+      <TitleUpdater pageTitle="Sign In" />
       <div className="container mx-auto px-4 py-8">
         <Breadcrumbs className="mb-6" />
         

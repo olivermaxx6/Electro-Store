@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const StoreContext = createContext();
+const StoreContext = createContext(undefined);
 
 export const useStore = () => {
   const context = useContext(StoreContext);
@@ -36,7 +36,7 @@ export const StoreProvider = ({ children }) => {
         }
       } catch (err) {
         console.error('Error fetching store settings:', err);
-        setError(err.message);
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -60,7 +60,7 @@ export const StoreProvider = ({ children }) => {
           }
         } catch (err) {
           console.error('Error fetching store settings:', err);
-          setError(err.message);
+          setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
           setLoading(false);
         }

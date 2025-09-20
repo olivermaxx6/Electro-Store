@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Product } from '../../types';
+import { Product } from '../../lib/types';
 import Placeholder from '../common/Placeholder';
 import Price from '../products/Price';
 

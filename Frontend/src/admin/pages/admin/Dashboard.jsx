@@ -3,7 +3,6 @@ import { useAuth } from '../../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../store/currencyStore';
 import { ThemeLayout, ThemeCard, SectionHeader, ThemeAlert } from '@shared/theme';
-// import { getDashboardStats } from '../../lib/api';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from 'recharts';
 
 export default function Dashboard() {
@@ -18,8 +17,34 @@ export default function Dashboard() {
     (async () => {
       await me();
       try {
-        // const { data } = await getDashboardStats();
-        // setStats(data);
+        // Get token from the correct location
+        const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+        const token = authData.access || localStorage.getItem('access_token');
+        
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch('http://127.0.0.1:8001/api/admin/dashboard/stats/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Dashboard stats loaded successfully:', data);
+          setStats(data);
+        } else {
+          const errorText = await response.text();
+          console.error('Dashboard API error:', response.status, response.statusText, errorText);
+          throw new Error(`Failed to fetch dashboard stats: ${response.status} ${response.statusText}`);
+        }
+      } catch (e) {
+        console.error('Dashboard error:', e);
+        setErr(e.message || 'Failed to load dashboard stats');
+        // Set empty stats as fallback
         setStats({
           totals: {
             revenue: 0,
@@ -27,16 +52,15 @@ export default function Dashboard() {
             customers: 0,
             avg_order_value: 0
           },
-          chart_data: [],
+          sales_by_day: [],
           top_products: [],
           inventory: {
             total_products: 0,
-            low_stock_count: 0
+            low_stock_count: 0,
+            by_category: []
           },
           recent_orders: []
-        }); // Mock data for now
-      } catch (e) {
-        setErr('Failed to load stats');
+        });
       }
     })();
   }, [me]);

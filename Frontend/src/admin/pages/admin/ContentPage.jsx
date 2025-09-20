@@ -20,6 +20,7 @@ export default function ContentPage() {
     deal1_description: '',
     deal1_image: null,
     deal1_end_date: '',
+    deal2_image: null,
     street_address: '',
     city: '',
     postcode: '',
@@ -41,6 +42,7 @@ export default function ContentPage() {
   const [banner2File, setBanner2File] = useState(null);
   const [banner3File, setBanner3File] = useState(null);
   const [deal1File, setDeal1File] = useState(null);
+  const [deal2File, setDeal2File] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
 
   useEffect(() => {
@@ -79,6 +81,7 @@ export default function ContentPage() {
         deal1_description: contentData.deal1_description || '',
         deal1_image: contentData.deal1_image || '',
         deal1_end_date: contentData.deal1_end_date || '',
+        deal2_image: contentData.deal2_image || '',
         street_address: contentData.street_address || '',
         city: contentData.city || '',
         postcode: contentData.postcode || '',
@@ -131,6 +134,9 @@ export default function ContentPage() {
       }
       if (deal1File) {
         formData.append('deal1_image', deal1File);
+      }
+      if (deal2File) {
+        formData.append('deal2_image', deal2File);
       }
       if (logoFile) {
         formData.append('logo', logoFile);
@@ -611,6 +617,50 @@ export default function ContentPage() {
                       <img 
                         src={URL.createObjectURL(deal1File)} 
                         alt="New deal 1" 
+                        className="w-32 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-600"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Second Deal Image */}
+              <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm">🎯</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Second Deal Image</h3>
+                </div>
+                
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Upload a different image for the right side of the banner. The content (title, subtitle, discount, description, countdown) will be the same as the main deal above.
+                </p>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Second Deal Image
+                  </label>
+                  <div className="flex items-center gap-4">
+                    {content.deal2_image && (
+                      <img 
+                        src={content.deal2_image} 
+                        alt="Deal 2" 
+                        className="w-32 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-600"
+                      />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setDeal2File(e.target.files[0])}
+                      className="block text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-300"
+                    />
+                  </div>
+                  {deal2File && (
+                    <div className="mt-2">
+                      <img 
+                        src={URL.createObjectURL(deal2File)} 
+                        alt="New deal 2" 
                         className="w-32 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-600"
                       />
                     </div>

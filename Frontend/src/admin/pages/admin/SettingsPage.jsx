@@ -56,9 +56,19 @@ export default function SettingsPage() {
       return;
     }
     
-    // Validate shipping rate is not negative
+    // Validate shipping rates are not negative
     if (parseFloat(data.shipping_rate) < 0) {
       alert('Shipping rate cannot be negative. Please enter a value of 0 or greater.');
+      return;
+    }
+    
+    if (parseFloat(data.standard_shipping_rate || 0) < 0) {
+      alert('Standard shipping rate cannot be negative. Please enter a value of 0 or greater.');
+      return;
+    }
+    
+    if (parseFloat(data.express_shipping_rate || 0) < 0) {
+      alert('Express shipping rate cannot be negative. Please enter a value of 0 or greater.');
       return;
     }
     
@@ -72,6 +82,8 @@ export default function SettingsPage() {
       formData.append('currency', data.currency);
       formData.append('tax_rate', parseFloat(data.tax_rate));
       formData.append('shipping_rate', parseFloat(data.shipping_rate));
+      formData.append('standard_shipping_rate', parseFloat(data.standard_shipping_rate || 0));
+      formData.append('express_shipping_rate', parseFloat(data.express_shipping_rate || 0));
       formData.append('street_address', data.street_address || '');
       formData.append('city', data.city || '');
       formData.append('postcode', data.postcode || '');
@@ -347,7 +359,7 @@ export default function SettingsPage() {
             />
             
             <ThemeInput
-              label={`Shipping rate (${currencyOptions.find(c => c.code === data.currency)?.symbol || '£'})`}
+              label={`Legacy Shipping rate (${currencyOptions.find(c => c.code === data.currency)?.symbol || '£'})`}
               type="number" 
               step="0.01" 
               min="0"
@@ -360,6 +372,44 @@ export default function SettingsPage() {
               }} 
               placeholder="0.00"
             />
+          </div>
+          
+          {/* Individual Shipping Options */}
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">Shipping Options</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ThemeInput
+                label={`Standard Shipping (${currencyOptions.find(c => c.code === data.currency)?.symbol || '£'})`}
+                type="number" 
+                step="0.01" 
+                min="0"
+                value={data.standard_shipping_rate || 0} 
+                onChange={e=>{
+                  const value = parseFloat(e.target.value);
+                  // Prevent negative values
+                  if (value < 0) return;
+                  setData(d=>({...d,standard_shipping_rate:e.target.value}));
+                }} 
+                placeholder="0.00"
+                helperText="5-7 business days"
+              />
+              
+              <ThemeInput
+                label={`Express Shipping (${currencyOptions.find(c => c.code === data.currency)?.symbol || '£'})`}
+                type="number" 
+                step="0.01" 
+                min="0"
+                value={data.express_shipping_rate || 0} 
+                onChange={e=>{
+                  const value = parseFloat(e.target.value);
+                  // Prevent negative values
+                  if (value < 0) return;
+                  setData(d=>({...d,express_shipping_rate:e.target.value}));
+                }} 
+                placeholder="0.00"
+                helperText="2-3 business days"
+              />
+            </div>
           </div>
           
             <div className="flex justify-end">

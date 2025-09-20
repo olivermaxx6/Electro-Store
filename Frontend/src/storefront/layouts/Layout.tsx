@@ -5,10 +5,16 @@ import MainHeader from '../components/header/MainHeader';
 import NavBar from '../components/header/NavBar';
 import FooterColumns from '../components/footer/FooterColumns';
 import BottomBar from '../components/footer/BottomBar';
+import StoreSettingsInitializer from '../components/common/StoreSettingsInitializer';
+import TitleUpdater from '../components/common/TitleUpdater';
 
 const Layout: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900">
+      {/* Initialize store settings and update title */}
+      <StoreSettingsInitializer />
+      <TitleUpdater />
+      
       {/* Top Utility Bar */}
       <TopBar />
       
@@ -28,6 +34,7 @@ const Layout: React.FC = () => {
         <FooterColumns />
         <BottomBar />
       </footer>
+      
     </div>
   );
 };
