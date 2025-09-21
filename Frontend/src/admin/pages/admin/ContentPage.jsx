@@ -25,9 +25,6 @@ export default function ContentPage() {
     city: '',
     postcode: '',
     country: '',
-    phone: '',
-    email: '',
-    logo: null
   });
   
   const [brands, setBrands] = useState([]);
@@ -43,7 +40,6 @@ export default function ContentPage() {
   const [banner3File, setBanner3File] = useState(null);
   const [deal1File, setDeal1File] = useState(null);
   const [deal2File, setDeal2File] = useState(null);
-  const [logoFile, setLogoFile] = useState(null);
 
   useEffect(() => {
     console.log('[ContentPage] mounted');
@@ -86,9 +82,6 @@ export default function ContentPage() {
         city: contentData.city || '',
         postcode: contentData.postcode || '',
         country: contentData.country || '',
-        phone: contentData.phone || '',
-        email: contentData.email || '',
-        logo: contentData.logo || ''
       }));
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -119,8 +112,6 @@ export default function ContentPage() {
       formData.append('city', content.city);
       formData.append('postcode', content.postcode);
       formData.append('country', content.country);
-      formData.append('phone', content.phone);
-      formData.append('email', content.email);
       
       // Add files if selected
       if (banner1File) {
@@ -138,9 +129,6 @@ export default function ContentPage() {
       if (deal2File) {
         formData.append('deal2_image', deal2File);
       }
-      if (logoFile) {
-        formData.append('logo', logoFile);
-      }
       
       console.log('Saving content data:', {
         banner1_text: content.banner1_text,
@@ -153,12 +141,9 @@ export default function ContentPage() {
         city: content.city,
         postcode: content.postcode,
         country: content.country,
-        phone: content.phone,
-        email: content.email,
         has_banner1_file: !!banner1File,
         has_banner2_file: !!banner2File,
         has_banner3_file: !!banner3File,
-        has_logo_file: !!logoFile
       });
       
       // Call the API to save content
@@ -172,7 +157,6 @@ export default function ContentPage() {
       setBanner2File(null);
       setBanner3File(null);
       setDeal1File(null);
-      setLogoFile(null);
       await loadData();
     } catch (err) {
       console.error('Failed to save content:', err);
@@ -683,84 +667,6 @@ export default function ContentPage() {
             </form>
           </section>
 
-          {/* Contact Information */}
-          <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                <span className="text-white text-lg">📞</span>
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Contact Information</h2>
-            </div>
-            
-            <form onSubmit={saveContent} className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Phone
-                  </label>
-                  <ThemeInput
-                    value={content.phone}
-                    onChange={(e) => setContent(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Email
-                  </label>
-                  <ThemeInput
-                    value={content.email}
-                    onChange={(e) => setContent(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Enter email address"
-                    type="email"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Logo Image
-                </label>
-                <div className="flex items-center gap-4">
-                  {content.logo && (
-                    <img 
-                      src={content.logo} 
-                      alt="Logo" 
-                      className="w-20 h-20 object-contain rounded-xl border border-slate-200 dark:border-slate-600 bg-white p-2"
-                    />
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setLogoFile(e.target.files[0])}
-                    className="block text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-300"
-                  />
-                </div>
-                {logoFile && (
-                  <div className="mt-2">
-                    <img 
-                      src={URL.createObjectURL(logoFile)} 
-                      alt="New logo" 
-                      className="w-20 h-20 object-contain rounded-xl border border-slate-200 dark:border-slate-600 bg-white p-2"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end">
-                <ThemeButton 
-                  type="submit" 
-                  disabled={busy} 
-                  loading={busy} 
-                  variant="primary" 
-                  icon="💾"
-                  className="whitespace-nowrap min-w-fit flex-shrink-0"
-                >
-                  Save Contact Info
-                </ThemeButton>
-              </div>
-            </form>
-          </section>
 
           {/* Brands Management */}
           <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">

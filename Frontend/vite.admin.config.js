@@ -28,8 +28,19 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    force: true,
-    include: ['react', 'react-dom', 'zustand', 'axios', 'socket.io-client']
+    include: [
+      'react', 
+      'react-dom', 
+      'react-redux', 
+      'redux-persist', 
+      'react-router-dom',
+      'zustand', 
+      'axios', 
+      'socket.io-client',
+      '@stripe/stripe-js',
+      'lucide-react',
+      'recharts'
+    ]
   },
   resolve: {
     alias: {

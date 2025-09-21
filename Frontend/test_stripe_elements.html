@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Elements Test - Fix Payment Method Issue</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #1e7e34;
+        }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .card-element {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-info {
+            background: #e8f5e8;
+            border: 1px solid #28a745;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Stripe Elements Test</h1>
+        <p>This uses the proper Stripe Elements approach to fix the payment method creation issue.</p>
+        
+        <div class="test-info">
+            <h3>✅ Test Card Details</h3>
+            <p><strong>Card:</strong> 4242424242424242 (Visa Success)</p>
+            <p><strong>Expiry:</strong> 12/25</p>
+            <p><strong>CVC:</strong> 123</p>
+            <p><strong>Amount:</strong> £25.00</p>
+        </div>
+
+        <form id="payment-form">
+            <div class="form-group">
+                <label for="cardholder-name">Cardholder Name</label>
+                <input type="text" id="cardholder-name" value="Test Customer" required>
+            </div>
+
+            <div class="form-group">
+                <label for="card-element">Card Information</label>
+                <div id="card-element" class="card-element">
+                    <!-- Stripe Elements will create form elements here -->
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="submit-button">
+                Pay £25.00
+            </button>
+        </form>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Initialize Stripe
+        const stripe = Stripe('pk_test_51S9TOV1P7OUaUZWmpjXeetCOf0MQuQ6vm0hvgNGj0p0hdQfOM5wDCjKTDSCZZg7qb0ozclRUmWlKNTENZEvYDiJK003tEvvONV');
+        
+        // Create an instance of Elements
+        const elements = stripe.elements();
+        
+        // Create card element
+        const cardElement = elements.create('card', {
+            style: {
+                base: {
+                    fontSize: '16px',
+                    color: '#424770',
+                    '::placeholder': {
+                        color: '#aab7c4',
+                    },
+                },
+                invalid: {
+                    color: '#9e2146',
+                },
+            },
+        });
+        
+        // Mount the card element
+        cardElement.mount('#card-element');
+        
+        // Handle form submission
+        document.getElementById('payment-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const submitButton = document.getElementById('submit-button');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+            
+            showResult('🔄 Starting payment process...', 'info');
+            
+            try {
+                // Step 1: Create Payment Intent
+                showResult('🔄 Step 1: Creating Payment Intent...', 'info');
+                
+                const response = await fetch('http://127.0.0.1:8001/api/public/create-payment-intent/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        amount: 2500, // £25.00 in pence
+                        currency: 'gbp',
+                        metadata: {
+                            customer_email: 'test@example.com',
+                            customer_name: document.getElementById('cardholder-name').value,
+                            test_type: 'stripe_elements_test'
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const paymentIntent = await response.json();
+                showResult(`✅ Payment Intent Created:\nID: ${paymentIntent.payment_intent_id}\nClient Secret: ${paymentIntent.client_secret}`, 'success');
+                
+                // Step 2: Confirm Payment with Card Element
+                showResult('🔄 Step 2: Confirming Payment with Stripe Elements...', 'info');
+                
+                const { error, paymentIntent: confirmedPaymentIntent } = await stripe.confirmCardPayment(
+                    paymentIntent.client_secret,
+                    {
+                        payment_method: {
+                            card: cardElement,
+                            billing_details: {
+                                name: document.getElementById('cardholder-name').value,
+                                email: 'test@example.com',
+                            },
+                        },
+                    }
+                );
+                
+                if (error) {
+                    throw new Error(`Payment Error: ${error.message}`);
+                }
+                
+                if (confirmedPaymentIntent.status === 'succeeded') {
+                    showResult(`🎉 PAYMENT SUCCESSFUL!\n\n📊 Payment Details:\nStatus: ${confirmedPaymentIntent.status}\nAmount: £25.00 GBP\nPayment Method: ${confirmedPaymentIntent.payment_method}\nPayment Intent: ${confirmedPaymentIntent.id}\n\n✅ Check your Stripe dashboard now!\n\nYou should see:\n- Status: Succeeded\n- Payment Method: Attached\n- Amount: £25.00\n- Currency: GBP\n- Customer: Test Customer\n\n🎯 The payment method creation issue is now FIXED!`, 'success');
+                } else {
+                    throw new Error(`Payment was not completed successfully. Status: ${confirmedPaymentIntent.status}`);
+                }
+                
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Pay £25.00';
+            }
+        });
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+    </script>
+</body>
+</html>

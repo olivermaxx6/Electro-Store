@@ -118,12 +118,21 @@ class ProductImage(models.Model):
 
 # --- Orders ---
 class Order(models.Model):
-    STATUS_CHOICES = [
+    # Order fulfillment status (for shipping/delivery)
+    ORDER_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("processing", "Processing"),
         ("shipped", "Shipped"),
         ("delivered", "Delivered"),
         ("cancelled", "Cancelled"),
+    ]
+    
+    # Payment status (separate from order status)
+    PAYMENT_STATUS_CHOICES = [
+        ("unpaid", "Unpaid"),
+        ("paid", "Paid"),
+        ("failed", "Payment Failed"),
+        ("refunded", "Refunded"),
     ]
     
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
@@ -139,16 +148,42 @@ class Order(models.Model):
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_price = models.DecimalField(max_digits=12, decimal_places=2)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     # Order Details
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default="pending")
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default="unpaid")
     payment_method = models.CharField(max_length=50, default="credit_card")
     shipping_name = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self): return f"Order #{self.pk} - {self.tracking_id}"
+
+class Payment(models.Model):
+    """Model to track Stripe payment details"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+        ('refunded', 'Refunded'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
+    stripe_payment_intent_id = models.CharField(max_length=255, unique=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default='GBP')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Payment {self.id} - {self.status}"
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
@@ -296,11 +331,11 @@ class WebsiteContent(models.Model):
     email = models.EmailField(blank=True, help_text="Store email address")
 
 class StoreSettings(models.Model):
-    store_name = models.CharField(max_length=200, default="Electro")
+    store_name = models.CharField(max_length=200, default="sppix")
     store_logo = models.ImageField(upload_to="store/", null=True, blank=True)
     about_us_picture = models.ImageField(upload_to="store/", null=True, blank=True)
     favicon = models.ImageField(upload_to="store/", null=True, blank=True, help_text="Favicon for the website (recommended size: 32x32 or 16x16 pixels)")
-    currency = models.CharField(max_length=10, default="USD")
+    currency = models.CharField(max_length=10, default="GBP")
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)      # percent
     shipping_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0) # flat (legacy field)
     

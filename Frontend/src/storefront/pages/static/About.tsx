@@ -12,26 +12,36 @@ const About: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         <Breadcrumbs className="mb-6" />
         
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">About {storeSettings?.store_name || 'Store'}</h1>
           
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-8 mb-8">
             {storeSettings?.about_us_picture ? (
-              <img 
-                src={storeSettings.about_us_picture} 
-                alt={`About ${storeSettings?.store_name || 'Store'}`}
-                className="w-full h-64 object-cover rounded-lg mb-6"
-              />
+              <div className="flex justify-center mb-6">
+                <img 
+                  src={storeSettings.about_us_picture} 
+                  alt={`About ${storeSettings?.store_name || 'Store'}`}
+                  className="object-contain rounded-lg"
+                  style={{
+                    width: '740px',
+                    height: '740px',
+                    maxWidth: '100%',
+                    maxHeight: '100%'
+                  }}
+                />
+              </div>
             ) : (
-              <Placeholder ratio="16/9" className="w-full h-64 mb-6">
-                <div className="text-gray-400 dark:text-slate-500">About Us Image</div>
-              </Placeholder>
+              <div className="flex justify-center mb-6">
+                <Placeholder ratio="1/1" className="w-full max-w-[740px] h-[740px]">
+                  <div className="text-gray-400 dark:text-slate-500">About Us Image</div>
+                </Placeholder>
+              </div>
             )}
             
             <div className="prose max-w-none">
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Our Story</h2>
               <p className="text-gray-600 dark:text-slate-300 mb-6">
-                {storeSettings?.store_name || 'Store'} is your premier destination for the latest electronics and technology products. 
+                {storeSettings?.store_name || 'Store'} is your premier destination for the latest Sppixs and technology products. 
                 Founded with a passion for innovation and quality, we've been serving customers worldwide 
                 with the best selection of laptops, smartphones, cameras, and accessories.
               </p>
@@ -39,7 +49,7 @@ const About: React.FC = () => {
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Our Mission</h2>
               <p className="text-gray-600 dark:text-slate-300 mb-6">
                 We believe that technology should be accessible to everyone. Our mission is to provide 
-                high-quality electronics at competitive prices, backed by exceptional customer service 
+                high-quality Sppixs at competitive prices, backed by exceptional customer service 
                 and support.
               </p>
               

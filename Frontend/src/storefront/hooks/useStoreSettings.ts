@@ -16,7 +16,7 @@ export interface UseStoreSettingsReturn {
   refetch: () => void;
 }
 
-const API_BASE_URL = 'http://127.0.0.1:8001/api/public';
+const API_BASE_URL = '/api/public';
 
 export const useStoreSettings = (): UseStoreSettingsReturn => {
   const [settings, setSettings] = useState<StoreSettings | null>(null);
@@ -28,7 +28,13 @@ export const useStoreSettings = (): UseStoreSettingsReturn => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_BASE_URL}/store-settings/`);
+      const response = await fetch(`${API_BASE_URL}/store-settings/?t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`Failed to fetch store settings: ${response.status}`);

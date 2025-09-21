@@ -464,7 +464,7 @@ class Command(BaseCommand):
                 ],
                 "contact_info": {
                     "phone": "+1-555-0123",
-                    "email": "repair@electro.com"
+                    "email": "repair@sppix.com"
                 },
                 "availability": "Monday-Friday: 9AM-6PM, Saturday: 10AM-4PM"
             },
@@ -499,7 +499,7 @@ class Command(BaseCommand):
                 ],
                 "contact_info": {
                     "phone": "+1-555-0124",
-                    "email": "screen@electro.com"
+                    "email": "screen@sppix.com"
                 },
                 "availability": "Monday-Sunday: 9AM-8PM"
             },
@@ -534,7 +534,7 @@ class Command(BaseCommand):
                 ],
                 "contact_info": {
                     "phone": "+1-555-0125",
-                    "email": "network@electro.com"
+                    "email": "network@sppix.com"
                 },
                 "availability": "Monday-Friday: 8AM-6PM"
             },
@@ -569,7 +569,7 @@ class Command(BaseCommand):
                 ],
                 "contact_info": {
                     "phone": "+1-555-0126",
-                    "email": "smarthome@electro.com"
+                    "email": "smarthome@sppix.com"
                 },
                 "availability": "Monday-Friday: 9AM-5PM"
             },
@@ -604,7 +604,7 @@ class Command(BaseCommand):
                 ],
                 "contact_info": {
                     "phone": "+1-555-0127",
-                    "email": "consulting@electro.com"
+                    "email": "consulting@sppix.com"
                 },
                 "availability": "Monday-Friday: 9AM-6PM"
             }
@@ -712,7 +712,7 @@ class Command(BaseCommand):
         
         # Create StoreSettings
         store_settings, created = StoreSettings.objects.get_or_create(
-            store_name="Electro",
+            store_name="sppix",
             defaults={
                 "currency": "USD",
                 "tax_rate": Decimal("8.5"),
@@ -722,7 +722,7 @@ class Command(BaseCommand):
                 "postcode": "94105",
                 "country": "United States",
                 "phone": "+1-555-0123",
-                "email": "info@electro.com",
+                "email": "info@sppix.com",
                 "monday_friday_hours": "9:00 AM - 6:00 PM",
                 "saturday_hours": "10:00 AM - 4:00 PM",
                 "sunday_hours": "Closed"
@@ -742,7 +742,7 @@ class Command(BaseCommand):
         website_content, created = WebsiteContent.objects.get_or_create(
             id=1,
             defaults={
-                "banner1_text": "Welcome to Electro - Your Tech Destination",
+                "banner1_text": "Welcome to sppix - Your Tech Destination",
                 "banner1_link": "/products",
                 "banner2_text": "New Arrivals - Latest Technology",
                 "banner2_link": "/products?new=true",
@@ -763,7 +763,7 @@ class Command(BaseCommand):
                 "postcode": "94105",
                 "country": "United States",
                 "phone": "+1-555-0123",
-                "email": "info@electro.com"
+                "email": "info@sppix.com"
             }
         )
         

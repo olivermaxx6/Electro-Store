@@ -3,11 +3,13 @@ Public API views for storefront consumption.
 These endpoints don't require authentication and are meant for the customer-facing storefront.
 """
 import uuid
+import stripe
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.http import Http404
 from django.db.models import Q
+from django.conf import settings
 
 
 class AllowAnyOrAuthenticated(permissions.BasePermission):
@@ -514,11 +516,15 @@ class PublicOrderCreateViewSet(viewsets.ModelViewSet):
             tax_amount = order_data.get('tax_amount', 0)
             total_price = order_data.get('total_price', 0)
             
+            # Determine payment status based on payment_id
+            payment_id = order_data.get('payment_id', '')
+            payment_status = 'paid' if payment_id and payment_id.strip() else 'unpaid'
+            
             # Create order
             order = Order.objects.create(
                 user=None,  # Guest order
                 tracking_id=str(uuid.uuid4()),
-                payment_id=order_data.get('payment_id', ''),
+                payment_id=payment_id,
                 customer_email=order_data.get('customer_email', ''),
                 customer_phone=order_data.get('customer_phone', ''),
                 shipping_address=order_data.get('shipping_address', {}),
@@ -527,7 +533,9 @@ class PublicOrderCreateViewSet(viewsets.ModelViewSet):
                 tax_amount=tax_amount,
                 total_price=total_price,
                 payment_method=order_data.get('payment_method', 'credit_card'),
-                shipping_name=order_data.get('shipping_name', 'Standard Shipping')
+                shipping_name=order_data.get('shipping_name', 'Standard Shipping'),
+                status='pending',  # Order status for fulfillment
+                payment_status=payment_status  # Payment status separate
             )
             
             # Create order items
@@ -578,8 +586,11 @@ class PublicOrderTrackingViewSet(viewsets.ViewSet):
             order_data = {
                 'id': order.id,
                 'tracking_id': order.tracking_id,
+                'payment_id': order.payment_id,
                 'status': order.status,
                 'status_display': order.get_status_display(),
+                'payment_status': order.payment_status,
+                'payment_status_display': order.get_payment_status_display(),
                 'customer_email': order.customer_email,
                 'customer_phone': order.customer_phone,
                 'shipping_address': order.shipping_address,
@@ -674,5 +685,53 @@ class PublicReviewViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response(
                 {'error': 'Failed to check review status'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PaymentIntentViewSet(viewsets.ViewSet):
+    """Create Stripe payment intent for checkout"""
+    permission_classes = [permissions.AllowAny]
+    
+    def create(self, request):
+        """Create a payment intent for the checkout amount"""
+        try:
+            # Set Stripe API key
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            
+            # Get amount and currency from request
+            amount = request.data.get('amount')
+            currency = request.data.get('currency', 'usd')
+            metadata = request.data.get('metadata', {})
+            
+            if not amount:
+                return Response(
+                    {'error': 'Amount is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create payment intent
+            intent = stripe.PaymentIntent.create(
+                amount=amount,  # Amount in cents
+                currency=currency,
+                metadata=metadata,
+                automatic_payment_methods={
+                    'enabled': True,
+                },
+            )
+            
+            return Response({
+                'client_secret': intent.client_secret,
+                'payment_intent_id': intent.id
+            }, status=status.HTTP_201_CREATED)
+            
+        except stripe.error.StripeError as e:
+            return Response(
+                {'error': f'Stripe error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Server error: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

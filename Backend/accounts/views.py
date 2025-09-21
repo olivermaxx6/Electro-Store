@@ -5,6 +5,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import UserSerializer, UserRegistrationSerializer
+from adminpanel.models import Order
+from adminpanel.serializers import OrderSerializer
 
 class LoginView(TokenObtainPairView):
     """
@@ -62,3 +64,26 @@ def register(request):
             "user": UserSerializer(user).data
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_orders(request):
+    """
+    GET /api/auth/orders
+    Returns all orders for the authenticated user
+    """
+    try:
+        # Get orders for the authenticated user
+        orders = Order.objects.filter(user=request.user).order_by('-created_at')
+        serializer = OrderSerializer(orders, many=True)
+        return Response({
+            "orders": serializer.data
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        import traceback
+        print(f"Error in user_orders: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return Response({
+            "error": "Failed to fetch orders",
+            "detail": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

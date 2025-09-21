@@ -31,7 +31,7 @@ const Placeholder: React.FC<PlaceholderProps> = ({
   return (
     <div
       className={`
-        relative bg-gray-100 border border-dashed border-gray-300 
+        relative bg-gray-100 dark:bg-slate-800 border border-dashed border-gray-300 dark:border-slate-600 
         flex items-center justify-center overflow-hidden
         ${sizeClass}
         ${className}
@@ -42,7 +42,7 @@ const Placeholder: React.FC<PlaceholderProps> = ({
       <div className="absolute inset-0 flex items-center justify-center">
         {children || (
           <Image 
-            className="w-8 h-8 text-gray-400" 
+            className="w-8 h-8 text-gray-400 dark:text-slate-500" 
             aria-hidden="true"
           />
         )}

@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Trash2, Minus, Plus, ArrowLeft } from 'lucide-react';
-import { removeFromCart, updateQuantity, selectCartItems, selectCartTotal } from '../store/cartSlice';
+import { removeFromCart, updateQuantity, selectCartItems, selectCartTotal, setShippingCost, clearCart } from '../store/cartSlice';
 import { selectProducts, setProducts } from '../store/productsSlice';
 import { selectCurrentUser } from '../store/userSlice';
 import { productRepo } from '../lib/repo';
+import { useStoreSettings } from '../hooks/useStoreSettings';
 import Breadcrumbs from '../components/common/Breadcrumbs';
-import Placeholder from '../components/common/Placeholder';
+import LoadingScreen from '../components/common/LoadingScreen';
 import Price from '../components/products/Price';
+import Placeholder from '../components/common/Placeholder';
 import TitleUpdater from '../components/common/TitleUpdater';
 
 const Cart: React.FC = () => {
@@ -19,6 +21,7 @@ const Cart: React.FC = () => {
   const products = useSelector(selectProducts);
   const cartTotal = useSelector(selectCartTotal(userId));
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const { settings, loading: settingsLoading } = useStoreSettings();
 
   // Load products if they're not already loaded
   useEffect(() => {
@@ -48,34 +51,40 @@ const Cart: React.FC = () => {
   const handleRemoveItem = (productId: string) => {
     dispatch(removeFromCart({ productId, userId }));
   };
+
   
   const handleUpdateQuantity = (productId: string, qty: number) => {
     dispatch(updateQuantity({ productId, qty, userId }));
   };
   
-  const shippingCost = cartTotal > 50 ? 0 : 9.99;
+  // Dynamic shipping cost based on admin settings
+  const standardShippingRate = settings && !settingsLoading ? parseFloat(settings?.standard_shipping_rate?.toString() || '0') || 0 : 0;
+  const expressShippingRate = settings && !settingsLoading ? parseFloat(settings?.express_shipping_rate?.toString() || '0') || 0 : 0;
+  
+  
+  
+  // Shipping selection state
+  const [selectedShipping, setSelectedShipping] = useState<string>('standard');
+  
+  // Calculate shipping cost based on selection
+  const getShippingCost = () => {
+    if (cartTotal > 50) return 0; // Free shipping over $50
+    return selectedShipping === 'express' ? expressShippingRate : standardShippingRate;
+  };
+  
+  const shippingCost = getShippingCost();
   const finalTotal = cartTotal + shippingCost;
+
+  // Update shipping cost in store when settings or selection change
+  useEffect(() => {
+    if (settings) {
+      dispatch(setShippingCost({ shippingCost, userId }));
+    }
+  }, [settings, shippingCost, dispatch, userId]);
   
   // Show loading state if we have cart items but products are still loading
   if (cartProducts.length === 0 && isLoadingProducts && cartItems.length > 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
-        <TitleUpdater pageTitle="Cart" />
-        <div className="container mx-auto px-4 py-8">
-          <Breadcrumbs className="mb-6" />
-          
-          <div className="text-center py-16">
-            <div className="w-32 h-32 mx-auto mb-6 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
-              <div className="text-gray-400 dark:text-slate-500 text-4xl">⏳</div>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Loading your cart...</h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-md mx-auto">
-              Please wait while we load your cart items.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading your cart..." />;
   }
 
   // Show empty cart message
@@ -127,8 +136,17 @@ const Cart: React.FC = () => {
           {/* Cart Items */}
           <div className="lg:col-span-2">
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
-              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-slate-700">
+              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Cart Items ({cartItems.length})</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => dispatch(clearCart({ userId }))}
+                    className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors flex items-center space-x-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Clear Cart</span>
+                  </button>
+                </div>
               </div>
               
               <div className="divide-y divide-gray-200 dark:divide-slate-700">
@@ -243,6 +261,56 @@ const Cart: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 sm:p-6 sticky top-8">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
               
+              {/* Shipping Options */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Shipping Options</h4>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="shipping"
+                      value="standard"
+                      checked={selectedShipping === 'standard'}
+                      onChange={(e) => setSelectedShipping(e.target.value)}
+                      className="text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        Standard Shipping
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        5-7 business days
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {standardShippingRate === 0 ? 'Free' : <Price price={standardShippingRate} size="sm" />}
+                    </div>
+                  </label>
+                  
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="shipping"
+                      value="express"
+                      checked={selectedShipping === 'express'}
+                      onChange={(e) => setSelectedShipping(e.target.value)}
+                      className="text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        Express Shipping
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        2-3 business days
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {expressShippingRate === 0 ? 'Free' : <Price price={expressShippingRate} size="sm" />}
+                    </div>
+                  </label>
+                </div>
+              </div>
+              
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Subtotal</span>
@@ -256,11 +324,6 @@ const Cart: React.FC = () => {
                   </span>
                 </div>
                 
-                {cartTotal < 50 && (
-                  <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                    Add <Price price={50 - cartTotal} size="sm" /> more for free shipping
-                  </div>
-                )}
                 
                 <div className="border-t border-gray-200 dark:border-slate-600 pt-3">
                   <div className="flex justify-between">

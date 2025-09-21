@@ -131,7 +131,7 @@ const Careers: React.FC = () => {
                   Contact HR Team
                 </a>
                 <a 
-                  href="mailto:careers@electro.com" 
+                  href="mailto:careers@sppix.com" 
                   className="border border-[var(--color-border)] hover:border-[var(--color-primary)] text-[var(--color-ink)] hover:text-[var(--color-primary)] px-6 py-3 rounded-lg font-semibold transition-colors duration-200"
                 >
                   Email Us

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Grid, List, Eye } from 'lucide-react';
 import { Product } from '../../lib/types';
 import ProductCard from '../components/products/ProductCard';
+import LoadingScreen from '../components/common/LoadingScreen';
 import { getProducts } from '../../lib/productsApi';
 
 interface Category {
@@ -18,6 +19,13 @@ interface BackendProduct {
   name: string;
   description: string;
   price: number;
+  discount_rate?: number;
+  stock: number;
+  brand: number | null;
+  brand_data?: {
+    id: number;
+    name: string;
+  };
   category: number;
   category_data?: {
     id: number;
@@ -30,8 +38,11 @@ interface BackendProduct {
   images: Array<{
     id: number;
     image: string;
+    is_main?: boolean;
     created_at: string;
   }>;
+  isNew?: boolean;
+  is_top_selling?: boolean;
   created_at: string;
 }
 
@@ -123,25 +134,36 @@ const Categories: React.FC = () => {
 
   // Convert backend product to ProductCard format
   const convertToProductCard = (backendProduct: BackendProduct): Product => {
+    // Find main image or use first image
+    const mainImage = backendProduct.images.find(img => img.is_main) || backendProduct.images[0];
+    
+    // Calculate old price if discount exists
+    const oldPrice = backendProduct.discount_rate && backendProduct.discount_rate > 0 
+      ? backendProduct.price / (1 - backendProduct.discount_rate / 100)
+      : undefined;
+    
     return {
       id: backendProduct.id.toString(),
       slug: backendProduct.name.toLowerCase().replace(/\s+/g, '-'),
       title: backendProduct.name,
       category: backendProduct.category_data?.name || 'Uncategorized',
-      brand: 'Unknown', // Backend doesn't have brand info
+      brand: backendProduct.brand_data?.name || 'Unknown',
       price: backendProduct.price,
-      oldPrice: undefined,
+      oldPrice: oldPrice,
       rating: backendProduct.rating,
       ratingCount: backendProduct.review_count,
-      isNew: false, // Could be determined by created_at date
-      discountPct: 0,
+      isNew: backendProduct.isNew || false,
+      discountPct: backendProduct.discount_rate || 0,
+      discount_rate: backendProduct.discount_rate || 0,
+      is_top_selling: backendProduct.is_top_selling || false,
       description: backendProduct.description,
       images: backendProduct.images.map(img => img.image),
-      inStock: true, // Assume in stock if not specified
+      stock: backendProduct.stock || 0,
+      inStock: (backendProduct.stock || 0) > 0,
       sku: `SKU-${backendProduct.id}`,
       specs: {},
       viewCount: backendProduct.view_count,
-      image: backendProduct.images.length > 0 ? backendProduct.images[0].image : undefined,
+      image: mainImage ? mainImage.image : undefined,
     };
   };
 
@@ -152,14 +174,7 @@ const Categories: React.FC = () => {
 
   // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-red-600 dark:border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading categories...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading categories..." />;
   }
 
   // Error state

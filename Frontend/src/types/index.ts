@@ -22,6 +22,7 @@ export type Product = {
   specs?: Record<string, string>;
   description?: string;
   images?: string[];
+  stock?: number;
   inStock?: boolean;
   sku?: string;
 };

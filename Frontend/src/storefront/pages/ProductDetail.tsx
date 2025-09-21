@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Heart, ShoppingCart, Minus, Plus, Truck, Shield, RotateCcw } from 'lucide-react';
-import { productRepo } from '../lib/repo';
 import { addToCart } from '../store/cartSlice';
 import { addToWishlist, removeFromWishlist, selectIsInWishlist } from '../store/wishlistSlice';
 import { selectCurrentUser } from '../store/userSlice';
@@ -10,9 +9,9 @@ import { addToast } from '../store/uiSlice';
 import { formatCurrency } from '../lib/format';
 import { Currency } from '../lib/types';
 import { useStoreSettings } from '../hooks/useStoreSettings';
-import { getProductReviews, createProductReview, checkUserProductReview, incrementProductView } from '../../lib/productsApi';
+import { getProduct, getProductReviews, createProductReview, checkUserProductReview, incrementProductView } from '../../lib/productsApi';
 import Breadcrumbs from '../components/common/Breadcrumbs';
-import Placeholder from '../components/common/Placeholder';
+import LoadingScreen from '../components/common/LoadingScreen';
 import Price from '../components/products/Price';
 import Stars from '../components/products/Stars';
 import Badge from '../components/common/Badge';
@@ -43,9 +42,38 @@ const ProductDetail: React.FC = () => {
       if (id) {
         setLoading(true);
         try {
-          // Load product data
-          const productData = await productRepo.getById(id);
-          setProduct(productData);
+          // Load product data from API
+          const productData = await getProduct(id);
+          console.log('ProductDetail: Product data received', productData);
+          
+          // Transform the API data to match the expected format
+          const transformedProduct = {
+            id: productData.id.toString(),
+            slug: productData.name.toLowerCase().replace(/\s+/g, '-'),
+            title: productData.name,
+            category: productData.category?.name || 'Uncategorized',
+            brand: productData.brand_data?.name || 'Unknown',
+            price: productData.price,
+            oldPrice: productData.discount_rate && productData.discount_rate > 0 
+              ? productData.price / (1 - productData.discount_rate / 100)
+              : undefined,
+            rating: productData.rating,
+            ratingCount: productData.review_count,
+            isNew: productData.isNew || false,
+            discountPct: productData.discount_rate || 0,
+            discount_rate: productData.discount_rate || 0,
+            is_top_selling: productData.is_top_selling || false,
+            description: productData.description,
+            images: productData.images.map((img: any) => img.image),
+            stock: productData.stock || 0,
+            inStock: (productData.stock || 0) > 0,
+            sku: `SKU-${productData.id}`,
+            specs: productData.technical_specs || {},
+            viewCount: productData.view_count,
+            image: productData.images.find((img: any) => img.is_main)?.image || productData.images[0]?.image,
+          };
+          
+          setProduct(transformedProduct);
           
           // Track view
           try {
@@ -54,9 +82,8 @@ const ProductDetail: React.FC = () => {
             console.error('Failed to increment product view:', error);
           }
           
-          // Load related products
-          const related = await productRepo.getRelatedProducts(id, 4);
-          setRelatedProducts(related);
+          // Load related products (for now, set empty array)
+          setRelatedProducts([]);
           
           // Load reviews
           console.log('ProductDetail: Loading reviews for product', id);
@@ -107,16 +134,7 @@ const ProductDetail: React.FC = () => {
   }, [id, currentUser?.isAuthenticated]);
   
   if (loading || !product) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Placeholder size="lg" className="mx-auto mb-4">
-            <div className="text-gray-400 dark:text-slate-500">Loading...</div>
-          </Placeholder>
-          <p className="text-gray-600 dark:text-slate-400">Loading product details...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading product details..." />;
   }
   
   const handleAddToCart = () => {
@@ -234,7 +252,19 @@ const ProductDetail: React.FC = () => {
           <div>
             {/* Main Product Image */}
             <div className="mb-4">
-              {product && product.images && product.images.length > 0 ? (
+              {product && product.image ? (
+                <div className="w-full h-96 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
+                  <img 
+                    src={product.image.startsWith('http') ? product.image : `http://127.0.0.1:8001${product.image}`}
+                    alt={product.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/placeholder-product.jpg';
+                    }}
+                  />
+                </div>
+              ) : product && product.images && product.images.length > 0 ? (
                 <div className="w-full h-96 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                   <img 
                     src={product.images[selectedImage]?.startsWith('http') ? product.images[selectedImage] : `http://127.0.0.1:8001${product.images[selectedImage]}`}
@@ -327,7 +357,7 @@ const ProductDetail: React.FC = () => {
                 <div className="flex items-center border border-gray-300 dark:border-slate-600 rounded-md">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="p-2 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300"
+                    className="p-2 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={quantity <= 1}
                   >
                     <Minus className="w-4 h-4" />
@@ -337,25 +367,25 @@ const ProductDetail: React.FC = () => {
                     value={quantity}
                     onChange={(e) => {
                       const newQuantity = parseInt(e.target.value) || 1;
-                      const maxQuantity = product.stock || 1;
+                      const maxQuantity = product.stock || 0;
                       setQuantity(Math.max(1, Math.min(newQuantity, maxQuantity)));
                     }}
                     className="w-16 text-center border-0 focus:ring-0 bg-transparent text-gray-900 dark:text-slate-100"
                     min="1"
-                    max={product.stock || 1}
+                    max={product.stock || 0}
                   />
                   <button
                     onClick={() => {
-                      const maxQuantity = product.stock || 1;
+                      const maxQuantity = product.stock || 0;
                       setQuantity(Math.min(quantity + 1, maxQuantity));
                     }}
-                    className="p-2 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300"
-                    disabled={quantity >= (product.stock || 1)}
+                    className="p-2 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={quantity >= (product.stock || 0)}
                   >
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
-                {product.stock && (
+                {product.stock !== undefined && (
                   <span className="text-sm text-gray-500 dark:text-slate-400">
                     ({product.stock} available)
                   </span>
@@ -438,14 +468,26 @@ const ProductDetail: React.FC = () => {
             {activeTab === 'specs' && (
               <div>
                 <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Specifications</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {product.specs && Object.entries(product.specs).map(([key, value]) => (
-                    <div key={key} className="flex justify-between py-2 border-b border-gray-200 dark:border-slate-700">
-                      <span className="font-medium text-gray-700 dark:text-slate-300">{key}:</span>
-                      <span className="text-gray-600 dark:text-slate-400">{String(value)}</span>
+                {product.specs && Object.keys(product.specs).length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(product.specs).map(([key, value]) => (
+                      <div key={key} className="flex justify-between py-3 px-4 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700">
+                        <span className="font-medium text-gray-700 dark:text-slate-300">{key}:</span>
+                        <span className="text-gray-600 dark:text-slate-400 font-medium">{String(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">⚙️</span>
                     </div>
-                  ))}
-                </div>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2">No Specifications Available</h4>
+                    <p className="text-gray-600 dark:text-slate-400">
+                      Technical specifications for this product have not been provided yet.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             

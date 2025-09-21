@@ -8,8 +8,10 @@ from django.http import JsonResponse
 from .views_public import (
     PublicBrandViewSet, PublicCategoryViewSet, PublicProductViewSet,
     PublicServiceViewSet, PublicServiceCategoryViewSet, PublicServiceReviewViewSet, PublicReviewViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet,
-    PublicChatRoomViewSet, PublicChatMessageViewSet, PublicContactViewSet, PublicServiceQueryViewSet, PublicOrderCreateViewSet, PublicOrderTrackingViewSet
+    PublicChatRoomViewSet, PublicChatMessageViewSet, PublicContactViewSet, PublicServiceQueryViewSet, PublicOrderCreateViewSet, PublicOrderTrackingViewSet,
+    PaymentIntentViewSet
 )
+from .views_stripe import stripe_webhook, get_payment_intent
 
 router = DefaultRouter()
 
@@ -29,8 +31,11 @@ router.register(r"contacts", PublicContactViewSet, basename="public-contact")
 router.register(r"service-queries", PublicServiceQueryViewSet, basename="public-servicequery")
 router.register(r"orders", PublicOrderCreateViewSet, basename="public-order")
 router.register(r"track-order", PublicOrderTrackingViewSet, basename="public-order-tracking")
+router.register(r"create-payment-intent", PaymentIntentViewSet, basename="payment-intent")
 
 urlpatterns = [
     path("", include(router.urls)),
     path("health/", lambda r: JsonResponse({"status": "ok"}), name="public-health"),
+    path("stripe/webhook/", stripe_webhook, name="stripe-webhook"),
+    path("payment-intent/<str:payment_intent_id>/", get_payment_intent, name="get-payment-intent"),
 ]

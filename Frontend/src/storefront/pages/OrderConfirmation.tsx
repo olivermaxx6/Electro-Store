@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { addToast } from '../store/uiSlice';
+import { selectIsAuthenticated } from '../store/userSlice';
 import { formatCurrency } from '../lib/format';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import Breadcrumbs from '../components/common/Breadcrumbs';
+import LoadingScreen from '../components/common/LoadingScreen';
 import { CheckCircle, Package, Truck, CreditCard } from 'lucide-react';
 
 interface OrderData {
@@ -37,6 +39,7 @@ interface OrderData {
 const OrderConfirmation: React.FC = () => {
   const { trackingId } = useParams<{ trackingId: string }>();
   const dispatch = useDispatch();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const { settings } = useStoreSettings();
@@ -44,59 +47,54 @@ const OrderConfirmation: React.FC = () => {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        // In a real app, you'd fetch the order by tracking ID
-        // For now, we'll simulate the order data
-        const mockOrder: OrderData = {
-          id: Math.floor(Math.random() * 1000),
-          tracking_id: trackingId || '',
-          payment_id: 'pay_' + Math.random().toString(36).substr(2, 9),
-          customer_email: 'customer@example.com',
-          customer_phone: '+1234567890',
-          shipping_address: {
-            firstName: 'John',
-            lastName: 'Doe',
-            address1: '123 Main St',
-            city: 'Anytown',
-            state: 'CA',
-            postcode: '12345'
-          },
-          subtotal: 299.97,
-          shipping_cost: 9.99,
-          tax_amount: 24.00,
-          total_price: 333.96,
-          status: 'pending',
-          payment_method: 'credit_card',
-          shipping_name: 'Standard Shipping',
-          created_at: new Date().toISOString(),
-          items: [
-            {
-              id: 1,
-              product: {
-                id: 1,
-                title: 'Sample Product 1',
-                price: 99.99
-              },
-              quantity: 2,
-              unit_price: 99.99
+        if (!trackingId) {
+          throw new Error('Tracking ID is required');
+        }
+
+        const response = await fetch(`http://127.0.0.1:8001/api/public/track-order/${trackingId}/`);
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error('Order not found');
+          }
+          throw new Error(`Failed to fetch order: ${response.status}`);
+        }
+
+        const orderData = await response.json();
+        
+        // Transform the API response to match our interface
+        const transformedOrder: OrderData = {
+          id: orderData.id,
+          tracking_id: orderData.tracking_id,
+          payment_id: orderData.payment_id,
+          customer_email: orderData.customer_email,
+          customer_phone: orderData.customer_phone,
+          shipping_address: orderData.shipping_address,
+          subtotal: orderData.subtotal,
+          shipping_cost: orderData.shipping_cost,
+          tax_amount: orderData.tax_amount,
+          total_price: orderData.total_price,
+          status: orderData.status,
+          payment_method: orderData.payment_method,
+          shipping_name: orderData.shipping_name,
+          created_at: orderData.created_at,
+          items: orderData.items.map((item: any) => ({
+            id: item.id,
+            product: {
+              id: item.id,
+              title: item.product_name,
+              price: item.unit_price
             },
-            {
-              id: 2,
-              product: {
-                id: 2,
-                title: 'Sample Product 2',
-                price: 99.99
-              },
-              quantity: 1,
-              unit_price: 99.99
-            }
-          ]
+            quantity: item.quantity,
+            unit_price: item.unit_price
+          }))
         };
         
-        setOrder(mockOrder);
+        setOrder(transformedOrder);
       } catch (error) {
         console.error('Failed to fetch order:', error);
         dispatch(addToast({
-          message: 'Failed to load order details',
+          message: error instanceof Error ? error.message : 'Failed to load order details',
           type: 'error'
         }));
       } finally {
@@ -110,16 +108,7 @@ const OrderConfirmation: React.FC = () => {
   }, [trackingId, dispatch]);
   
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 dark:border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-300">Loading order details...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading order details..." />;
   }
   
   if (!order) {
@@ -272,12 +261,14 @@ const OrderConfirmation: React.FC = () => {
                 >
                   Continue Shopping
                 </Link>
-                <Link
-                  to="/user/orders"
-                  className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
-                >
-                  View All Orders
-                </Link>
+                {isAuthenticated && (
+                  <Link
+                    to="/user/dashboard"
+                    className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Go to Dashboard
+                  </Link>
+                )}
               </div>
               
               {/* Next Steps */}

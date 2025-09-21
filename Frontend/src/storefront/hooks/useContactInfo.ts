@@ -6,6 +6,12 @@ interface ContactInfo {
   email: string;
   city: string;
   country: string;
+  address: string;
+  businessHours: {
+    mondayFriday: string;
+    saturday: string;
+    sunday: string;
+  };
 }
 
 export const useContactInfo = () => {
@@ -13,7 +19,13 @@ export const useContactInfo = () => {
     phone: '',
     email: '',
     city: '',
-    country: ''
+    country: '',
+    address: '',
+    businessHours: {
+      mondayFriday: 'Monday - Friday: 9:00 AM - 6:00 PM',
+      saturday: 'Saturday: 10:00 AM - 4:00 PM',
+      sunday: 'Sunday: Closed'
+    }
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

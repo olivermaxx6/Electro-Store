@@ -46,6 +46,7 @@ export default function ProductsPage(){
   const [cSubcat, setCSubcat] = useState('');
   const [cSpecs, setCSpecs] = useState([{key:'',value:''}]);
   const [cImages, setCImages] = useState([]);
+  const [cMainImage, setCMainImage] = useState(null);
   const [cIsNewArrival, setCIsNewArrival] = useState(false);
   const [cIsTopSelling, setCIsTopSelling] = useState(false);
 
@@ -72,6 +73,7 @@ export default function ProductsPage(){
   const [eSpecs, setESpecs] = useState([{key:'',value:''}]);
   const [eFiles, setEFiles] = useState([]);
   const [eImages, setEImages] = useState([]);
+  const [eMainImage, setEMainImage] = useState(null);
   const [eIsNewArrival, setEIsNewArrival] = useState(false);
   const [eIsTopSelling, setEIsTopSelling] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -240,12 +242,24 @@ export default function ProductsPage(){
       console.log('Creating product with payload:', payload);
       const { data: prod } = await createProduct(payload);
       console.log('Product created successfully:', prod);
+      
+      // Upload main image first if provided
+      if (cMainImage) {
+        const mainImageFormData = new FormData();
+        mainImageFormData.append('image', cMainImage);
+        mainImageFormData.append('is_main', 'true');
+        await uploadProductImages(prod.id, [cMainImage]);
+      }
+      
+      // Upload additional images if provided
       if (cImages.length) { await uploadProductImages(prod.id, cImages); }
+      
       // reset
       setCName(''); setCDesc(''); setCPrice(''); setCDiscount(''); setCStock('');
       setCBrand(''); setCTopCat(''); setCSubcat('');
       setCSpecs([{key:'',value:''}]); 
       setCImages([]);
+      setCMainImage(null);
       await loadList();
       setMsg({kind:'success', text:'Product created successfully!'});
     } catch(err){
@@ -296,13 +310,22 @@ export default function ProductsPage(){
       };
       await updateProduct(editing.id, payload);
       
-      // Handle image uploads
+      // Handle main image upload first if provided
+      if (eMainImage) {
+        const mainImageFormData = new FormData();
+        mainImageFormData.append('image', eMainImage);
+        mainImageFormData.append('is_main', 'true');
+        await uploadProductImages(editing.id, [eMainImage]);
+      }
+      
+      // Handle additional image uploads
       if (eImages.length) {
         await uploadProductImages(editing.id, eImages);
       }
       if (eFiles.length) await uploadProductImages(editing.id, eFiles);
       const fresh = (await getProduct(editing.id)).data;
       setEditing(fresh);
+      setEMainImage(null); // Reset main image selection
       await loadList();
       setMsg({kind:'success', text:'Product updated.'});
     } catch(err){
@@ -375,6 +398,51 @@ export default function ProductsPage(){
                 onChange={e=>setCDesc(e.target.value)} 
               />
             </div>
+            
+            {/* Technical Specifications */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Technical Specifications</label>
+              <div className="space-y-3">
+                {cSpecs.map((row,idx)=>(
+                  <div key={idx} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Specification Key</label>
+                      <input 
+                        placeholder="e.g., RAM, Storage, Color" 
+                        className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all duration-200 text-sm" 
+                        value={row.key} 
+                        onChange={e=>chSpec(idx,'key',e.target.value)} 
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Value</label>
+                      <input 
+                        placeholder="e.g., 8GB, 256GB, Black" 
+                        className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all duration-200 text-sm" 
+                        value={row.value} 
+                        onChange={e=>chSpec(idx,'value',e.target.value)} 
+                      />
+                    </div>
+                    <button 
+                      type="button" 
+                      className="h-10 px-3 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all duration-200 flex items-center justify-center font-semibold shadow-lg hover:shadow-xl text-sm" 
+                      onClick={()=>rmSpec(idx)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  type="button" 
+                  className="w-full border-2 border-dashed border-blue-300 dark:border-blue-600 rounded-xl px-3 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 font-medium flex items-center justify-center gap-2 text-sm" 
+                  onClick={addSpec}
+                >
+                  <span className="text-sm">➕</span>
+                  Add Specification
+                </button>
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Stock Quantity</label>
               <input 
@@ -460,55 +528,6 @@ export default function ProductsPage(){
             </div>
           </div>
 
-          {/* Technical Specs */}
-          <div className="mt-8 p-6 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-3xl border border-orange-200 dark:border-orange-800">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-yellow-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-sm">⚙️</span>
-              </div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Technical Specifications</h3>
-            </div>
-            <div className="space-y-4">
-              {cSpecs.map((row,idx)=>(
-                <div key={idx} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Specification Key</label>
-                    <input 
-                      placeholder="e.g., RAM, Storage, Color" 
-                      className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-orange-500 dark:focus:border-orange-400 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200" 
-                      value={row.key} 
-                      onChange={e=>chSpec(idx,'key',e.target.value)} 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Value</label>
-                    <input 
-                      placeholder="e.g., 8GB, 256GB, Black" 
-                      className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-orange-500 dark:focus:border-orange-400 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200" 
-                      value={row.value} 
-                      onChange={e=>chSpec(idx,'value',e.target.value)} 
-                    />
-                  </div>
-                  <button 
-                    type="button" 
-                    className="h-12 px-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl transition-all duration-200 flex items-center justify-center font-semibold shadow-lg hover:shadow-xl" 
-                    onClick={()=>rmSpec(idx)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ))}
-              <button 
-                type="button" 
-                className="w-full border-2 border-dashed border-orange-300 dark:border-orange-600 rounded-2xl px-4 py-4 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-200 font-semibold flex items-center justify-center gap-2" 
-                onClick={addSpec}
-              >
-                <span className="text-lg">➕</span>
-                Add New Specification
-              </button>
-            </div>
-          </div>
-
           {/* New Arrivals Section */}
           <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-200 dark:border-blue-800">
             <div className="flex items-center gap-3 mb-6">
@@ -579,6 +598,32 @@ export default function ProductsPage(){
               </div>
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Product Images</h3>
             </div>
+            {/* Main Picture Selection */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-xs">⭐</span>
+                </div>
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Main Picture</h4>
+              </div>
+              <div className="space-y-3">
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Select the main image that will be displayed as the primary product image
+                </div>
+                <input 
+                  type="file" 
+                  accept=".jpg,.jpeg,.png" 
+                  onChange={(e) => setCMainImage(e.target.files[0])}
+                  className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-xl px-4 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all duration-200"
+                />
+                {cMainImage && (
+                  <div className="mt-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                    ✅ Main picture selected: {cMainImage.name}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Multiple Image Upload */}
             <div className="space-y-6">
               {/* Upload Area */}
@@ -841,6 +886,51 @@ export default function ProductsPage(){
                   onChange={e=>setEDesc(e.target.value)} 
                 />
               </div>
+              
+              {/* Technical Specifications */}
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Technical Specifications</label>
+                <div className="space-y-3">
+                  {eSpecs.map((row,idx)=>(
+                    <div key={idx} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Specification Key</label>
+                        <input 
+                          placeholder="e.g., RAM, Storage, Color" 
+                          className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-800 transition-all duration-200 text-sm" 
+                          value={row.key} 
+                          onChange={e=>chESpec(idx,'key',e.target.value)} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Value</label>
+                        <input 
+                          placeholder="e.g., 8GB, 256GB, Black" 
+                          className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-800 transition-all duration-200 text-sm" 
+                          value={row.value} 
+                          onChange={e=>chESpec(idx,'value',e.target.value)} 
+                        />
+                      </div>
+                      <button 
+                        type="button" 
+                        className="h-10 px-3 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all duration-200 flex items-center justify-center font-semibold shadow-lg hover:shadow-xl text-sm" 
+                        onClick={()=>rmESpec(idx)}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
+                  <button 
+                    type="button" 
+                    className="w-full border-2 border-dashed border-amber-300 dark:border-amber-600 rounded-xl px-3 py-2 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all duration-200 font-medium flex items-center justify-center gap-2 text-sm" 
+                    onClick={addESpec}
+                  >
+                    <span className="text-sm">➕</span>
+                    Add Specification
+                  </button>
+                </div>
+              </div>
+              
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Discount Rate (%)</label>
                 <input 
@@ -914,54 +1004,6 @@ export default function ProductsPage(){
               </div>
             </div>
 
-            <div className="mt-8 p-6 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-3xl border border-orange-200 dark:border-orange-800">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-yellow-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">⚙️</span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Technical Specifications</h3>
-              </div>
-              <div className="space-y-4">
-                {eSpecs.map((row,idx)=>(
-                  <div key={idx} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Specification Key</label>
-                      <input 
-                        placeholder="e.g., RAM, Storage, Color" 
-                        className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-orange-500 dark:focus:border-orange-400 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200" 
-                        value={row.key} 
-                        onChange={e=>chESpec(idx,'key',e.target.value)} 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Value</label>
-                      <input 
-                        placeholder="e.g., 8GB, 256GB, Black" 
-                        className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-orange-500 dark:focus:border-orange-400 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200" 
-                        value={row.value} 
-                        onChange={e=>chESpec(idx,'value',e.target.value)} 
-                      />
-                    </div>
-                    <button 
-                      type="button" 
-                      className="h-12 px-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl transition-all duration-200 flex items-center justify-center font-semibold shadow-lg hover:shadow-xl" 
-                      onClick={()=>rmESpec(idx)}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                ))}
-                <button 
-                  type="button" 
-                  className="w-full border-2 border-dashed border-orange-300 dark:border-orange-600 rounded-2xl px-4 py-4 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-200 font-semibold flex items-center justify-center gap-2" 
-                  onClick={addESpec}
-                >
-                  <span className="text-lg">➕</span>
-                  Add New Specification
-                </button>
-              </div>
-            </div>
-
             {/* New Arrivals Section */}
             <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-200 dark:border-blue-800">
               <div className="flex items-center gap-3 mb-6">
@@ -1030,6 +1072,32 @@ export default function ProductsPage(){
                   <span className="text-white text-sm">📸</span>
                 </div>
                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Product Images</h3>
+              </div>
+
+              {/* Main Picture Selection */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-xs">⭐</span>
+                  </div>
+                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Change Main Picture</h4>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    Select a new main image that will be displayed as the primary product image
+                  </div>
+                  <input 
+                    type="file" 
+                    accept=".jpg,.jpeg,.png" 
+                    onChange={(e) => setEMainImage(e.target.files[0])}
+                    className="w-full text-sm border-2 border-slate-200 dark:border-slate-600 rounded-xl px-4 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all duration-200"
+                  />
+                  {eMainImage && (
+                    <div className="mt-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                      ✅ New main picture selected: {eMainImage.name}
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Current Images */}

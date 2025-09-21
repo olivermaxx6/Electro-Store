@@ -2,7 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { UIState, Currency, Toast } from '../lib/types';
 
 const initialState: UIState = {
-  currency: 'USD',
+  currency: 'GBP',
   theme: 'light',
   toasts: [],
 };

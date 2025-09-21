@@ -3,10 +3,11 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ChevronDown, Grid, List } from 'lucide-react';
 import { setProducts, setCategories, setSortBy, selectProducts, selectCategories } from '../store/productsSlice';
-import { productRepo } from '../lib/repo';
 import { formatCurrencySymbol } from '../lib/format';
 import { Currency } from '../lib/types';
 import { useStoreSettings } from '../hooks/useStoreSettings';
+import { getProducts } from '../../lib/productsApi';
+import { Product } from '../lib/types';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import ProductCard from '../components/products/ProductCard';
 import Placeholder from '../components/common/Placeholder';
@@ -102,27 +103,62 @@ const Category: React.FC = () => {
           setBrandsLoading(false);
         }
         
+        // Load products from API
+        const apiProducts = await getProducts();
+        console.log('Loaded products from API:', apiProducts.length);
+        console.log('Sample API products:', apiProducts.slice(0, 3));
+        
+        // Transform API products to match expected format
+        const transformedProducts = apiProducts.map((backendProduct: any) => {
+          // Find main image or use first image
+          const mainImage = backendProduct.images.find((img: any) => img.is_main) || backendProduct.images[0];
+          
+          // Calculate old price if discount exists
+          const oldPrice = backendProduct.discount_rate && backendProduct.discount_rate > 0 
+            ? backendProduct.price / (1 - backendProduct.discount_rate / 100)
+            : undefined;
+          
+          return {
+            id: backendProduct.id.toString(),
+            slug: backendProduct.name.toLowerCase().replace(/\s+/g, '-'),
+            title: backendProduct.name,
+            category: backendProduct.category?.name || 'Uncategorized',
+            categorySlug: backendProduct.category?.slug || 'uncategorized',
+            brand: backendProduct.brand_data?.name || 'Unknown',
+            brandSlug: backendProduct.brand_data?.name?.toLowerCase().replace(/\s+/g, '-') || 'unknown',
+            price: backendProduct.price,
+            oldPrice: oldPrice,
+            rating: backendProduct.rating,
+            ratingCount: backendProduct.review_count,
+            isNew: backendProduct.isNew || false,
+            discountPct: backendProduct.discount_rate || 0,
+            discount_rate: backendProduct.discount_rate || 0,
+            is_top_selling: backendProduct.is_top_selling || false,
+            description: backendProduct.description,
+            images: backendProduct.images.map((img: any) => img.image),
+            stock: backendProduct.stock || 0,
+            inStock: (backendProduct.stock || 0) > 0,
+            sku: `SKU-${backendProduct.id}`,
+            specs: backendProduct.technical_specs || {},
+            viewCount: backendProduct.view_count,
+            image: mainImage ? mainImage.image : undefined,
+          };
+        });
+        
+        console.log('Transformed products:', transformedProducts.length);
+        console.log('Sample transformed products:', transformedProducts.slice(0, 3));
+        
         if (slug === 'deals') {
-          // Load discounted products for deals page
-          const allProducts = await productRepo.getAll();
-          const discountedProducts = allProducts.filter(p => p.discount_rate && p.discount_rate > 0);
+          // Filter for discounted products
+          const discountedProducts = transformedProducts.filter((p: Product) => p.discount_rate && p.discount_rate > 0);
           dispatch(setProducts(discountedProducts));
         } else if (slug) {
-          // Load products for specific category
-          const categoryProducts = await productRepo.getByCategory(slug);
+          // Filter for specific category
+          const categoryProducts = transformedProducts.filter((p: Product) => p.categorySlug === slug);
           dispatch(setProducts(categoryProducts));
         } else {
-          // Load all products for shop page (when slug is undefined)
-          const allProducts = await productRepo.getAll();
-          console.log('Loaded products:', allProducts.length);
-          console.log('Sample products with categories:', allProducts.slice(0, 3).map(p => ({ 
-            title: p.title, 
-            category: p.category, 
-            categorySlug: p.categorySlug,
-            brand: p.brand,
-            brandSlug: p.brandSlug
-          })));
-          dispatch(setProducts(allProducts));
+          // Load all products for shop page
+          dispatch(setProducts(transformedProducts));
         }
       } catch (error) {
         console.error('Failed to load category data:', error);

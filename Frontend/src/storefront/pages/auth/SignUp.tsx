@@ -16,6 +16,7 @@ const SignUp: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -44,6 +45,12 @@ const SignUp: React.FC = () => {
 
       if (formData.password.length < 6) {
         setError('Password must be at least 6 characters long');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!privacyConsent) {
+        setError('Please agree to the Privacy Policy to create an account');
         setIsLoading(false);
         return;
       }
@@ -245,6 +252,30 @@ const SignUp: React.FC = () => {
                   )}
                 </button>
               </div>
+            </div>
+
+            {/* Privacy Policy Consent */}
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="privacyConsent"
+                checked={privacyConsent}
+                onChange={(e) => setPrivacyConsent(e.target.checked)}
+                className="mt-1 h-4 w-4 text-red-600 dark:text-blue-600 focus:ring-red-500 dark:focus:ring-blue-500 border-gray-300 dark:border-slate-600 rounded"
+                required
+              />
+              <label htmlFor="privacyConsent" className="text-sm text-gray-700 dark:text-gray-300">
+                I agree to the{' '}
+                <a 
+                  href="/privacy" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-red-600 dark:text-blue-400 hover:underline"
+                >
+                  Privacy Policy
+                </a>
+                {' '}and consent to the processing of my personal information as described therein.
+              </label>
             </div>
 
             {/* Error Message */}

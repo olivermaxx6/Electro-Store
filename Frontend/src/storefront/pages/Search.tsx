@@ -5,7 +5,7 @@ import { setSearchQuery, selectProducts } from '../store/productsSlice';
 import { productRepo } from '../lib/repo';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import ProductCard from '../components/products/ProductCard';
-import Placeholder from '../components/common/Placeholder';
+import LoadingScreen from '../components/common/LoadingScreen';
 import TitleUpdater from '../components/common/TitleUpdater';
 
 const Search: React.FC = () => {
@@ -41,7 +41,7 @@ const Search: React.FC = () => {
   }, [query, dispatch]);
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <TitleUpdater pageTitle={`Search: ${query}`} />
       <div className="container mx-auto px-4 py-8">
         <Breadcrumbs className="mb-6" />
@@ -59,12 +59,7 @@ const Search: React.FC = () => {
         </div>
         
         {loading ? (
-          <div className="text-center py-12 sm:py-16">
-            <Placeholder size="lg" className="mx-auto mb-4 sm:mb-6">
-              <div className="text-gray-400 dark:text-gray-500">Searching...</div>
-            </Placeholder>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Searching for products...</p>
-          </div>
+          <LoadingScreen message="Searching for products..." />
         ) : searchResults.length === 0 && query ? (
           <div className="text-center py-12 sm:py-16">
             <Placeholder size="lg" className="mx-auto mb-4 sm:mb-6">

@@ -6,6 +6,11 @@ import { useContactInfo } from '../../hooks/useContactInfo';
 
 const Contact: React.FC = () => {
   const { contactInfo, loading, error } = useContactInfo();
+  
+  // Debug logging
+  console.log('Contact page - contactInfo:', contactInfo);
+  console.log('Contact page - loading:', loading);
+  console.log('Contact page - error:', error);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -161,7 +166,7 @@ const Contact: React.FC = () => {
                       ) : error ? (
                         <p className="text-gray-400 dark:text-gray-500">Phone not available</p>
                       ) : (
-                        <p className="text-gray-600 dark:text-gray-300">{contactInfo.phone_number || 'Phone not set'}</p>
+                        <p className="text-gray-600 dark:text-gray-300">{contactInfo.phone || 'Phone not set'}</p>
                       )}
                     </div>
                   </div>
@@ -184,11 +189,17 @@ const Contact: React.FC = () => {
                     <Clock className="w-6 h-6 text-primary dark:text-blue-400 mt-1" />
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">Business Hours</h3>
-                      <p className="text-gray-600 dark:text-gray-300">
-                        Monday - Friday: 9:00 AM - 6:00 PM<br />
-                        Saturday: 10:00 AM - 4:00 PM<br />
-                        Sunday: Closed
-                      </p>
+                      {loading ? (
+                        <p className="text-gray-400 dark:text-gray-500">Loading...</p>
+                      ) : error ? (
+                        <p className="text-gray-400 dark:text-gray-500">Business hours not available</p>
+                      ) : (
+                        <p className="text-gray-600 dark:text-gray-300">
+                          {contactInfo.businessHours.mondayFriday}<br />
+                          {contactInfo.businessHours.saturday}<br />
+                          {contactInfo.businessHours.sunday}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

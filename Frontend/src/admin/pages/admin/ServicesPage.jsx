@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeSelect, ThemeTextarea } from '@shared/theme';
 import { useCurrency } from '../../store/currencyStore';
-import { listServiceCategories, createServiceCategory, updateServiceCategory, deleteServiceCategory, listServices, createService, updateService, deleteService, authStore } from '../../lib/api';
+import { listServiceCategories, createServiceCategory, updateServiceCategory, deleteServiceCategory, listServices, createService as createServiceAPI, updateService, deleteService as deleteServiceAPI, authStore, api } from '../../lib/api';
 
 export default function ServicesPage() {
   const { formatAmount } = useCurrency();
@@ -12,6 +12,7 @@ export default function ServicesPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
   
   // Form states for creating new category
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -70,6 +71,91 @@ export default function ServicesPage() {
   const parseFeaturesList = (text) => {
     if (!text.trim()) return [];
     return text.split('\n').map(item => item.trim()).filter(item => item);
+  };
+
+  // Validation functions
+  const validateServiceForm = (formData, isEdit = false) => {
+    const errors = {};
+    
+    // Required fields validation
+    if (!formData.name?.trim()) {
+      errors.name = 'Service name is required';
+    }
+    
+    if (!formData.description?.trim()) {
+      errors.description = 'Service description is required';
+    }
+    
+    if (!formData.price || formData.price <= 0) {
+      errors.price = 'Valid price is required (must be greater than 0)';
+    }
+    
+    // Email validation if provided
+    if (formData.contactEmail && formData.contactEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.contactEmail.trim())) {
+        errors.contactEmail = 'Please enter a valid email address';
+      }
+    }
+    
+    // Phone validation if provided
+    if (formData.contactPhone && formData.contactPhone.trim()) {
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      if (!phoneRegex.test(formData.contactPhone.replace(/[\s\-\(\)]/g, ''))) {
+        errors.contactPhone = 'Please enter a valid phone number';
+      }
+    }
+    
+    // Rating validation
+    if (formData.rating && (formData.rating < 0 || formData.rating > 5)) {
+      errors.rating = 'Rating must be between 0.0 and 5.0';
+    }
+    
+    // Review count validation
+    if (formData.reviewCount && formData.reviewCount < 0) {
+      errors.reviewCount = 'Review count cannot be negative';
+    }
+    
+    return errors;
+  };
+
+  const validateCategoryForm = (formData) => {
+    const errors = {};
+    
+    if (!formData.name?.trim()) {
+      errors.name = 'Category name is required';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Category name must be at least 2 characters long';
+    }
+    
+    return errors;
+  };
+
+  const clearValidationErrors = () => {
+    setValidationErrors({});
+  };
+
+  // Helper function to get field styling based on validation errors
+  const getFieldStyling = (fieldName, baseClasses = '') => {
+    const hasError = validationErrors[fieldName];
+    if (hasError) {
+      return `${baseClasses} border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50 dark:bg-red-900/20`;
+    }
+    return baseClasses;
+  };
+
+  // Helper function to render field error message
+  const renderFieldError = (fieldName) => {
+    const error = validationErrors[fieldName];
+    if (error) {
+      return (
+        <div className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+          <span className="text-red-500">⚠️</span>
+          {error}
+        </div>
+      );
+    }
+    return null;
   };
 
   const parseProcessSteps = (text) => {
@@ -185,8 +271,21 @@ export default function ServicesPage() {
 
   const createCategory = async (e) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) {
-      setMsg({ kind: 'error', text: 'Category name is required.' });
+    clearValidationErrors();
+    
+    const formData = {
+      name: newCategoryName,
+      description: newCategoryDescription,
+      ordering: newCategoryOrdering
+    };
+    
+    const errors = validateCategoryForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setMsg({ 
+        kind: 'error', 
+        text: 'Please fix the following errors: ' + Object.values(errors).join(', ') 
+      });
       return;
     }
 
@@ -206,6 +305,7 @@ export default function ServicesPage() {
       setCategories(prev => [newCategory, ...prev]);
       resetCategoryForm();
       setShowCategoryForm(false);
+      clearValidationErrors();
       setMsg({ kind: 'success', text: 'Category created successfully!' });
     } catch (err) {
       console.error('[ServicesPage] Failed to create category:', err);
@@ -241,8 +341,26 @@ export default function ServicesPage() {
 
   const updateCategory = async (e) => {
     e.preventDefault();
-    if (!editingCategory || !eCategoryName.trim()) {
-      setMsg({ kind: 'error', text: 'Category name is required.' });
+    clearValidationErrors();
+    
+    if (!editingCategory) {
+      setMsg({ kind: 'error', text: 'No category selected for editing.' });
+      return;
+    }
+    
+    const formData = {
+      name: eCategoryName,
+      description: editingCategory.description || '',
+      ordering: editingCategory.ordering || 0
+    };
+    
+    const errors = validateCategoryForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setMsg({ 
+        kind: 'error', 
+        text: 'Please fix the following errors: ' + Object.values(errors).join(', ') 
+      });
       return;
     }
 
@@ -260,6 +378,7 @@ export default function ServicesPage() {
       setCategories(prev => prev.map(c => c.id === editingCategory.id ? updatedCategory : c));
       setEditingCategory(null);
       resetCategoryEditForm();
+      clearValidationErrors();
       setMsg({ kind: 'success', text: 'Category updated successfully!' });
     } catch (err) {
       console.error('[ServicesPage] Failed to update category:', err);
@@ -272,6 +391,7 @@ export default function ServicesPage() {
   const cancelEditCategory = () => {
     setEditingCategory(null);
     resetCategoryEditForm();
+    clearValidationErrors();
   };
 
   const resetCategoryEditForm = () => {
@@ -337,86 +457,170 @@ export default function ServicesPage() {
 
   const createService = async (e) => {
     e.preventDefault();
-    if (!newName.trim() || !newDescription.trim() || !newPrice) {
-      setMsg({ kind: 'error', text: 'Please fill in all required fields.' });
+    clearValidationErrors();
+    
+    const formData = {
+      name: newName,
+      description: newDescription,
+      price: parseFloat(newPrice),
+      contactEmail: newContactEmail,
+      contactPhone: newContactPhone,
+      rating: parseFloat(newRating),
+      reviewCount: parseInt(newReviewCount)
+    };
+    
+    const errors = validateServiceForm(formData);
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setMsg({ 
+        kind: 'error', 
+        text: 'Please fix the following errors: ' + Object.values(errors).join(', ') 
+      });
       return;
     }
 
     setBusy(true);
     setMsg(null);
     try {
-      // Mock service creation - replace with actual API call
-      const selectedCategory = categories.find(c => c.id && c.id.toString() === newCategoryId);
-      const newService = {
-        id: Date.now(),
-        name: newName.trim(),
-        description: newDescription.trim(),
-        price: parseFloat(newPrice),
-        image: newImage ? URL.createObjectURL(newImage) : '/api/placeholder/300/200',
-        category: selectedCategory || null,
-        category_id: newCategoryId ? parseInt(newCategoryId) : null,
-        rating: parseFloat(newRating),
-        review_count: parseInt(newReviewCount),
-        overview: newOverview.trim(),
-        included_features: parseFeaturesList(newIncludedFeatures),
-        process_steps: parseProcessSteps(newProcessSteps),
-        key_features: parseFeaturesList(newKeyFeatures),
-        contact_info: {
-          phone: newContactPhone.trim(),
-          email: newContactEmail.trim()
-        },
-        availability: newAvailability.trim(),
-        created_at: new Date().toISOString()
-      };
+      console.log('[ServicesPage] Creating service with API...');
+      
+      // Prepare form data for API call
+      const formData = new FormData();
+      formData.append('name', newName.trim());
+      formData.append('description', newDescription.trim());
+      formData.append('price', parseFloat(newPrice));
+      
+      if (newCategoryId) {
+        formData.append('category_id', parseInt(newCategoryId));
+      }
+      
+      formData.append('rating', parseFloat(newRating));
+      formData.append('review_count', parseInt(newReviewCount));
+      formData.append('overview', newOverview.trim());
+      formData.append('included_features', JSON.stringify(parseFeaturesList(newIncludedFeatures)));
+      formData.append('process_steps', JSON.stringify(parseProcessSteps(newProcessSteps)));
+      formData.append('key_features', JSON.stringify(parseFeaturesList(newKeyFeatures)));
+      formData.append('contact_info', JSON.stringify({
+        phone: newContactPhone.trim(),
+        email: newContactEmail.trim()
+      }));
+      formData.append('availability', newAvailability.trim());
+      
+      const response = await createServiceAPI(formData);
+      console.log('[ServicesPage] Service created response:', response);
+      
+      let newService = response.data;
+      
+      // Upload image separately if provided
+      if (newImage && newService.id) {
+        try {
+          const imageFormData = new FormData();
+          imageFormData.append('image', newImage);
+          const imageResponse = await api.post(`/api/admin/services/${newService.id}/images/`, imageFormData);
+          console.log('[ServicesPage] Image uploaded:', imageResponse.data);
+          // Update the service with the image URL
+          newService.images = [imageResponse.data];
+        } catch (imageErr) {
+          console.error('[ServicesPage] Failed to upload image:', imageErr);
+          // Don't fail the entire operation if image upload fails
+        }
+      }
       
       setServices(prev => [newService, ...prev]);
       resetNewForm();
+      clearValidationErrors();
       setMsg({ kind: 'success', text: 'Service created successfully!' });
     } catch (err) {
-      setMsg({ kind: 'error', text: 'Failed to create service.' });
+      console.error('[ServicesPage] Failed to create service:', err);
+      setMsg({ kind: 'error', text: `Failed to create service: ${err.message || 'Unknown error'}` });
     } finally {
       setBusy(false);
     }
   };
 
-  const updateService = async (e) => {
+  const handleUpdateService = async (e) => {
     e.preventDefault();
-    if (!editing || !eName.trim() || !eDescription.trim() || !ePrice) {
-      setMsg({ kind: 'error', text: 'Please fill in all required fields.' });
+    clearValidationErrors();
+    
+    if (!editing) {
+      setMsg({ kind: 'error', text: 'No service selected for editing.' });
+      return;
+    }
+    
+    const formData = {
+      name: eName,
+      description: eDescription,
+      price: parseFloat(ePrice),
+      contactEmail: eContactEmail,
+      contactPhone: eContactPhone,
+      rating: parseFloat(eRating),
+      reviewCount: parseInt(eReviewCount)
+    };
+    
+    const errors = validateServiceForm(formData, true);
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setMsg({ 
+        kind: 'error', 
+        text: 'Please fix the following errors: ' + Object.values(errors).join(', ') 
+      });
       return;
     }
 
     setBusy(true);
     setMsg(null);
     try {
-      // Mock service update - replace with actual API call
-      const selectedCategory = categories.find(c => c.id && c.id.toString() === eCategoryId);
-      const updatedService = {
-        ...editing,
-        name: eName.trim(),
-        description: eDescription.trim(),
-        price: parseFloat(ePrice),
-        image: eImage ? URL.createObjectURL(eImage) : editing.image,
-        category: selectedCategory || null,
-        category_id: eCategoryId ? parseInt(eCategoryId) : null,
-        rating: parseFloat(eRating),
-        review_count: parseInt(eReviewCount),
-        overview: eOverview.trim(),
-        included_features: parseFeaturesList(eIncludedFeatures),
-        process_steps: parseProcessSteps(eProcessSteps),
-        key_features: parseFeaturesList(eKeyFeatures),
-        contact_info: {
-          phone: eContactPhone.trim(),
-          email: eContactEmail.trim()
-        },
-        availability: eAvailability.trim()
-      };
+      console.log('[ServicesPage] Updating service with API...');
+      
+      // Prepare form data for API call
+      const formData = new FormData();
+      formData.append('name', eName.trim());
+      formData.append('description', eDescription.trim());
+      formData.append('price', parseFloat(ePrice));
+      
+      if (eCategoryId) {
+        formData.append('category_id', parseInt(eCategoryId));
+      }
+      
+      formData.append('rating', parseFloat(eRating));
+      formData.append('review_count', parseInt(eReviewCount));
+      formData.append('overview', eOverview.trim());
+      formData.append('included_features', JSON.stringify(parseFeaturesList(eIncludedFeatures)));
+      formData.append('process_steps', JSON.stringify(parseProcessSteps(eProcessSteps)));
+      formData.append('key_features', JSON.stringify(parseFeaturesList(eKeyFeatures)));
+      formData.append('contact_info', JSON.stringify({
+        phone: eContactPhone.trim(),
+        email: eContactEmail.trim()
+      }));
+      formData.append('availability', eAvailability.trim());
+      
+      const response = await updateService(editing.id, formData);
+      console.log('[ServicesPage] Service updated response:', response);
+      
+      let updatedService = response.data;
+      
+      // Upload new image separately if provided
+      if (eImage && updatedService.id) {
+        try {
+          const imageFormData = new FormData();
+          imageFormData.append('image', eImage);
+          const imageResponse = await api.post(`/api/admin/services/${updatedService.id}/images/`, imageFormData);
+          console.log('[ServicesPage] Image uploaded:', imageResponse.data);
+          // Update the service with the new image
+          updatedService.images = [...(updatedService.images || []), imageResponse.data];
+        } catch (imageErr) {
+          console.error('[ServicesPage] Failed to upload image:', imageErr);
+          // Don't fail the entire operation if image upload fails
+        }
+      }
       
       setServices(prev => prev.map(s => s.id === editing.id ? updatedService : s));
       setEditing(updatedService);
+      clearValidationErrors();
       setMsg({ kind: 'success', text: 'Service updated successfully!' });
     } catch (err) {
-      setMsg({ kind: 'error', text: 'Failed to update service.' });
+      console.error('[ServicesPage] Failed to update service:', err);
+      setMsg({ kind: 'error', text: `Failed to update service: ${err.message || 'Unknown error'}` });
     } finally {
       setBusy(false);
     }
@@ -428,14 +632,17 @@ export default function ServicesPage() {
     setBusy(true);
     setMsg(null);
     try {
-      // Mock service deletion - replace with actual API call
+      console.log('[ServicesPage] Deleting service with API...');
+      await deleteServiceAPI(serviceId);
+      
       setServices(prev => prev.filter(s => s.id !== serviceId));
       if (editing && editing.id === serviceId) {
         setEditing(null);
       }
       setMsg({ kind: 'success', text: 'Service deleted successfully!' });
     } catch (err) {
-      setMsg({ kind: 'error', text: 'Failed to delete service.' });
+      console.error('[ServicesPage] Failed to delete service:', err);
+      setMsg({ kind: 'error', text: `Failed to delete service: ${err.message || 'Unknown error'}` });
     } finally {
       setBusy(false);
     }
@@ -465,6 +672,7 @@ export default function ServicesPage() {
   const cancelEdit = () => {
     setEditing(null);
     resetEditForm();
+    clearValidationErrors();
   };
 
   return (
@@ -485,6 +693,38 @@ export default function ServicesPage() {
               type={msg.kind === 'success' ? 'success' : 'error'}
               onClose={() => setMsg(null)}
             />
+          )}
+
+          {/* Validation Errors Summary */}
+          {Object.keys(validationErrors).length > 0 && (
+            <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-sm">⚠️</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
+                    Please fix the following errors:
+                  </h3>
+                  <ul className="space-y-1">
+                    {Object.entries(validationErrors).map(([field, error]) => (
+                      <li key={field} className="text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
+                        <span className="text-red-500">•</span>
+                        <span className="font-medium capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                        <span>{error}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  onClick={clearValidationErrors}
+                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 transition-colors"
+                  title="Clear errors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Service Categories Management */}
@@ -516,10 +756,17 @@ export default function ServicesPage() {
                     </label>
                     <ThemeInput
                       value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onChange={(e) => {
+                        setNewCategoryName(e.target.value);
+                        if (validationErrors.name) {
+                          setValidationErrors(prev => ({ ...prev, name: null }));
+                        }
+                      }}
                       placeholder="Enter category name"
                       required
+                      className={getFieldStyling('name')}
                     />
+                    {renderFieldError('name')}
                   </div>
                   <div className="flex items-end">
                     <ThemeButton 
@@ -553,10 +800,17 @@ export default function ServicesPage() {
                     </label>
                     <ThemeInput
                       value={eCategoryName}
-                      onChange={(e) => setECategoryName(e.target.value)}
+                      onChange={(e) => {
+                        setECategoryName(e.target.value);
+                        if (validationErrors.name) {
+                          setValidationErrors(prev => ({ ...prev, name: null }));
+                        }
+                      }}
                       placeholder="Enter category name"
                       required
+                      className={getFieldStyling('name')}
                     />
+                    {renderFieldError('name')}
                   </div>
                   <div className="flex items-end gap-2">
                     <ThemeButton 
@@ -643,10 +897,17 @@ export default function ServicesPage() {
                   </label>
                   <ThemeInput
                     value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
+                    onChange={(e) => {
+                      setNewName(e.target.value);
+                      if (validationErrors.name) {
+                        setValidationErrors(prev => ({ ...prev, name: null }));
+                      }
+                    }}
                     placeholder="Enter service name"
                     required
+                    className={getFieldStyling('name')}
                   />
+                  {renderFieldError('name')}
                 </div>
 
                 {/* Service Price */}
@@ -659,10 +920,17 @@ export default function ServicesPage() {
                     step="0.01"
                     min="0"
                     value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
+                    onChange={(e) => {
+                      setNewPrice(e.target.value);
+                      if (validationErrors.price) {
+                        setValidationErrors(prev => ({ ...prev, price: null }));
+                      }
+                    }}
                     placeholder="0.00"
                     required
+                    className={getFieldStyling('price')}
                   />
+                  {renderFieldError('price')}
                 </div>
               </div>
 
@@ -697,11 +965,18 @@ export default function ServicesPage() {
                 </label>
                 <ThemeTextarea
                   value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
+                  onChange={(e) => {
+                    setNewDescription(e.target.value);
+                    if (validationErrors.description) {
+                      setValidationErrors(prev => ({ ...prev, description: null }));
+                    }
+                  }}
                   placeholder="Describe your service in detail..."
                   rows={4}
                   required
+                  className={getFieldStyling('description')}
                 />
+                {renderFieldError('description')}
               </div>
 
               {/* Rating and Reviews */}
@@ -716,9 +991,16 @@ export default function ServicesPage() {
                     min="0"
                     max="5"
                     value={newRating}
-                    onChange={(e) => setNewRating(e.target.value)}
+                    onChange={(e) => {
+                      setNewRating(e.target.value);
+                      if (validationErrors.rating) {
+                        setValidationErrors(prev => ({ ...prev, rating: null }));
+                      }
+                    }}
                     placeholder="0.0"
+                    className={getFieldStyling('rating')}
                   />
+                  {renderFieldError('rating')}
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -728,9 +1010,16 @@ export default function ServicesPage() {
                     type="number"
                     min="0"
                     value={newReviewCount}
-                    onChange={(e) => setNewReviewCount(e.target.value)}
+                    onChange={(e) => {
+                      setNewReviewCount(e.target.value);
+                      if (validationErrors.reviewCount) {
+                        setValidationErrors(prev => ({ ...prev, reviewCount: null }));
+                      }
+                    }}
                     placeholder="0"
+                    className={getFieldStyling('reviewCount')}
                   />
+                  {renderFieldError('reviewCount')}
                 </div>
               </div>
 
@@ -794,9 +1083,16 @@ export default function ServicesPage() {
                   </label>
                   <ThemeInput
                     value={newContactPhone}
-                    onChange={(e) => setNewContactPhone(e.target.value)}
+                    onChange={(e) => {
+                      setNewContactPhone(e.target.value);
+                      if (validationErrors.contactPhone) {
+                        setValidationErrors(prev => ({ ...prev, contactPhone: null }));
+                      }
+                    }}
                     placeholder="+1 (555) 123-4567"
+                    className={getFieldStyling('contactPhone')}
                   />
+                  {renderFieldError('contactPhone')}
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -805,9 +1101,16 @@ export default function ServicesPage() {
                   <ThemeInput
                     type="email"
                     value={newContactEmail}
-                    onChange={(e) => setNewContactEmail(e.target.value)}
+                    onChange={(e) => {
+                      setNewContactEmail(e.target.value);
+                      if (validationErrors.contactEmail) {
+                        setValidationErrors(prev => ({ ...prev, contactEmail: null }));
+                      }
+                    }}
                     placeholder="support@example.com"
+                    className={getFieldStyling('contactEmail')}
                   />
+                  {renderFieldError('contactEmail')}
                 </div>
               </div>
 
@@ -959,7 +1262,7 @@ export default function ServicesPage() {
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Edit Service</h2>
               </div>
               
-              <form onSubmit={updateService} className="space-y-6">
+              <form onSubmit={handleUpdateService} className="space-y-6">
                 <div className="grid gap-6 md:grid-cols-2">
                   {/* Service Name */}
                   <div className="space-y-2">
@@ -968,10 +1271,17 @@ export default function ServicesPage() {
                     </label>
                     <ThemeInput
                       value={eName}
-                      onChange={(e) => setEName(e.target.value)}
+                      onChange={(e) => {
+                        setEName(e.target.value);
+                        if (validationErrors.name) {
+                          setValidationErrors(prev => ({ ...prev, name: null }));
+                        }
+                      }}
                       placeholder="Enter service name"
                       required
+                      className={getFieldStyling('name')}
                     />
+                    {renderFieldError('name')}
                   </div>
 
                   {/* Service Price */}
@@ -984,10 +1294,17 @@ export default function ServicesPage() {
                       step="0.01"
                       min="0"
                       value={ePrice}
-                      onChange={(e) => setEPrice(e.target.value)}
+                      onChange={(e) => {
+                        setEPrice(e.target.value);
+                        if (validationErrors.price) {
+                          setValidationErrors(prev => ({ ...prev, price: null }));
+                        }
+                      }}
                       placeholder="0.00"
                       required
+                      className={getFieldStyling('price')}
                     />
+                    {renderFieldError('price')}
                   </div>
                 </div>
 
@@ -1022,11 +1339,18 @@ export default function ServicesPage() {
                   </label>
                   <ThemeTextarea
                     value={eDescription}
-                    onChange={(e) => setEDescription(e.target.value)}
+                    onChange={(e) => {
+                      setEDescription(e.target.value);
+                      if (validationErrors.description) {
+                        setValidationErrors(prev => ({ ...prev, description: null }));
+                      }
+                    }}
                     placeholder="Describe your service in detail..."
                     rows={4}
                     required
+                    className={getFieldStyling('description')}
                   />
+                  {renderFieldError('description')}
                 </div>
 
                 {/* Rating and Reviews */}
@@ -1041,9 +1365,16 @@ export default function ServicesPage() {
                       min="0"
                       max="5"
                       value={eRating}
-                      onChange={(e) => setERating(e.target.value)}
+                      onChange={(e) => {
+                        setERating(e.target.value);
+                        if (validationErrors.rating) {
+                          setValidationErrors(prev => ({ ...prev, rating: null }));
+                        }
+                      }}
                       placeholder="0.0"
+                      className={getFieldStyling('rating')}
                     />
+                    {renderFieldError('rating')}
                   </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -1053,9 +1384,16 @@ export default function ServicesPage() {
                       type="number"
                       min="0"
                       value={eReviewCount}
-                      onChange={(e) => setEReviewCount(e.target.value)}
+                      onChange={(e) => {
+                        setEReviewCount(e.target.value);
+                        if (validationErrors.reviewCount) {
+                          setValidationErrors(prev => ({ ...prev, reviewCount: null }));
+                        }
+                      }}
                       placeholder="0"
+                      className={getFieldStyling('reviewCount')}
                     />
+                    {renderFieldError('reviewCount')}
                   </div>
                 </div>
 
@@ -1119,9 +1457,16 @@ export default function ServicesPage() {
                     </label>
                     <ThemeInput
                       value={eContactPhone}
-                      onChange={(e) => setEContactPhone(e.target.value)}
+                      onChange={(e) => {
+                        setEContactPhone(e.target.value);
+                        if (validationErrors.contactPhone) {
+                          setValidationErrors(prev => ({ ...prev, contactPhone: null }));
+                        }
+                      }}
                       placeholder="+1 (555) 123-4567"
+                      className={getFieldStyling('contactPhone')}
                     />
+                    {renderFieldError('contactPhone')}
                   </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -1130,9 +1475,16 @@ export default function ServicesPage() {
                     <ThemeInput
                       type="email"
                       value={eContactEmail}
-                      onChange={(e) => setEContactEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEContactEmail(e.target.value);
+                        if (validationErrors.contactEmail) {
+                          setValidationErrors(prev => ({ ...prev, contactEmail: null }));
+                        }
+                      }}
                       placeholder="support@example.com"
+                      className={getFieldStyling('contactEmail')}
                     />
+                    {renderFieldError('contactEmail')}
                   </div>
                 </div>
 

@@ -6,9 +6,9 @@ import { formatCurrency } from '../../lib/format';
 import { Currency } from '../../lib/types';
 
 const ShippingInfo: React.FC = () => {
-  const { settings } = useStoreSettings();
-  const standardRate = parseFloat((settings as any)?.standard_shipping_rate?.toString() || '0') || 0;
-  const expressRate = parseFloat((settings as any)?.express_shipping_rate?.toString() || '0') || 0;
+  const { settings, loading: settingsLoading } = useStoreSettings();
+  const standardRate = settings && !settingsLoading ? parseFloat((settings as any)?.standard_shipping_rate?.toString() || '0') || 0 : 0;
+  const expressRate = settings && !settingsLoading ? parseFloat((settings as any)?.express_shipping_rate?.toString() || '0') || 0 : 0;
   
   const shippingOptions = [
     {

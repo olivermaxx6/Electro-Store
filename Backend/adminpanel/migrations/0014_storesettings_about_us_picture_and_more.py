@@ -23,6 +23,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='storesettings',
             name='store_name',
-            field=models.CharField(default='Electro', max_length=200),
+            field=models.CharField(default='sppix', max_length=200),
         ),
     ]

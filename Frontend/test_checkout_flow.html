@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout Flow Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-button.success {
+            background: #28a745;
+        }
+        .test-button.error {
+            background: #dc3545;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group input.error {
+            border-color: #dc3545;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-indicator.online {
+            background: #28a745;
+        }
+        .status-indicator.offline {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 E-commerce Checkout Flow Test</h1>
+    
+    <div class="test-container">
+        <h2>Server Status Check</h2>
+        <div id="server-status">
+            <p>Backend (8001): <span class="status-indicator" id="backend-status"></span><span id="backend-text">Checking...</span></p>
+            <p>Frontend (5173): <span class="status-indicator" id="frontend-status"></span><span id="frontend-text">Checking...</span></p>
+            <p>Admin (5174): <span class="status-indicator" id="admin-status"></span><span id="admin-text">Checking...</span></p>
+        </div>
+        <button class="test-button" onclick="checkServerStatus()">🔄 Refresh Status</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Payment Intent Test</h2>
+        <button class="test-button" onclick="testPaymentIntent()">💳 Test Payment Intent Creation</button>
+        <div id="payment-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>Order Creation Test</h2>
+        <button class="test-button" onclick="testOrderCreation()">📦 Test Order Creation (Paid)</button>
+        <button class="test-button" onclick="testUnpaidOrderCreation()">📦 Test Order Creation (Unpaid)</button>
+        <div id="order-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>Frontend Checkout Test</h2>
+        <p>Test the actual checkout flow:</p>
+        <button class="test-button" onclick="openCheckout()">🛒 Open Checkout Page</button>
+        <button class="test-button" onclick="openAdminOrders()">📋 Open Admin Orders</button>
+        <div id="frontend-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>Manual Test Instructions</h2>
+        <div class="result info">
+            <h3>Steps to test checkout flow:</h3>
+            <ol>
+                <li>Click "Open Checkout Page" above</li>
+                <li>Fill out all required fields:
+                    <ul>
+                        <li>Address information (all fields)</li>
+                        <li>Select shipping option</li>
+                        <li>Payment information (use test card: 4242 4242 4242 4242)</li>
+                        <li>Check privacy policy consent</li>
+                    </ul>
+                </li>
+                <li>Click "Place Order" and watch browser console (F12)</li>
+                <li>Check admin orders page for new orders</li>
+            </ol>
+            
+            <h3>Expected Results:</h3>
+            <ul>
+                <li>✅ Form validation with red borders for missing fields</li>
+                <li>✅ Console logs showing payment process</li>
+                <li>✅ Successful payment processing</li>
+                <li>✅ Order creation with "paid" status</li>
+                <li>✅ Cart clearing after successful order</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://127.0.0.1:8001';
+        const FRONTEND_URL = 'http://localhost:5173';
+        const ADMIN_URL = 'http://localhost:5174';
+
+        async function checkServerStatus() {
+            const servers = [
+                { name: 'Backend', url: BACKEND_URL + '/health/ws/', id: 'backend' },
+                { name: 'Frontend', url: FRONTEND_URL, id: 'frontend' },
+                { name: 'Admin', url: ADMIN_URL, id: 'admin' }
+            ];
+
+            for (const server of servers) {
+                try {
+                    const response = await fetch(server.url, { method: 'GET', mode: 'no-cors' });
+                    updateServerStatus(server.id, true, 'Online');
+                } catch (error) {
+                    updateServerStatus(server.id, false, 'Offline');
+                }
+            }
+        }
+
+        function updateServerStatus(id, isOnline, text) {
+            const statusElement = document.getElementById(id + '-status');
+            const textElement = document.getElementById(id + '-text');
+            
+            statusElement.className = `status-indicator ${isOnline ? 'online' : 'offline'}`;
+            textElement.textContent = text;
+        }
+
+        async function testPaymentIntent() {
+            const resultDiv = document.getElementById('payment-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Creating payment intent...';
+
+            try {
+                const response = await fetch(BACKEND_URL + '/api/public/create-payment-intent/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        amount: 2000, // $20.00 in cents
+                        currency: 'usd',
+                        metadata: {
+                            customer_email: 'test@example.com',
+                            customer_name: 'Test Customer',
+                            cart_items: JSON.stringify([
+                                { product_id: 1, quantity: 2 },
+                                { product_id: 2, quantity: 1 }
+                            ])
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        ✅ Payment intent created successfully!<br>
+                        Payment Intent ID: ${data.payment_intent_id}<br>
+                        Client Secret: ${data.client_secret.substring(0, 20)}...
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Failed: ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function testOrderCreation() {
+            const resultDiv = document.getElementById('order-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Creating paid order...';
+
+            try {
+                const orderData = {
+                    cart_items: [
+                        { product_id: 1, quantity: 2, unit_price: 10.00 },
+                        { product_id: 2, quantity: 1, unit_price: 15.00 }
+                    ],
+                    subtotal: 35.00,
+                    shipping_cost: 5.00,
+                    tax_amount: 3.50,
+                    total_price: 43.50,
+                    payment_id: 'pi_test_' + Math.random().toString(36).substr(2, 9),
+                    payment_method: 'credit_card',
+                    customer_email: 'test@example.com',
+                    customer_phone: '+1234567890',
+                    shipping_address: {
+                        firstName: 'John',
+                        lastName: 'Doe',
+                        email: 'test@example.com',
+                        phone: '+1234567890',
+                        address1: '123 Test St',
+                        address2: 'Apt 1',
+                        city: 'Test City',
+                        state: 'TS',
+                        postcode: '12345'
+                    },
+                    shipping_name: 'Standard Shipping'
+                };
+
+                const response = await fetch(BACKEND_URL + '/api/public/orders/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        ✅ Paid order created successfully!<br>
+                        Order ID: ${data.order_id}<br>
+                        Tracking ID: ${data.tracking_id}<br>
+                        Payment ID: ${data.payment_id}<br>
+                        Status: Paid
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Failed: ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function testUnpaidOrderCreation() {
+            const resultDiv = document.getElementById('order-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Creating unpaid order...';
+
+            try {
+                const orderData = {
+                    cart_items: [
+                        { product_id: 1, quantity: 1, unit_price: 20.00 }
+                    ],
+                    subtotal: 20.00,
+                    shipping_cost: 3.00,
+                    tax_amount: 2.00,
+                    total_price: 25.00,
+                    payment_id: '', // Empty payment ID = unpaid
+                    payment_method: 'credit_card',
+                    customer_email: 'unpaid@example.com',
+                    customer_phone: '+1234567891',
+                    shipping_address: {
+                        firstName: 'Jane',
+                        lastName: 'Smith',
+                        email: 'unpaid@example.com',
+                        phone: '+1234567891',
+                        address1: '456 Unpaid Ave',
+                        address2: '',
+                        city: 'Unpaid City',
+                        state: 'UC',
+                        postcode: '54321'
+                    },
+                    shipping_name: 'Express Shipping'
+                };
+
+                const response = await fetch(BACKEND_URL + '/api/public/orders/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        ✅ Unpaid order created successfully!<br>
+                        Order ID: ${data.order_id}<br>
+                        Tracking ID: ${data.tracking_id}<br>
+                        Payment ID: ${data.payment_id || 'None'}<br>
+                        Status: Pending
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Failed: ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        function openCheckout() {
+            window.open(FRONTEND_URL + '/checkout', '_blank');
+        }
+
+        function openAdminOrders() {
+            window.open(ADMIN_URL + '/admin/orders', '_blank');
+        }
+
+        // Check server status on page load
+        window.onload = function() {
+            checkServerStatus();
+        };
+    </script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import { setProducts, setCategories, setBrands, selectProducts } from '../store/
 import { productRepo, categoryRepo, brandRepo } from '../lib/repo';
 import { useStore } from '../contexts/StoreContext';
 import { useWebsiteContent } from '../hooks/useWebsiteContent';
+import { useGlobalLoading } from '../hooks/useGlobalLoading';
 import PromoTile from '../components/hero/PromoTile';
 import ProductCard from '../components/products/ProductCard';
 import HotDealBanner from '../components/promo/HotDealBanner';
@@ -16,6 +17,7 @@ const Home: React.FC = () => {
   const products = useSelector(selectProducts);
   const { storeSettings } = useStore();
   const { content: websiteContent, loading: contentLoading } = useWebsiteContent();
+  const { executeWithLoading } = useGlobalLoading();
   const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
   const bannerRefs = useRef<(HTMLDivElement | null)[]>([]);
   
@@ -39,25 +41,28 @@ const Home: React.FC = () => {
   }, []);
   
   useEffect(() => {
+    // Only load data if products haven't been loaded yet
+    if (products.length > 0) {
+      return;
+    }
+
     const loadData = async () => {
-      try {
-        const [productsData, categoriesData, brandsData] = await Promise.all([
-          productRepo.getAll(),
-          categoryRepo.getAll(),
-          brandRepo.getAll(),
-        ]);
-        
-        dispatch(setProducts(productsData));
-        dispatch(setCategories(categoriesData));
-        dispatch(setBrands(brandsData));
-        setDynamicCategories(categoriesData);
-      } catch (error) {
-        console.error('Failed to load data:', error);
-      }
+      const [productsData, categoriesData, brandsData] = await Promise.all([
+        productRepo.getAll(),
+        categoryRepo.getAll(),
+        brandRepo.getAll(),
+      ]);
+      
+      dispatch(setProducts(productsData));
+      dispatch(setCategories(categoriesData));
+      dispatch(setBrands(brandsData));
+      setDynamicCategories(categoriesData);
     };
-    
-    loadData();
-  }, [dispatch]);
+
+    executeWithLoading(loadData, {
+      message: 'Loading...',
+    });
+  }, [dispatch, products.length]);
   
   // Get new products (NEW PRODUCTS section)
   const newProducts = products.filter(p => p.isNew).slice(0, 8);

@@ -12,11 +12,11 @@ export const useStore = () => {
 
 export const StoreProvider = ({ children }) => {
   const [storeSettings, setStoreSettings] = useState({
-    store_name: 'Electro',
+    store_name: 'sppix',
     store_logo: null,
     about_us_picture: null,
     favicon: null,
-    currency: 'USD',
+    currency: 'GBP',
     tax_rate: 0,
     shipping_rate: 0
   });

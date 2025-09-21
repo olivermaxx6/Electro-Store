@@ -165,10 +165,10 @@ const UserDashboard: React.FC = () => {
         </div>
         <div className="mt-4">
           <Link
-            to="/user/orders"
+            to="/user/dashboard"
             className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-sm font-medium"
           >
-            View all orders →
+            View Dashboard →
           </Link>
         </div>
       </div>

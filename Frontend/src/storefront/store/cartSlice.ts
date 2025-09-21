@@ -120,4 +120,8 @@ export const selectCartItemCount = (userId: string = 'guest') => (state: { cart:
   return items.reduce((total, item) => total + item.qty, 0);
 };
 
+export const selectCartShippingCost = (userId: string = 'guest') => (state: { cart: CartState }) => {
+  return state.cart?.userCarts?.[userId]?.shippingCost || 0;
+};
+
 export default cartSlice.reducer;

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Payment Test - GBP</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-cards {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .test-cards h3 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        .test-cards ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Stripe Payment Test (GBP)</h1>
+        
+        <div class="test-cards">
+            <h3>💳 Test Cards for GBP</h3>
+            <ul>
+                <li><strong>Success:</strong> 4242 4242 4242 4242</li>
+                <li><strong>Declined:</strong> 4000 0000 0000 0002</li>
+                <li><strong>Requires Authentication:</strong> 4000 0025 0000 3155</li>
+                <li><strong>Insufficient Funds:</strong> 4000 0000 0000 9995</li>
+            </ul>
+            <p><strong>Use any future expiry date and any 3-digit CVC</strong></p>
+        </div>
+
+        <form id="payment-form">
+            <div class="form-group">
+                <label for="amount">Amount (£)</label>
+                <input type="number" id="amount" name="amount" value="25.00" step="0.01" min="0.01" required>
+            </div>
+
+            <div class="form-group">
+                <label for="card-number">Card Number</label>
+                <input type="text" id="card-number" name="card-number" placeholder="4242 4242 4242 4242" required>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="expiry">Expiry (MM/YY)</label>
+                    <input type="text" id="expiry" name="expiry" placeholder="12/25" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="cvc">CVC</label>
+                    <input type="text" id="cvc" name="cvc" placeholder="123" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="cardholder-name">Cardholder Name</label>
+                <input type="text" id="cardholder-name" name="cardholder-name" placeholder="John Doe" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="john@example.com" required>
+            </div>
+
+            <button type="submit" id="submit-btn">
+                <span id="button-text">Pay £<span id="amount-display">25.00</span></span>
+                <span id="spinner" style="display: none;">Processing...</span>
+            </button>
+        </form>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        // Initialize Stripe with your test publishable key
+        const stripe = Stripe('pk_test_51S9TOV1P7OUaUZWmpjXeetCOf0MQuQ6vm0hvgNGj0p0hdQfOM5wDCjKTDSCZZg7qb0ozclRUmWlKNTENZEvYDiJK003tEvvONV');
+        
+        const form = document.getElementById('payment-form');
+        const amountInput = document.getElementById('amount');
+        const amountDisplay = document.getElementById('amount-display');
+        const submitBtn = document.getElementById('submit-btn');
+        const buttonText = document.getElementById('button-text');
+        const spinner = document.getElementById('spinner');
+        const result = document.getElementById('result');
+
+        // Update amount display when input changes
+        amountInput.addEventListener('input', function() {
+            amountDisplay.textContent = this.value;
+        });
+
+        // Format card number
+        document.getElementById('card-number').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+            let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+            if (formattedValue !== value) {
+                e.target.value = formattedValue;
+            }
+        });
+
+        // Format expiry
+        document.getElementById('expiry').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length >= 2) {
+                value = value.substring(0, 2) + '/' + value.substring(2, 4);
+            }
+            e.target.value = value;
+        });
+
+        // Format CVC
+        document.getElementById('cvc').addEventListener('input', function(e) {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '').substring(0, 4);
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const amount = parseFloat(amountInput.value);
+            const cardNumber = document.getElementById('card-number').value.replace(/\s/g, '');
+            const expiry = document.getElementById('expiry').value;
+            const cvc = document.getElementById('cvc').value;
+            const cardholderName = document.getElementById('cardholder-name').value;
+            const email = document.getElementById('email').value;
+
+            if (!cardNumber || !expiry || !cvc || !cardholderName || !email) {
+                showResult('Please fill in all fields', 'error');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                // Create payment intent
+                console.log('Creating payment intent...');
+                const paymentIntentResponse = await fetch('http://127.0.0.1:8001/api/public/create-payment-intent/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        amount: Math.round(amount * 100), // Convert to pence
+                        currency: 'gbp',
+                        metadata: {
+                            customer_email: email,
+                            customer_name: cardholderName,
+                        }
+                    })
+                });
+
+                if (!paymentIntentResponse.ok) {
+                    const errorData = await paymentIntentResponse.json();
+                    throw new Error(errorData.error || 'Failed to create payment intent');
+                }
+
+                const { client_secret, payment_intent_id } = await paymentIntentResponse.json();
+                console.log('Payment intent created:', payment_intent_id);
+
+                // Create payment method
+                const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: {
+                        number: cardNumber,
+                        exp_month: parseInt(expiry.split('/')[0]),
+                        exp_year: parseInt('20' + expiry.split('/')[1]),
+                        cvc: cvc
+                    },
+                    billing_details: {
+                        name: cardholderName,
+                        email: email
+                    }
+                });
+
+                if (pmError) {
+                    throw new Error(pmError.message);
+                }
+
+                // Confirm payment
+                const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
+                    payment_method: paymentMethod.id
+                });
+
+                if (confirmError) {
+                    throw new Error(confirmError.message);
+                }
+
+                if (paymentIntent.status === 'succeeded') {
+                    showResult(`Payment successful! Payment Intent ID: ${paymentIntent.id}`, 'success');
+                    
+                    // Create order (simulate)
+                    try {
+                        const orderResponse = await fetch('http://127.0.0.1:8001/api/public/orders/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                cart_items: [{
+                                    product_id: 1,
+                                    quantity: 1,
+                                    unit_price: amount
+                                }],
+                                subtotal: amount,
+                                shipping_cost: 0,
+                                tax_amount: 0,
+                                total_price: amount,
+                                payment_id: paymentIntent.id,
+                                payment_intent_id: paymentIntent.id,
+                                currency: 'GBP',
+                                payment_method: 'credit_card',
+                                customer_email: email,
+                                customer_phone: '',
+                                shipping_address: {
+                                    firstName: cardholderName.split(' ')[0],
+                                    lastName: cardholderName.split(' ')[1] || '',
+                                    address1: 'Test Address',
+                                    city: 'Test City',
+                                    state: 'Test State',
+                                    postcode: 'TE1 1ST'
+                                },
+                                shipping_name: 'Test Shipping'
+                            })
+                        });
+
+                        if (orderResponse.ok) {
+                            const orderData = await orderResponse.json();
+                            showResult(`Payment successful! Order created: ${orderData.tracking_id}`, 'success');
+                        }
+                    } catch (orderError) {
+                        console.error('Order creation failed:', orderError);
+                        showResult(`Payment successful but order creation failed: ${orderError.message}`, 'error');
+                    }
+                } else {
+                    throw new Error(`Payment failed with status: ${paymentIntent.status}`);
+                }
+
+            } catch (error) {
+                console.error('Payment error:', error);
+                showResult(`Payment failed: ${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function setLoading(loading) {
+            submitBtn.disabled = loading;
+            buttonText.style.display = loading ? 'none' : 'inline';
+            spinner.style.display = loading ? 'inline' : 'none';
+        }
+
+        function showResult(message, type) {
+            result.textContent = message;
+            result.className = `result ${type}`;
+            result.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+

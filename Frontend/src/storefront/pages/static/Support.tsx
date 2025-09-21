@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { MessageCircle, Mail, Phone, Clock, Search, Send } from 'lucide-react';
+import { MessageCircle, Mail, Phone, Clock, Search, Send, X, Copy } from 'lucide-react';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import ChatModal from '../../components/chat/ChatModal';
 
 const Support: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: '',
     email: '',
     subject: '',
     message: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [submitMessage, setSubmitMessage] = useState('');
 
   const supportMethods = [
     {
@@ -27,7 +32,7 @@ const Support: React.FC = () => {
       title: 'Email Support',
       description: 'Send us an email and we\'ll respond within 24 hours',
       availability: 'Response within 24 hours',
-      action: () => {},
+      action: () => setIsEmailDialogOpen(true),
       buttonText: 'Send Email',
       color: 'bg-blue-600 hover:bg-blue-700'
     },
@@ -36,7 +41,7 @@ const Support: React.FC = () => {
       title: 'Phone Support',
       description: 'Call us for immediate assistance',
       availability: 'Mon-Fri 9AM-6PM EST',
-      action: () => {},
+      action: () => setIsPhoneDialogOpen(true),
       buttonText: 'Call Now',
       color: 'bg-purple-600 hover:bg-purple-700'
     }
@@ -81,12 +86,34 @@ const Support: React.FC = () => {
     }
   ];
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log('Contact form submitted:', contactForm);
-    // Reset form
-    setContactForm({ name: '', email: '', subject: '', message: '' });
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+    
+    try {
+      const response = await fetch('/api/public/contacts/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactForm),
+      });
+      
+      if (response.ok) {
+        setSubmitStatus('success');
+        setSubmitMessage('Thank you for your message. We will get back to you soon!');
+        setContactForm({ name: '', email: '', subject: '', message: '' });
+      } else {
+        setSubmitStatus('error');
+        setSubmitMessage('Failed to send message. Please try again.');
+      }
+    } catch (error) {
+      setSubmitStatus('error');
+      setSubmitMessage('Failed to send message. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -176,12 +203,29 @@ const Support: React.FC = () => {
                 />
               </div>
               
+              {submitStatus === 'success' && (
+                <div className="mb-4 p-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-300 rounded-md">
+                  {submitMessage}
+                </div>
+              )}
+              
+              {submitStatus === 'error' && (
+                <div className="mb-4 p-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 rounded-md">
+                  {submitMessage}
+                </div>
+              )}
+              
               <button
                 type="submit"
-                className="bg-blue-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                disabled={isSubmitting}
+                className={`w-full py-3 px-4 rounded-md transition-colors flex items-center justify-center space-x-2 ${
+                  isSubmitting
+                    ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed text-white'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
               >
                 <Send className="w-5 h-5" />
-                <span>Send Message</span>
+                <span>{isSubmitting ? 'Sending...' : 'Send Message'}</span>
               </button>
             </form>
           </div>
@@ -251,6 +295,139 @@ const Support: React.FC = () => {
       
       {/* Chat Modal */}
       <ChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      
+      {/* Email Support Dialog */}
+      {isEmailDialogOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300"
+          onClick={() => setIsEmailDialogOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl transition-colors duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Email Support</h3>
+              <button
+                onClick={() => setIsEmailDialogOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="text-center">
+              <Mail className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Send us an email and we'll respond within 24 hours
+              </p>
+              
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Support Email:</p>
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-lg font-mono text-gray-900 dark:text-white">sppix.ltd@gmail.com</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('sppix.ltd@gmail.com');
+                      // You could add a toast notification here
+                    }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    title="Copy email"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    window.open('mailto:sppix.ltd@gmail.com', '_blank');
+                    setIsEmailDialogOpen(false);
+                  }}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Open Email Client
+                </button>
+                <button
+                  onClick={() => setIsEmailDialogOpen(false)}
+                  className="flex-1 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Phone Support Dialog */}
+      {isPhoneDialogOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300"
+          onClick={() => setIsPhoneDialogOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl transition-colors duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Phone Support</h3>
+              <button
+                onClick={() => setIsPhoneDialogOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="text-center">
+              <Phone className="w-12 h-12 text-purple-600 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Call us for immediate assistance
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Mon-Fri 9AM-6PM EST
+              </p>
+              
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Support Phone:</p>
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-lg font-mono text-gray-900 dark:text-white">07379846808</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('07379846808');
+                      // You could add a toast notification here
+                    }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    title="Copy phone number"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    window.open('tel:07379846808', '_self');
+                    setIsPhoneDialogOpen(false);
+                  }}
+                  className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-purple-700 transition-colors"
+                >
+                  Call Now
+                </button>
+                <button
+                  onClick={() => setIsPhoneDialogOpen(false)}
+                  className="flex-1 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

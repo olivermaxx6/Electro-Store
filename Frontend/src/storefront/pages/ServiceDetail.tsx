@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Star, Clock, CheckCircle, ArrowLeft, Calendar, User, Mail, Phone, MessageSquare, Quote } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
-import Placeholder from '../components/common/Placeholder';
+import LoadingScreen from '../components/common/LoadingScreen';
 import ServiceReviewForm from '../components/services/ServiceReviewForm';
 import ServiceReviewList from '../components/services/ServiceReviewList';
 import { getService, getServiceReviews, createServiceReview, calculateServiceStats, submitServiceQuery, incrementServiceView, Service, ServiceReview } from '../../lib/servicesApi';
@@ -256,19 +256,15 @@ const ServiceDetail: React.FC = () => {
     name: '',
     email: '',
     phone: '',
-    company: '',
     message: '',
-    preferredDate: '',
-    budget: ''
+    preferredDate: ''
   });
   const [quoteForm, setQuoteForm] = useState({
     name: '',
     email: '',
     phone: '',
-    company: '',
     projectType: '',
     timeline: '',
-    budget: '',
     requirements: ''
   });
 
@@ -311,14 +307,7 @@ const ServiceDetail: React.FC = () => {
 
   // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Loading service...</h1>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading service..." />;
   }
 
   // Error state
@@ -374,10 +363,8 @@ const ServiceDetail: React.FC = () => {
         name: bookingForm.name,
         email: bookingForm.email,
         phone: bookingForm.phone,
-        company: bookingForm.company,
         message: bookingForm.message,
-        preferred_date: bookingForm.preferredDate,
-        budget_range: bookingForm.budget
+        preferred_date: bookingForm.preferredDate
       };
 
       const response = await submitServiceQuery(queryData);
@@ -387,10 +374,8 @@ const ServiceDetail: React.FC = () => {
         name: '',
         email: '',
         phone: '',
-        company: '',
         message: '',
-        preferredDate: '',
-        budget: ''
+        preferredDate: ''
       });
     } catch (error) {
       console.error('Failed to submit service request:', error);
@@ -429,10 +414,8 @@ const ServiceDetail: React.FC = () => {
         name: quoteForm.name,
         email: quoteForm.email,
         phone: quoteForm.phone,
-        company: quoteForm.company,
         project_type: quoteForm.projectType,
         timeline: quoteForm.timeline,
-        budget: quoteForm.budget,
         requirements: quoteForm.requirements
       };
 
@@ -443,10 +426,8 @@ const ServiceDetail: React.FC = () => {
         name: '',
         email: '',
         phone: '',
-        company: '',
         projectType: '',
         timeline: '',
-        budget: '',
         requirements: ''
       });
     } catch (error) {
@@ -487,6 +468,10 @@ const ServiceDetail: React.FC = () => {
   };
 
   const serviceStats = calculateServiceStats(reviews);
+  
+  // Use service's own rating and review count as fallback when no reviews are available
+  const displayRating = serviceStats.reviewCount > 0 ? serviceStats.averageRating : service.rating;
+  const displayReviewCount = serviceStats.reviewCount > 0 ? serviceStats.reviewCount : service.reviewCount;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
@@ -509,11 +494,6 @@ const ServiceDetail: React.FC = () => {
             {/* Service Header */}
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
               <div className="flex items-start gap-4 mb-4">
-                <div className="w-20 h-20 bg-gray-200 dark:bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Placeholder size="md">
-                    <div className="text-gray-400 dark:text-gray-500 text-xs">Service</div>
-                  </Placeholder>
-                </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded-full">
@@ -522,7 +502,7 @@ const ServiceDetail: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {serviceStats.averageRating.toFixed(1)} ({serviceStats.reviewCount} reviews)
+                        {displayRating.toFixed(1)} ({displayReviewCount} reviews)
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -551,7 +531,7 @@ const ServiceDetail: React.FC = () => {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Placeholder size="lg">
-                      <div className="text-gray-400 dark:text-gray-500">Service Image</div>
+                      <div className="text-gray-400 dark:text-gray-500"></div>
                     </Placeholder>
                   </div>
                 )}
@@ -675,8 +655,8 @@ const ServiceDetail: React.FC = () => {
                   />
                   <ServiceReviewList 
                     reviews={reviews}
-                    averageRating={serviceStats.averageRating}
-                    totalReviews={reviews.length}
+                    averageRating={displayRating}
+                    totalReviews={displayReviewCount}
                   />
                 </div>
               )}
@@ -703,7 +683,7 @@ const ServiceDetail: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <Star className="w-5 h-5 text-yellow-400" />
-                  <span className="text-gray-700 dark:text-gray-300">{serviceStats.averageRating.toFixed(1)} ({serviceStats.reviewCount} reviews)</span>
+                  <span className="text-gray-700 dark:text-gray-300">{displayRating.toFixed(1)} ({displayReviewCount} reviews)</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-green-500" />
@@ -824,36 +804,6 @@ const ServiceDetail: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      name="company"
-                      value={bookingForm.company}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Budget Range
-                    </label>
-                    <select
-                      name="budget"
-                      value={bookingForm.budget}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select budget range</option>
-                      <option value="under-500">Under {formatPrice(500, (settings?.currency as any) || 'USD')}</option>
-                      <option value="500-1000">{formatPrice(500, (settings?.currency as any) || 'USD')} - {formatPrice(1000, (settings?.currency as any) || 'USD')}</option>
-                      <option value="1000-5000">{formatPrice(1000, (settings?.currency as any) || 'USD')} - {formatPrice(5000, (settings?.currency as any) || 'USD')}</option>
-                      <option value="5000-plus">{formatPrice(5000, (settings?.currency as any) || 'USD')}+</option>
-                    </select>
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -963,18 +913,6 @@ const ServiceDetail: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      name="company"
-                      value={quoteForm.company}
-                      onChange={handleQuoteInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1013,23 +951,6 @@ const ServiceDetail: React.FC = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Budget Range
-                    </label>
-                    <select
-                      name="budget"
-                      value={quoteForm.budget}
-                      onChange={handleQuoteInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select budget range</option>
-                      <option value="under-1000">Under {formatPrice(1000, (settings?.currency as any) || 'USD')}</option>
-                      <option value="1000-5000">{formatPrice(1000, (settings?.currency as any) || 'USD')} - {formatPrice(5000, (settings?.currency as any) || 'USD')}</option>
-                      <option value="5000-10000">{formatPrice(5000, (settings?.currency as any) || 'USD')} - {formatPrice(10000, (settings?.currency as any) || 'USD')}</option>
-                      <option value="10000-plus">{formatPrice(10000, (settings?.currency as any) || 'USD')}+</option>
-                    </select>
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

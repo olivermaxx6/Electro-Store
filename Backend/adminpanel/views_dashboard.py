@@ -18,19 +18,19 @@ class DashboardStatsView(APIView):
         start_30 = now - timedelta(days=30)
         start_90 = now - timedelta(days=90)
 
-        # Totals
-        agg_totals = Order.objects.aggregate(
+        # Totals - Count all orders (not just shipped/delivered)
+        all_orders = Order.objects.all()
+        agg_totals = all_orders.aggregate(
             revenue=Sum("total_price"), orders=Count("id")
         )
         revenue = float(agg_totals["revenue"] or 0)
         orders_count = agg_totals["orders"] or 0
         avg_order_value = (revenue / orders_count) if orders_count else 0
 
-        customers = (
-            Order.objects.filter(user__isnull=False).values("user").distinct().count()
-        )
+        # Count all customers (including guest orders)
+        customers = Order.objects.values("customer_email").distinct().count()
 
-        # Sales by day (last 30)
+        # Sales by day (last 30) - All orders
         sales_qs = (
             Order.objects.filter(created_at__gte=start_30)
             .annotate(day=TruncDate("created_at"))
@@ -43,7 +43,7 @@ class DashboardStatsView(APIView):
             for s in sales_qs
         ]
 
-        # Top products (last 30)
+        # Top products (last 30) - All orders
         top_qs = (
             OrderItem.objects.filter(order__created_at__gte=start_30)
             .values(pid=F("product__id"), name=F("product__name"))
@@ -63,8 +63,19 @@ class DashboardStatsView(APIView):
         # Inventory snapshot
         total_products = Product.objects.count()
         low_stock_count = Product.objects.filter(stock__lte=5).count()
-        by_category_qs = Product.objects.values("category").annotate(count=Count("id")).order_by("-count")
-        inventory_by_category = [{"category": b["category"] or "Uncategorized", "count": b["count"]} for b in by_category_qs]
+        
+        # Get categories with product counts - show category names instead of counts
+        from .models import Category
+        by_category_qs = (
+            Product.objects
+            .values("category__name")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        inventory_by_category = [
+            {"category": b["category__name"] or "Uncategorized", "count": b["count"]} 
+            for b in by_category_qs
+        ]
 
         # Recent orders (10)
         recent = Order.objects.order_by("-created_at")[:10]

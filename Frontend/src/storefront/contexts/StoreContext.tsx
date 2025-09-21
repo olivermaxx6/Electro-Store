@@ -35,11 +35,11 @@ export const useStore = (): StoreContextType => {
 
 export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const [storeSettings, setStoreSettings] = useState<StoreSettings>({
-    store_name: 'Electro',
+    store_name: 'sppix',
     store_logo: null,
     about_us_picture: null,
     favicon: null,
-    currency: 'USD',
+    currency: 'GBP',
     tax_rate: 0,
     shipping_rate: 0
   });

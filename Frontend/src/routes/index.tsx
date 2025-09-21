@@ -55,10 +55,6 @@ export const router = createBrowserRouter([
         element: <Account />,
       },
       {
-        path: 'account/orders',
-        element: <Orders />,
-      },
-      {
         path: 'search',
         element: <Search />,
       },

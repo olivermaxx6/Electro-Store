@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { ChevronDown, Grid, List, Star, Clock, CheckCircle, ArrowRight } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
-import Placeholder from '../components/common/Placeholder';
+import LoadingScreen from '../components/common/LoadingScreen';
 import DualRangeSlider from '../components/filters/DualRangeSlider';
 import TitleUpdater from '../components/common/TitleUpdater';
 import { getServices, getServiceCategories, getServiceReviews, calculateServiceStats, incrementServiceView, Service, ServiceCategory } from '../../lib/servicesApi';
@@ -10,26 +10,43 @@ import { formatPrice } from '../lib/format';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 
 // Transform API service data to match the component's expected format
-const transformServiceData = (apiService: Service, reviewsStats?: { averageRating: number; reviewCount: number }) => ({
-  id: apiService.id,
-  title: apiService.name,
-  description: apiService.description,
-  price: parseFloat(apiService.price.toString()),
-  duration: apiService.availability || 'Contact for details',
-  rating: reviewsStats?.averageRating || parseFloat(apiService.rating.toString()),
-  reviewCount: reviewsStats?.reviewCount || apiService.review_count,
-  viewCount: apiService.view_count || 0,
-  image: apiService.images?.[0]?.image || null,
-  features: apiService.key_features || [],
-  category: apiService.category?.name || 'Uncategorized'
-});
+const transformServiceData = (apiService: Service, reviewsStats?: { averageRating: number; reviewCount: number }) => {
+  // Helper function to ensure we always get an array
+  const ensureArray = (data: any): string[] => {
+    if (Array.isArray(data)) return data;
+    if (typeof data === 'string') {
+      try {
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  return {
+    id: apiService.id,
+    title: apiService.name,
+    description: apiService.description,
+    price: parseFloat(apiService.price.toString()),
+    duration: apiService.availability || 'Contact for details',
+    rating: reviewsStats?.averageRating || parseFloat(apiService.rating.toString()),
+    reviewCount: reviewsStats?.reviewCount || apiService.review_count,
+    viewCount: apiService.view_count || 0,
+    image: apiService.images?.[0]?.image || null,
+    features: ensureArray(apiService.key_features),
+    category: apiService.category?.name || 'Uncategorized'
+  };
+};
 
 const Services: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'popularity');
   const [viewMode, setViewMode] = useState(searchParams.get('view') || 'grid');
-  const [priceRange, setPriceRange] = useState<[number, number]>([100, 1000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
+  const maxPrice = 10000;
   const [selectedDurations, setSelectedDurations] = useState<string[]>([]);
   
   // Dynamic data state
@@ -59,7 +76,7 @@ const Services: React.FC = () => {
         
         // Transform services data with review statistics
         const transformedServices = await Promise.all(
-          servicesResponse.map(async (service) => {
+          servicesResponse.map(async (service: Service) => {
             try {
               const reviews = await getServiceReviews(service.id.toString());
               const stats = calculateServiceStats(reviews);
@@ -104,7 +121,7 @@ const Services: React.FC = () => {
       
       // Transform services data with review statistics
       const transformedServices = await Promise.all(
-        servicesResponse.map(async (service) => {
+        servicesResponse.map(async (service: Service) => {
           try {
             const reviews = await getServiceReviews(service.id.toString());
             const stats = calculateServiceStats(reviews);
@@ -169,10 +186,17 @@ const Services: React.FC = () => {
     ? servicesData 
     : servicesData.filter(service => service.category === selectedCategory);
   
+  // Debug logging
+  console.log('Services before price filter:', filteredServices.length);
+  console.log('Price range:', priceRange);
+  console.log('Service prices:', filteredServices.map(s => ({ name: s.title, price: s.price })));
+  
   // Apply price range filter
   filteredServices = filteredServices.filter(service => 
     service.price >= priceRange[0] && service.price <= priceRange[1]
   );
+  
+  console.log('Services after price filter:', filteredServices.length);
   
   // Apply duration filter
   if (selectedDurations.length > 0) {
@@ -268,7 +292,7 @@ const Services: React.FC = () => {
               
               <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4">
                 <div className="flex flex-wrap gap-2">
-                  {service.features.map((feature, index) => (
+                  {service.features.map((feature: string, index: number) => (
                     <div key={index} className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
                       <CheckCircle className="w-4 h-4" />
                       {feature}
@@ -300,7 +324,7 @@ const Services: React.FC = () => {
     // Grid view
     return (
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-shadow">
-        <div className="h-48 bg-gray-200 dark:bg-slate-700 overflow-hidden">
+         <div className="h-[275px] bg-gray-200 dark:bg-slate-700 overflow-hidden">
           {service.image ? (
             <img 
               src={service.image} 
@@ -360,15 +384,15 @@ const Services: React.FC = () => {
           </div>
           
           <div className="flex flex-wrap gap-1 mb-4">
-            {service.features.slice(0, 2).map((feature, index) => (
+            {(Array.isArray(service.features) ? service.features : []).slice(0, 2).map((feature: string, index: number) => (
               <div key={index} className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                 <CheckCircle className="w-3 h-3" />
                 {feature}
               </div>
             ))}
-            {service.features.length > 2 && (
+            {(Array.isArray(service.features) ? service.features : []).length > 2 && (
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                +{service.features.length - 2} more
+                +{(Array.isArray(service.features) ? service.features : []).length - 2} more
               </div>
             )}
           </div>
@@ -424,14 +448,7 @@ const Services: React.FC = () => {
         </div>
 
         {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-300">Loading services...</p>
-            </div>
-          </div>
-        )}
+        {loading && <LoadingScreen message="Loading services..." />}
 
         {/* Error State */}
         {error && (
@@ -482,9 +499,9 @@ const Services: React.FC = () => {
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-slate-700">
                 <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Price Range</h4>
                 <DualRangeSlider
-                  min={100}
-                  max={1000}
-                  step={50}
+                  min={0}
+                  max={maxPrice}
+                  step={100}
                   value={priceRange}
                   onChange={setPriceRange}
                   formatValue={(val) => formatPrice(val, (settings?.currency as any) || 'USD')}

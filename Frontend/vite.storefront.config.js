@@ -26,6 +26,21 @@ export default defineConfig({
       }
     }
   },
+  optimizeDeps: {
+    include: [
+      'react', 
+      'react-dom', 
+      'react-redux', 
+      'redux-persist', 
+      'react-router-dom',
+      'zustand', 
+      'axios', 
+      'socket.io-client',
+      '@stripe/stripe-js',
+      'lucide-react',
+      'recharts'
+    ]
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src/storefront'),

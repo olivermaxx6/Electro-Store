@@ -32,7 +32,7 @@ const Warranty: React.FC = () => {
         'Material failures',
         'Workmanship issues',
         'Normal wear and tear (limited)',
-        'Power surges (electronics only)'
+        'Power surges (Sppixs only)'
       ],
       icon: CheckCircle,
       color: 'text-green-600 dark:text-green-400'

@@ -150,11 +150,18 @@ class ProductSerializer(SafeModelSerializer):
 
 # --- Orders ---
 class OrderItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source="product.name", read_only=True)
+    product_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = OrderItem
         fields = ["id","product","product_name","quantity","unit_price"]
+    
+    def get_product_name(self, obj):
+        """Safely get product name, handling deleted products"""
+        try:
+            return obj.product.name if obj.product else "Deleted Product"
+        except:
+            return "Deleted Product"
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
@@ -164,8 +171,25 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             "id", "user", "tracking_id", "payment_id", "customer_email", "customer_phone",
             "shipping_address", "subtotal", "shipping_cost", "tax_amount", "total_price",
-            "status", "payment_method", "shipping_name", "created_at", "updated_at", "items"
+            "status", "payment_status", "payment_method", "shipping_name", "created_at", "updated_at", "items"
         ]
+        read_only_fields = ["id", "tracking_id", "payment_id", "customer_email", "customer_phone",
+                           "shipping_address", "subtotal", "shipping_cost", "tax_amount", "total_price",
+                           "payment_method", "shipping_name", "created_at", "updated_at", "items"]
+
+    def validate_status(self, value):
+        """Validate status field"""
+        valid_statuses = [choice[0] for choice in Order.ORDER_STATUS_CHOICES]
+        if value not in valid_statuses:
+            raise serializers.ValidationError(f"Invalid status. Must be one of: {valid_statuses}")
+        return value
+
+    def validate_payment_status(self, value):
+        """Validate payment_status field"""
+        valid_statuses = [choice[0] for choice in Order.PAYMENT_STATUS_CHOICES]
+        if value not in valid_statuses:
+            raise serializers.ValidationError(f"Invalid payment_status. Must be one of: {valid_statuses}")
+        return value
 
 # --- Services ---
 class ServiceCategorySerializer(serializers.ModelSerializer):
@@ -182,6 +206,54 @@ class ServiceSerializer(serializers.ModelSerializer):
     images = ServiceImageSerializer(many=True, read_only=True)
     category = ServiceCategorySerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    
+    # Custom serialization methods for JSON fields
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        
+        # Generate random view count that's always higher than review count
+        import random
+        review_count = instance.review_count or 0
+        # Generate random view count between review_count + 10 and review_count + 100
+        min_views = review_count + 10
+        max_views = review_count + 100
+        # Ensure minimum of 50 views if review_count is very low
+        min_views = max(min_views, 50)
+        data['view_count'] = random.randint(min_views, max_views)
+        
+        # Parse JSON string fields to proper objects/arrays
+        import json
+        try:
+            if isinstance(data.get('included_features'), str):
+                data['included_features'] = json.loads(data['included_features'])
+        except (json.JSONDecodeError, TypeError):
+            data['included_features'] = []
+            
+        try:
+            if isinstance(data.get('process_steps'), str):
+                data['process_steps'] = json.loads(data['process_steps'])
+        except (json.JSONDecodeError, TypeError):
+            data['process_steps'] = []
+            
+        try:
+            if isinstance(data.get('key_features'), str):
+                data['key_features'] = json.loads(data['key_features'])
+        except (json.JSONDecodeError, TypeError):
+            data['key_features'] = []
+            
+        try:
+            if isinstance(data.get('contact_info'), str):
+                data['contact_info'] = json.loads(data['contact_info'])
+        except (json.JSONDecodeError, TypeError):
+            data['contact_info'] = {}
+            
+        try:
+            if isinstance(data.get('form_fields'), str):
+                data['form_fields'] = json.loads(data['form_fields'])
+        except (json.JSONDecodeError, TypeError):
+            data['form_fields'] = []
+            
+        return data
 
     class Meta:
         model = Service
@@ -292,7 +364,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
 class RecentOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
-        fields = ["id","total_price","status","created_at","shipping_name"]
+        fields = ["id","tracking_id","payment_id","total_price","status","created_at","shipping_name","customer_email"]
 
 # --- Chat System ---
 class ChatMessageSerializer(serializers.ModelSerializer):

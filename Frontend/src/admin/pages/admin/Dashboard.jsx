@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../store/currencyStore';
 import { ThemeLayout, ThemeCard, SectionHeader, ThemeAlert } from '@shared/theme';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from 'recharts';
+import { RefreshCw } from 'lucide-react';
 
 export default function Dashboard() {
   const { isAuthed, me } = useAuth();
@@ -11,59 +12,89 @@ export default function Dashboard() {
   const { formatAmount } = useCurrency();
   const [stats, setStats] = useState(null);
   const [err, setErr] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+
+  const loadDashboardData = async () => {
+    try {
+      // Get token from the correct location
+      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+      const token = authData.access || localStorage.getItem('access_token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      console.log('🔄 Loading dashboard data...');
+      const response = await fetch('http://127.0.0.1:8001/api/admin/dashboard/stats/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Dashboard stats loaded successfully:', data);
+        setStats(data);
+        setLastRefresh(Date.now());
+      } else {
+        const errorText = await response.text();
+        console.error('Dashboard API error:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch dashboard stats: ${response.status} ${response.statusText}`);
+      }
+    } catch (e) {
+      console.error('Dashboard error:', e);
+      setErr(e.message || 'Failed to load dashboard stats');
+      // Set empty stats as fallback
+      setStats({
+        totals: {
+          revenue: 0,
+          orders: 0,
+          customers: 0,
+          avg_order_value: 0
+        },
+        sales_by_day: [],
+        top_products: [],
+        inventory: {
+          total_products: 0,
+          low_stock_count: 0,
+          by_category: []
+        },
+        recent_orders: []
+      });
+    }
+  };
 
   useEffect(() => {
     // Remove redundant auth check - Private component handles this
     (async () => {
       await me();
-      try {
-        // Get token from the correct location
-        const authData = JSON.parse(localStorage.getItem('auth') || '{}');
-        const token = authData.access || localStorage.getItem('access_token');
-        
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-        
-        const response = await fetch('http://127.0.0.1:8001/api/admin/dashboard/stats/', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Dashboard stats loaded successfully:', data);
-          setStats(data);
-        } else {
-          const errorText = await response.text();
-          console.error('Dashboard API error:', response.status, response.statusText, errorText);
-          throw new Error(`Failed to fetch dashboard stats: ${response.status} ${response.statusText}`);
-        }
-      } catch (e) {
-        console.error('Dashboard error:', e);
-        setErr(e.message || 'Failed to load dashboard stats');
-        // Set empty stats as fallback
-        setStats({
-          totals: {
-            revenue: 0,
-            orders: 0,
-            customers: 0,
-            avg_order_value: 0
-          },
-          sales_by_day: [],
-          top_products: [],
-          inventory: {
-            total_products: 0,
-            low_stock_count: 0,
-            by_category: []
-          },
-          recent_orders: []
-        });
-      }
+      await loadDashboardData();
     })();
   }, [me]);
+
+  // Refresh dashboard when page becomes visible (user navigates back from orders page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('📊 Page became visible, refreshing dashboard data...');
+        loadDashboardData();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('📊 Window focused, refreshing dashboard data...');
+      loadDashboardData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   // Remove redundant auth checks - Private component handles this
   // useEffect(() => {
@@ -86,12 +117,27 @@ export default function Dashboard() {
           </ThemeCard>
         ) : (
           <>
-            <SectionHeader 
-              title="Dashboard Overview" 
-              icon="📊" 
-              color="primary"
-              subtitle="Monitor your business performance and key metrics"
-            />
+            <div className="flex items-center justify-between mb-6">
+              <SectionHeader 
+                title="Dashboard Overview" 
+                icon="📊" 
+                color="primary"
+                subtitle="Monitor your business performance and key metrics"
+              />
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={loadDashboardData}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  title="Refresh dashboard data"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="text-sm font-medium">Refresh</span>
+                </button>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Last updated: {new Date(lastRefresh).toLocaleTimeString()}
+                </span>
+              </div>
+            </div>
             
             {/* KPI Cards */}
             <div className="grid gap-6 md:grid-cols-4">
@@ -200,7 +246,7 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-400">
-                          <div>Customer: {o.shipping_name || '—'}</div>
+                          <div>Customer: {o.customer_email || '—'}</div>
                           <div className="flex justify-between mt-1">
                             <span>Total: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatAmount(Number(o.total_price))}</span></span>
                             <span>{new Date(o.created_at).toLocaleDateString()}</span>

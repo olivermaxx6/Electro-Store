@@ -409,21 +409,29 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAdmin]
 
-    http_method_names = ["get","patch","put","head","options","trace"]
-
-
+    http_method_names = ["get","patch","put","delete","head","options","trace"]
 
     def get_queryset(self):
-
         qs = super().get_queryset()
-
         status_q = self.request.query_params.get("status")
-
         if status_q:
-
             qs = qs.filter(status=status_q)
-
         return qs
+
+    def list(self, request, *args, **kwargs):
+        """Override list method to handle serializer errors gracefully"""
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            import traceback
+            print(f"Error in OrderViewSet.list: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
+            from rest_framework.response import Response
+            from rest_framework import status
+            return Response({
+                "error": "Failed to load orders",
+                "detail": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

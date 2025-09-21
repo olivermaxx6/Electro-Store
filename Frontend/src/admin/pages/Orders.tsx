@@ -13,7 +13,8 @@ interface Order {
   shipping_cost: number;
   tax_amount: number;
   total_price: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'paid' | 'payment_failed';
+  payment_status: 'unpaid' | 'paid' | 'failed' | 'refunded';
   payment_method: string;
   shipping_name: string;
   created_at: string;
@@ -27,6 +28,14 @@ interface Order {
     };
     quantity: number;
     unit_price: number;
+  }>;
+  payments?: Array<{
+    id: string;
+    stripe_payment_intent_id: string;
+    amount: number;
+    currency: string;
+    status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
+    created_at: string;
   }>;
 }
 
@@ -47,81 +56,35 @@ const Orders: React.FC = () => {
   
   useEffect(() => {
     fetchOrders();
+    
+    // Auto-refresh every 30 seconds to check for payment status updates
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
   
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // In a real app, you'd fetch from the API
-      // For now, we'll use mock data
-      const mockOrders: Order[] = [
-        {
-          id: 1,
-          tracking_id: 'TRK-001',
-          payment_id: 'pay_123456789',
-          customer_email: 'customer1@example.com',
-          customer_phone: '+1234567890',
-          shipping_address: {
-            firstName: 'John',
-            lastName: 'Doe',
-            address1: '123 Main St',
-            city: 'Anytown',
-            state: 'CA',
-            postcode: '12345'
-          },
-          subtotal: 299.97,
-          shipping_cost: 9.99,
-          tax_amount: 24.00,
-          total_price: 333.96,
-          status: 'pending',
-          payment_method: 'credit_card',
-          shipping_name: 'Standard Shipping',
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          updated_at: new Date().toISOString(),
-          items: [
-            {
-              id: 1,
-              product: { id: 1, title: 'Sample Product 1', price: 99.99 },
-              quantity: 2,
-              unit_price: 99.99
-            }
-          ]
+      // Fetch orders from the API
+      const response = await fetch('http://127.0.0.1:8001/api/admin/orders/', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add authentication headers if needed
         },
-        {
-          id: 2,
-          tracking_id: 'TRK-002',
-          payment_id: 'pay_987654321',
-          customer_email: 'customer2@example.com',
-          customer_phone: '+0987654321',
-          shipping_address: {
-            firstName: 'Jane',
-            lastName: 'Smith',
-            address1: '456 Oak Ave',
-            city: 'Somewhere',
-            state: 'NY',
-            postcode: '67890'
-          },
-          subtotal: 149.99,
-          shipping_cost: 19.99,
-          tax_amount: 12.00,
-          total_price: 181.98,
-          status: 'processing',
-          payment_method: 'credit_card',
-          shipping_name: 'Express Shipping',
-          created_at: new Date(Date.now() - 172800000).toISOString(),
-          updated_at: new Date().toISOString(),
-          items: [
-            {
-              id: 2,
-              product: { id: 2, title: 'Sample Product 2', price: 149.99 },
-              quantity: 1,
-              unit_price: 149.99
-            }
-          ]
-        }
-      ];
+      });
       
-      setOrders(mockOrders);
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data.results || data);
+      } else {
+        console.error('Failed to fetch orders:', response.statusText);
+        // Fallback to empty array if API fails
+        setOrders([]);
+      }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
     } finally {
@@ -165,8 +128,42 @@ const Orders: React.FC = () => {
         return <CheckCircle className="w-4 h-4" />;
       case 'cancelled':
         return <XCircle className="w-4 h-4" />;
+      case 'paid':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'payment_failed':
+        return <XCircle className="w-4 h-4" />;
       default:
         return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const getPaymentStatusIcon = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case 'paid':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'unpaid':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'refunded':
+        return <XCircle className="h-4 w-4 text-gray-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+    }
+  };
+
+  const getPaymentStatusColor = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case 'paid':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'unpaid':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'failed':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'refunded':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+      default:
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
     }
   };
   
@@ -224,6 +221,9 @@ const Orders: React.FC = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Payment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Total
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -263,8 +263,14 @@ const Orders: React.FC = () => {
                         <span className="ml-1">{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status || 'unpaid')}`}>
+                        {getPaymentStatusIcon(order.payment_status || 'unpaid')}
+                        <span className="ml-1">{(order.payment_status || 'unpaid').charAt(0).toUpperCase() + (order.payment_status || 'unpaid').slice(1)}</span>
+                      </span>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {formatCurrency(order.total_price, 'USD')}
+                      {formatCurrency(order.total_price, 'GBP')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(order.created_at).toLocaleDateString()}
@@ -377,7 +383,7 @@ const Orders: React.FC = () => {
                               <p className="font-medium text-gray-900 dark:text-white">{item.product.title}</p>
                               <p className="text-gray-600 dark:text-gray-300">Qty: {item.quantity}</p>
                             </div>
-                            <p className="text-gray-900 dark:text-white">{formatCurrency(item.unit_price * item.quantity, 'USD')}</p>
+                            <p className="text-gray-900 dark:text-white">{formatCurrency(item.unit_price * item.quantity, 'GBP')}</p>
                           </div>
                         ))}
                       </div>
@@ -388,19 +394,19 @@ const Orders: React.FC = () => {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600 dark:text-gray-300">Subtotal:</span>
-                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.subtotal, 'USD')}</span>
+                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.subtotal, 'GBP')}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600 dark:text-gray-300">Shipping:</span>
-                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.shipping_cost, 'USD')}</span>
+                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.shipping_cost, 'GBP')}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600 dark:text-gray-300">Tax:</span>
-                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.tax_amount, 'USD')}</span>
+                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.tax_amount, 'GBP')}</span>
                         </div>
                         <div className="flex justify-between border-t border-gray-200 dark:border-slate-600 pt-2">
                           <span className="font-medium text-gray-900 dark:text-white">Total:</span>
-                          <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedOrder.total_price, 'USD')}</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedOrder.total_price, 'GBP')}</span>
                         </div>
                       </div>
                     </div>

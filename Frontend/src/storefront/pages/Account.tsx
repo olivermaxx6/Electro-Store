@@ -18,9 +18,17 @@ const Account: React.FC = () => {
     password: '',
     name: '',
   });
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate privacy consent for sign up
+    if (!isSignIn && !privacyConsent) {
+      alert('Please agree to the Privacy Policy to create an account.');
+      return;
+    }
+    
     if (isSignIn) {
       // Mock sign in
       dispatch(signIn({ email: formData.email, name: formData.name }));
@@ -171,6 +179,31 @@ const Account: React.FC = () => {
                   required
                 />
               </div>
+              
+              {!isSignIn && (
+                <div className="flex items-start space-x-3">
+                  <input
+                    type="checkbox"
+                    id="privacyConsent"
+                    checked={privacyConsent}
+                    onChange={(e) => setPrivacyConsent(e.target.checked)}
+                    className="mt-1 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    required={!isSignIn}
+                  />
+                  <label htmlFor="privacyConsent" className="text-sm text-gray-700">
+                    I agree to the{' '}
+                    <a 
+                      href="/privacy" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Privacy Policy
+                    </a>
+                    {' '}and consent to the processing of my personal information as described therein.
+                  </label>
+                </div>
+              )}
               
               <button
                 type="submit"
