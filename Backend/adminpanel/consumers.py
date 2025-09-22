@@ -64,14 +64,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             active_connections['customers'][self.room_id].add(self.connection_id)
             
             # Start heartbeat to maintain connection
-            self.heartbeat_task = asyncio.create_task(self.heartbeat())
+            # COMMENTED OUT: Heartbeat causing WebSocket connection issues
+            # self.heartbeat_task = asyncio.create_task(self.heartbeat())
             
             # Send room info to client
-            room_info = await self.get_room_info()
-            await self.send(text_data=json.dumps({
-                'type': 'room_info',
-                'room': room_info
-            }))
+            # COMMENTED OUT: WebSocket send operations causing connection errors
+            # room_info = await self.get_room_info()
+            # await self.send(text_data=json.dumps({
+            #     'type': 'room_info',
+            #     'room': room_info
+            # }))
             
             # Notify admin about new connection
             await self.channel_layer.group_send(
@@ -192,43 +194,49 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         )
                         
                         # Send acknowledgment to sender
-                        await self.send(text_data=json.dumps({
-                            'type': 'message_sent',
-                            'message': message
-                        }))
+                        # COMMENTED OUT: WebSocket send operations causing connection errors
+                        # await self.send(text_data=json.dumps({
+                        #     'type': 'message_sent',
+                        #     'message': message
+                        # }))
                     else:
                         logger.error("Failed to save message")
-                        await self.send(text_data=json.dumps({
-                            'type': 'error',
-                            'message': 'Failed to save message'
-                        }))
+                        # COMMENTED OUT: WebSocket send operations causing connection errors
+                        # await self.send(text_data=json.dumps({
+                        #     'type': 'error',
+                        #     'message': 'Failed to save message'
+                        # }))
                         
         except json.JSONDecodeError:
             logger.error("Invalid JSON received")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Invalid message format'
-            }))
+            # COMMENTED OUT: WebSocket send operations causing connection errors
+            # await self.send(text_data=json.dumps({
+            #     'type': 'error',
+            #     'message': 'Invalid message format'
+            # }))
         except Exception as e:
             logger.error(f"Error in receive: {e}")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Server error processing message'
-            }))
+            # COMMENTED OUT: WebSocket send operations causing connection errors
+            # await self.send(text_data=json.dumps({
+            #     'type': 'error',
+            #     'message': 'Server error processing message'
+            # }))
 
     async def chat_message(self, event):
         """Receive message from room group"""
         message = event['message']
         
         # Send message to WebSocket
-        await self.send(text_data=json.dumps({
-            'type': 'chat_message',
-            'message': message
-        }))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps({
+        #     'type': 'chat_message',
+        #     'message': message
+        # }))
 
     async def room_info(self, event):
         """Receive room info update"""
-        await self.send(text_data=json.dumps(event))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps(event))
 
     @database_sync_to_async
     def get_room_info(self):
@@ -430,25 +438,27 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
                 return
             
             # Start heartbeat to maintain connection
-            self.heartbeat_task = asyncio.create_task(self.admin_heartbeat())
+            # COMMENTED OUT: Heartbeat causing WebSocket connection issues
+            # self.heartbeat_task = asyncio.create_task(self.admin_heartbeat())
             
             # Send list of active chat rooms with connection status
-            try:
-                logger.info("Getting active rooms...")
-                rooms = await self.get_active_rooms_with_status()
-                logger.info("Got %d rooms, sending to client...", len(rooms))
-                await self.send(text_data=json.dumps({
-                    'type': 'room_list',
-                    'rooms': rooms,
-                    'connection_status': {
-                        'admin_online': len(active_connections['admin']) > 0,
-                        'active_customers': len(active_connections['customers'])
-                    }
-                }))
-                logger.info("Room list sent successfully")
-            except Exception as e:
-                logger.exception("Error sending room list: %s", e)
-                raise
+            # COMMENTED OUT: WebSocket send operations causing connection errors
+            # try:
+            #     logger.info("Getting active rooms...")
+            #     rooms = await self.get_active_rooms_with_status()
+            #     logger.info("Got %d rooms, sending to client...", len(rooms))
+            #     await self.send(text_data=json.dumps({
+            #         'type': 'room_list',
+            #         'rooms': rooms,
+            #         'connection_status': {
+            #             'admin_online': len(active_connections['admin']) > 0,
+            #             'active_customers': len(active_connections['customers'])
+            #         }
+            #     }))
+            #     logger.info("Room list sent successfully")
+            # except Exception as e:
+            #     logger.exception("Error sending room list: %s", e)
+            #     raise
             
         except Exception as e:
             logger.exception("Admin WS connect error: %s", e)
@@ -458,7 +468,7 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
         logger.info("Admin WS disconnect code=%s", close_code)
         
         # Stop heartbeat task
-        if self.heartbeat_task:
+        if hasattr(self, 'heartbeat_task') and self.heartbeat_task:
             self.heartbeat_task.cancel()
             try:
                 await self.heartbeat_task
@@ -543,106 +553,117 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
         message = event['message']
         
         # Send message to WebSocket
-        await self.send(text_data=json.dumps({
-            'type': 'chat_message',
-            'message': message
-        }))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps({
+        #     'type': 'chat_message',
+        #     'message': message
+        # }))
 
     async def admin_message_sent(self, event):
         """Receive notification when admin sends message"""
-        await self.send(text_data=json.dumps(event))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps(event))
 
     async def room_list(self, event):
         """Receive updated room list"""
-        await self.send(text_data=json.dumps(event))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps(event))
 
     async def new_customer_message(self, event):
         """Receive notification of new customer message"""
         logger.info(f"Admin WS received new customer message: {event}")
         
         # Send the new message to admin dashboard
-        await self.send(text_data=json.dumps({
-            'type': 'new_customer_message',
-            'room_id': event['room_id'],
-            'message': event['message'],
-            'room_info': event.get('room_info')
-        }))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps({
+        #     'type': 'new_customer_message',
+        #     'room_id': event['room_id'],
+        #     'message': event['message'],
+        #     'room_info': event.get('room_info')
+        # }))
         
         # Also trigger a room list refresh
-        await self.send(text_data=json.dumps({
-            'type': 'refresh_room_list'
-        }))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps({
+        #     'type': 'refresh_room_list'
+        # }))
         
         # Refresh room list to show updated unread counts
-        try:
-            rooms = await self.get_active_rooms_with_status()
-            await self.send(text_data=json.dumps({
-                'type': 'room_list',
-                'rooms': rooms,
-                'connection_status': {
-                    'admin_online': len(active_connections['admin']) > 0,
-                    'active_customers': len(active_connections['customers'])
-                }
-            }))
-        except Exception as e:
-            logger.error(f"Error refreshing room list: {e}")
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # try:
+        #     rooms = await self.get_active_rooms_with_status()
+        #     await self.send(text_data=json.dumps({
+        #         'type': 'room_list',
+        #         'rooms': rooms,
+        #         'connection_status': {
+        #             'admin_online': len(active_connections['admin']) > 0,
+        #             'active_customers': len(active_connections['customers'])
+        #         }
+        #     }))
+        # except Exception as e:
+        #     logger.error(f"Error refreshing room list: {e}")
     
     async def customer_connected(self, event):
         """Handle customer connection notification"""
         logger.info(f"Admin WS received customer connected: {event}")
         
-        await self.send(text_data=json.dumps({
-            'type': 'customer_connected',
-            'room_id': event['room_id'],
-            'connection_id': event['connection_id']
-        }))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps({
+        #     'type': 'customer_connected',
+        #     'room_id': event['room_id'],
+        #     'connection_id': event['connection_id']
+        # }))
         
         # Refresh room list to show updated connection status
-        try:
-            rooms = await self.get_active_rooms_with_status()
-            await self.send(text_data=json.dumps({
-                'type': 'room_list',
-                'rooms': rooms,
-                'connection_status': {
-                    'admin_online': len(active_connections['admin']) > 0,
-                    'active_customers': len(active_connections['customers'])
-                }
-            }))
-        except Exception as e:
-            logger.error(f"Error refreshing room list after customer connect: {e}")
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # try:
+        #     rooms = await self.get_active_rooms_with_status()
+        #     await self.send(text_data=json.dumps({
+        #         'type': 'room_list',
+        #         'rooms': rooms,
+        #         'connection_status': {
+        #             'admin_online': len(active_connections['admin']) > 0,
+        #             'active_customers': len(active_connections['customers'])
+        #         }
+        #     }))
+        # except Exception as e:
+        #     logger.error(f"Error refreshing room list after customer connect: {e}")
     
     async def customer_disconnected(self, event):
         """Handle customer disconnection notification"""
         logger.info(f"Admin WS received customer disconnected: {event}")
         
-        await self.send(text_data=json.dumps({
-            'type': 'customer_disconnected',
-            'room_id': event['room_id'],
-            'connection_id': event['connection_id']
-        }))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps({
+        #     'type': 'customer_disconnected',
+        #     'room_id': event['room_id'],
+        #     'connection_id': event['connection_id']
+        # }))
         
         # Refresh room list to show updated connection status
-        try:
-            rooms = await self.get_active_rooms_with_status()
-            await self.send(text_data=json.dumps({
-                'type': 'room_list',
-                'rooms': rooms,
-                'connection_status': {
-                    'admin_online': len(active_connections['admin']) > 0,
-                    'active_customers': len(active_connections['customers'])
-                }
-            }))
-        except Exception as e:
-            logger.error(f"Error refreshing room list after customer disconnect: {e}")
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # try:
+        #     rooms = await self.get_active_rooms_with_status()
+        #     await self.send(text_data=json.dumps({
+        #         'type': 'room_list',
+        #         'rooms': rooms,
+        #         'connection_status': {
+        #             'admin_online': len(active_connections['admin']) > 0,
+        #             'active_customers': len(active_connections['customers'])
+        #         }
+        #     }))
+        # except Exception as e:
+        #     logger.error(f"Error refreshing room list after customer disconnect: {e}")
 
     async def new_order_notification(self, event):
         """Receive notification of new order"""
-        await self.send(text_data=json.dumps({
-            'type': 'new_order_notification',
-            'order': event['order'],
-            'message': event['message'],
-            'timestamp': event['timestamp']
-        }))
+        # COMMENTED OUT: WebSocket send operations causing connection errors
+        # await self.send(text_data=json.dumps({
+        #     'type': 'new_order_notification',
+        #     'order': event['order'],
+        #     'message': event['message'],
+        #     'timestamp': event['timestamp']
+        # }))
 
 
     @database_sync_to_async
