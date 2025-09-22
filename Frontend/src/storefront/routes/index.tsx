@@ -31,6 +31,7 @@ import Settings from '../pages/user/Settings';
 import Categories from '../pages/Categories';
 import AllSubcategories from '../pages/AllSubcategories';
 import OrderConfirmation from '../pages/OrderConfirmation';
+import Chat from '../pages/Chat';
 
 export const router = createBrowserRouter([
   {
@@ -175,5 +176,9 @@ export const router = createBrowserRouter([
   {
     path: 'user/settings',
     element: <Settings />,
+  },
+  {
+    path: 'chat/:roomId',
+    element: <Chat />,
   },
 ]);

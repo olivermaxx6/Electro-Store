@@ -1,0 +1,35 @@
+{
+  "name": "electro-ecommerce",
+  "version": "1.0.0",
+  "description": "A modern full-stack ecommerce platform with Django REST API and React frontend",
+  "scripts": {
+    "setup": "powershell -ExecutionPolicy Bypass -File setup-project.ps1",
+    "start": "powershell -ExecutionPolicy Bypass -File start-project.ps1",
+    "start:backend": "powershell -ExecutionPolicy Bypass -File start-backend.ps1",
+    "start:frontend": "powershell -ExecutionPolicy Bypass -File start-frontend.ps1",
+    "start:admin": "powershell -ExecutionPolicy Bypass -File start-admin.ps1",
+    "setup:win": "setup-project.bat",
+    "start:win": "start-project.bat",
+    "start:backend:win": "start-backend.bat",
+    "start:frontend:win": "start-frontend.bat",
+    "start:admin:win": "start-admin.bat"
+  },
+  "keywords": [
+    "ecommerce",
+    "django",
+    "react",
+    "fullstack",
+    "typescript",
+    "tailwindcss"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/electro-ecommerce.git"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "python": ">=3.8.0"
+  }
+}

@@ -28,6 +28,7 @@ export default function ChatPage() {
     loading, 
     error,
     isConnected,
+    connectionStatus,
     getAdminChatRooms, 
     getAdminChatRoom, 
     sendAdminMessage, 
@@ -120,11 +121,28 @@ export default function ChatPage() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedRoom || loading) return;
+    console.log('handleSendMessage called', { newMessage, selectedRoom, loading });
+    
+    if (!newMessage.trim()) {
+      console.log('No message to send');
+      return;
+    }
+    
+    if (!selectedRoom) {
+      console.log('No room selected');
+      return;
+    }
+    
+    if (loading) {
+      console.log('Currently loading, cannot send message');
+      return;
+    }
 
     try {
+      console.log('Sending message:', newMessage, 'to room:', selectedRoom.id);
       await sendAdminMessage(selectedRoom.id, newMessage);
       setNewMessage('');
+      console.log('Message sent successfully');
     } catch (error) {
       console.error('Failed to send message:', error);
     }
@@ -160,6 +178,18 @@ export default function ChatPage() {
   };
 
   const totalUnreadCount = (conversations || []).reduce((sum, room) => sum + (room.unread_count || 0), 0);
+  
+  // Debug logging for component state
+  useEffect(() => {
+    console.log('ChatPage state update:', {
+      conversations: conversations?.length || 0,
+      selectedRoom: selectedRoom?.id || 'none',
+      newMessage: newMessage,
+      loading: loading,
+      error: error,
+      isConnected: isConnected
+    });
+  }, [conversations, selectedRoom, newMessage, loading, error, isConnected]);
 
   // Handle room selection and mark as read
   const handleRoomSelect = async (room) => {
@@ -218,6 +248,18 @@ export default function ChatPage() {
               isConnected ? 'bg-green-500' : 'bg-red-500'
             }`}></div>
             {isConnected ? 'Real-time Connected' : 'Disconnected'}
+          </div>
+          
+          {/* Connection Statistics */}
+          <div className="flex items-center space-x-3 text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center space-x-1">
+              <div className={`w-2 h-2 rounded-full ${connectionStatus?.adminOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              <span>Admin Online</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <span>{connectionStatus?.activeCustomers || 0} Active</span>
+            </div>
           </div>
           {error && (
             <div className="text-sm text-red-600 dark:text-red-400 max-w-xs text-right">
@@ -311,8 +353,11 @@ export default function ChatPage() {
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <UserAvatar name={room.customer_name} />
-                    {room.status === 'active' && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+                    {room.is_online && (
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full animate-pulse"></div>
+                    )}
+                    {room.status === 'active' && !room.is_online && (
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
                     )}
                   </div>
                   
@@ -330,9 +375,17 @@ export default function ChatPage() {
                     <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
                       {room.last_message?.content || 'No messages yet'}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500">
-                      {formatTime(room.last_message_at)}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-slate-500 dark:text-slate-500">
+                        {formatTime(room.last_message_at)}
+                      </p>
+                      {room.connection_count > 0 && (
+                        <div className="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span>{room.connection_count} active</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -350,16 +403,26 @@ export default function ChatPage() {
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <UserAvatar name={selectedRoom.customer_name} />
-                    {selectedRoom.status === 'active' && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+                    {selectedRoom.is_online && (
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full animate-pulse"></div>
+                    )}
+                    {selectedRoom.status === 'active' && !selectedRoom.is_online && (
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
                     )}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">
-                      {selectedRoom.customer_name || 'Anonymous'}
-                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                        {selectedRoom.customer_name || 'Anonymous'}
+                      </h3>
+                      {selectedRoom.is_online && (
+                        <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full">
+                          Online
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      {selectedRoom.status === 'active' ? 'Online' : selectedRoom.status}
+                      {selectedRoom.is_online ? 'Online now' : selectedRoom.status === 'active' ? 'Recently active' : selectedRoom.status}
                     </p>
                   </div>
                 </div>
@@ -376,7 +439,28 @@ export default function ChatPage() {
                   </div>
                 ) : error ? (
                   <div className="flex justify-center items-center h-full">
-                    <div className="text-red-500 dark:text-red-400">{error}</div>
+                    <div className="text-red-500 dark:text-red-400 text-center">
+                      <p>{error}</p>
+                      <button 
+                        onClick={() => {
+                          clearError();
+                          if (selectedRoom) {
+                            getAdminChatRoom(selectedRoom.id);
+                          }
+                        }}
+                        className="mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex justify-center items-center h-full">
+                    <div className="text-slate-500 dark:text-slate-400 text-center">
+                      <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No messages yet</p>
+                      <p className="text-sm mt-1">Start the conversation with {selectedRoom?.customer_name || 'this customer'}</p>
+                    </div>
                   </div>
                 ) : (
                   messages.map((message) => (
@@ -392,13 +476,24 @@ export default function ChatPage() {
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <p className={`text-xs font-medium ${
-                            message.sender_type === 'admin' 
-                              ? 'text-blue-100' 
-                              : 'text-slate-600 dark:text-slate-400'
-                          }`}>
-                            {message.sender_name || (message.sender_type === 'admin' ? 'Admin' : 'Customer')}
-                          </p>
+                          <div>
+                            <p className={`text-xs font-medium ${
+                              message.sender_type === 'admin' 
+                                ? 'text-blue-100' 
+                                : 'text-slate-600 dark:text-slate-400'
+                            }`}>
+                              {message.sender_name || (message.sender_type === 'admin' ? 'Admin' : 'Customer')}
+                            </p>
+                            {message.sender_email && message.sender_type === 'customer' && (
+                              <p className={`text-xs ${
+                                message.sender_type === 'admin' 
+                                  ? 'text-blue-100' 
+                                  : 'text-slate-500 dark:text-slate-400'
+                              }`}>
+                                {message.sender_email}
+                              </p>
+                            )}
+                          </div>
                           <p className={`text-xs ${
                             message.sender_type === 'admin' 
                               ? 'text-blue-100' 
@@ -426,14 +521,32 @@ export default function ChatPage() {
                   <input
                     type="text"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      console.log('Message input changed:', e.target.value);
+                      setNewMessage(e.target.value);
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        console.log('Enter key pressed in input field');
+                      }
+                    }}
                     placeholder="Type your message..."
                     className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
                   />
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || loading}
+                    onClick={(e) => {
+                      console.log('Send button clicked', { newMessage, selectedRoom, loading });
+                      if (!newMessage.trim() || !selectedRoom || loading) {
+                        console.log('Button click prevented due to conditions');
+                        e.preventDefault();
+                        return;
+                      }
+                      console.log('Button click proceeding to form submission');
+                    }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title={!newMessage.trim() ? "Enter a message to send" : !selectedRoom ? "Select a conversation first" : loading ? "Sending..." : "Send message"}
                   >
                     <Send className="w-4 h-4" />
                   </button>

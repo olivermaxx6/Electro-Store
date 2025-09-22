@@ -393,6 +393,7 @@ class ChatMessage(models.Model):
     room = models.ForeignKey(ChatRoom, related_name='messages', on_delete=models.CASCADE)
     sender_type = models.CharField(max_length=10, choices=SENDER_CHOICES)
     sender_name = models.CharField(max_length=200, blank=True)  # For display purposes
+    sender_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='sent_messages', help_text="User who sent the message (if authenticated)")
     content = models.TextField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

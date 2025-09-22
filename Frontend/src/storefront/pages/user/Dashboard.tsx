@@ -12,7 +12,9 @@ import {
   Clock,
   CheckCircle,
   User,
-  Bell
+  Bell,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { selectCurrentUser, selectUserOrders } from '../../store/userSlice';
 import { selectCartItemCount } from '../../store/cartSlice';
@@ -23,6 +25,8 @@ import { useStoreSettings } from '../../hooks/useStoreSettings';
 import { useStore } from '../../contexts/StoreContext';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import ChatModal from '../../components/chat/ChatModal';
+import ChatConnectionStatus from '../../components/chat/ChatConnectionStatus';
+import useChatConnection from '../../hooks/useChatConnection';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -36,9 +40,49 @@ const Dashboard: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  // Chat connection hook
+  const {
+    activeConnection,
+    isConnecting,
+    isConnected,
+    hasError,
+    createConnection,
+    closeConnection,
+    connectionUrl,
+    chatLink
+  } = useChatConnection();
+
   const handleLogout = () => {
     dispatch(signOut());
     navigate('/');
+  };
+
+  // Chat connection handlers
+  const handleStartChat = async () => {
+    try {
+      if (!isConnected) {
+        await createConnection();
+      }
+      setIsChatOpen(true);
+    } catch (error) {
+      console.error('Failed to create chat connection:', error);
+    }
+  };
+
+  const handleCopyChatLink = async () => {
+    if (chatLink) {
+      try {
+        await navigator.clipboard.writeText(chatLink);
+        // You could add a toast notification here
+        console.log('Chat link copied to clipboard');
+      } catch (error) {
+        console.error('Failed to copy chat link:', error);
+      }
+    }
+  };
+
+  const handleOpenChat = () => {
+    setIsChatOpen(true);
   };
 
   const tabs = [
@@ -275,20 +319,104 @@ const Dashboard: React.FC = () => {
 
   const renderChat = () => (
     <div className="space-y-6">
+      {/* Chat Connection Status */}
+      {activeConnection && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Chat Connection</h3>
+          <ChatConnectionStatus
+            connection={activeConnection}
+            isConnecting={isConnecting}
+            hasError={hasError}
+            onCopyLink={handleCopyChatLink}
+            onOpenChat={handleOpenChat}
+          />
+        </div>
+      )}
+
+      {/* Main Chat Section */}
       <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Chat with Admin</h3>
-        <div className="text-center py-8">
-          <MessageCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Need help? Chat directly with our admin team
-          </p>
-          <button 
-            onClick={() => setIsChatOpen(true)}
-            className="inline-flex items-center px-4 py-2 bg-red-600 dark:bg-blue-600 text-white rounded-lg hover:bg-red-700 dark:hover:bg-blue-700 transition-colors"
-          >
-            Start Chat
-          </button>
-        </div>
+        
+        {isConnected ? (
+          <div className="space-y-4">
+            <div className="text-center py-6">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MessageCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Virtual Connection Established
+              </h4>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                You're now connected to our admin team. Click below to start chatting!
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button 
+                  onClick={handleOpenChat}
+                  className="inline-flex items-center px-4 py-2 bg-red-600 dark:bg-blue-600 text-white rounded-lg hover:bg-red-700 dark:hover:bg-blue-700 transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Open Chat
+                </button>
+                <button 
+                  onClick={handleCopyChatLink}
+                  className="inline-flex items-center px-4 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Chat Link
+                </button>
+              </div>
+            </div>
+            
+            {/* Connection Details */}
+            <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-4">
+              <h5 className="font-medium text-gray-900 dark:text-white mb-2">Connection Details</h5>
+              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                <div className="flex justify-between">
+                  <span>Status:</span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">Connected</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Room ID:</span>
+                  <span className="font-mono">{activeConnection?.roomId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Connected:</span>
+                  <span>{activeConnection?.createdAt.toLocaleTimeString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <MessageCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Need help? Create a virtual connection with our admin team
+            </p>
+            <button 
+              onClick={handleStartChat}
+              disabled={isConnecting}
+              className="inline-flex items-center px-4 py-2 bg-red-600 dark:bg-blue-600 text-white rounded-lg hover:bg-red-700 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isConnecting ? (
+                <>
+                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Creating Connection...
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Start Chat
+                </>
+              )}
+            </button>
+            
+            {hasError && (
+              <div className="mt-4 text-sm text-red-600 dark:text-red-400">
+                Failed to create connection. Please try again.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

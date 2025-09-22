@@ -5,12 +5,15 @@ These endpoints don't require authentication and are meant for the customer-faci
 import uuid
 import time
 import stripe
+import logging
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.http import Http404
 from django.db.models import Q
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AllowAnyOrAuthenticated(permissions.BasePermission):
@@ -252,18 +255,49 @@ class PublicChatRoomViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'put', 'patch']
     
     def get_queryset(self):
-        # For one-to-many chat system, allow users to access their own chat rooms
-        if self.request.user.is_authenticated:
-            # Authenticated users see only their own chat rooms
-            return ChatRoom.objects.filter(user=self.request.user)
-        else:
-            # Anonymous users see only their session-based chat rooms
-            session_key = self.request.session.session_key
-            if session_key:
-                return ChatRoom.objects.filter(customer_session=session_key)
+        """Get chat rooms for the current user with proper error handling"""
+        try:
+            # For one-to-many chat system, allow users to access their own chat rooms
+            if self.request.user.is_authenticated:
+                # Authenticated users see only their own chat rooms
+                return ChatRoom.objects.filter(user=self.request.user).order_by('-last_message_at')
             else:
-                # No session, return empty queryset
-                return ChatRoom.objects.none()
+                # Anonymous users see only their session-based chat rooms
+                session_key = self.request.session.session_key
+                if session_key:
+                    return ChatRoom.objects.filter(customer_session=session_key).order_by('-last_message_at')
+                else:
+                    # No session, return empty queryset
+                    return ChatRoom.objects.none()
+        except Exception as e:
+            logger.error(f"Error in PublicChatRoomViewSet.get_queryset: {e}")
+            return ChatRoom.objects.none()
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to handle empty queryset gracefully"""
+        try:
+            queryset = self.get_queryset()
+            
+            # Handle empty queryset gracefully
+            if not queryset.exists():
+                return Response({
+                    'results': [],
+                    'count': 0,
+                    'message': 'No chat rooms found. Start a new conversation!'
+                }, status=status.HTTP_200_OK)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                'results': serializer.data,
+                'count': queryset.count()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error in PublicChatRoomViewSet.list: {e}")
+            return Response({
+                'error': 'Failed to fetch chat rooms',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def get_object(self):
         """Override get_object to handle chat room access more gracefully"""

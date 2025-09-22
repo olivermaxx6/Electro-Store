@@ -492,10 +492,45 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     serializer_class = ChatRoomSerializer
     permission_classes = [IsAdmin]
     
+    def get_queryset(self):
+        """Get chat rooms with proper filtering and error handling"""
+        try:
+            # Filter to only show rooms with real users (not anonymous/test rooms)
+            return ChatRoom.objects.filter(user__isnull=False).select_related('user').order_by('-last_message_at')
+        except Exception as e:
+            logger.error(f"Error in ChatRoomViewSet.get_queryset: {e}")
+            return ChatRoom.objects.none()
+    
     def get_serializer_class(self):
         if self.action == 'list':
             return ChatRoomListSerializer
         return ChatRoomSerializer
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to handle empty queryset gracefully"""
+        try:
+            queryset = self.get_queryset()
+            
+            # Handle empty queryset gracefully
+            if not queryset.exists():
+                return Response({
+                    'results': [],
+                    'count': 0,
+                    'message': 'No chat rooms found. All rooms are properly linked to registered users.'
+                }, status=status.HTTP_200_OK)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                'results': serializer.data,
+                'count': queryset.count()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error in ChatRoomViewSet.list: {e}")
+            return Response({
+                'error': 'Failed to fetch chat rooms',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):

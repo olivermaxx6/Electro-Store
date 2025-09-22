@@ -47,7 +47,7 @@ export default function SignInPage() {
         <h1 className="text-xl font-semibold mb-4 text-center text-gray-900 dark:text-white">Admin Sign In</h1>
         {msg && <div className="mb-3 rounded-xl border px-3 py-2 text-sm text-gray-700 dark:text-white bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-slate-600">{msg}</div>}
         <input className="w-full mb-3 rounded-xl border px-3 py-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-300 dark:border-slate-600 placeholder-gray-500 dark:placeholder-gray-400"
-          placeholder="Username" value={username} onChange={(e)=>setU(e.target.value)} />
+          placeholder="Username or Email" value={username} onChange={(e)=>setU(e.target.value)} />
         <input className="w-full mb-4 rounded-xl border px-3 py-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-300 dark:border-slate-600 placeholder-gray-500 dark:placeholder-gray-400"
           placeholder="Password" type="password" value={password} onChange={(e)=>setP(e.target.value)} />
         <button type="submit" disabled={busy} className="w-full rounded-xl border px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-gray-900 dark:text-white border-gray-300 dark:border-slate-600">
