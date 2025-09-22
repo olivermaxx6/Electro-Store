@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Electro E-commerce Platform - Complete storefront and admin panel",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config vite.storefront.config.js",
     "dev:storefront": "vite --config vite.storefront.config.js",
     "dev:admin": "vite --config vite.admin.config.js",
     "dev:both": "concurrently \"npm run dev:storefront\" \"npm run dev:admin\"",

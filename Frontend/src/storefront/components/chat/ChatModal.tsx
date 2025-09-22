@@ -175,7 +175,28 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
             </div>
           ) : error ? (
             <div className="flex justify-center items-center h-full">
-              <div className="text-red-500 dark:text-red-400">{error}</div>
+              <div className="text-red-500 dark:text-red-400 text-center">
+                <p>{error}</p>
+                <button 
+                  onClick={() => {
+                    clearError();
+                    if (currentRoom) {
+                      getChatRoom(currentRoom.id);
+                    }
+                  }}
+                  className="mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex justify-center items-center h-full">
+              <div className="text-gray-500 dark:text-gray-400 text-center">
+                <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No messages yet. Start the conversation!</p>
+                <p className="text-sm mt-1">Type a message below to begin chatting with our support team.</p>
+              </div>
             </div>
           ) : (
             messages.map((message) => (

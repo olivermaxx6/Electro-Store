@@ -4,7 +4,7 @@ import { api, initializeTokenRefresh } from '../lib/api';
 
 // Create a separate API instance for auth store
 const authApi = axios.create({
-  baseURL: '',                // Empty baseURL to use Vite proxy
+  baseURL: 'http://127.0.0.1:8001',  // Direct connection to backend
   timeout: 30000,
   withCredentials: false,
 });

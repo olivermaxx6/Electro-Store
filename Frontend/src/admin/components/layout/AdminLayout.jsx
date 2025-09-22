@@ -2,12 +2,14 @@ import { useState } from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import AdminTitleUpdater from '../common/AdminTitleUpdater';
+import WebSocketInitializer from '../WebSocketInitializer';
 
 export default function AdminLayout({ children, title = 'Dashboard' }) {
   const [collapsed, setCollapsed] = useState(false);
   return (
     <div className="min-h-screen w-full flex bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
       <AdminTitleUpdater />
+      <WebSocketInitializer />
       {/* Sidebar sticks to the far-left with NO margin/padding around it */}
       <aside className="sticky top-0 left-0 h-screen">
         <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />

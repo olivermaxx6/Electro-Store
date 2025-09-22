@@ -10,6 +10,7 @@ import { StoreProvider } from './contexts/StoreContext';
 import { LoadingProvider } from './contexts/LoadingContext';
 import FaviconUpdater from './components/common/FaviconUpdater';
 import UserInitializer from './components/auth/UserInitializer';
+import WebSocketInitializer from './components/WebSocketInitializer';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay';
 import '../index.css';
 
@@ -20,6 +21,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <StoreProvider>
           <LoadingProvider>
             <UserInitializer />
+            <WebSocketInitializer />
             <FaviconUpdater />
             <ThemeProvider>
               <RouterProvider router={router} />

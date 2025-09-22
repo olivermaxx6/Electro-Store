@@ -6,7 +6,7 @@ import ThemeToggle from '../../components/ThemeToggle';
 export default function SignIn() {
   const { login, loading } = useAuth();
   const nav = useNavigate();
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('admin@example.com');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState(null);
 
@@ -36,10 +36,11 @@ export default function SignIn() {
         <h1 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Admin Sign In</h1>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm mb-1 text-gray-700 dark:text-white">Username</label>
+            <label className="block text-sm mb-1 text-gray-700 dark:text-white">Username or Email</label>
             <input 
               value={username} 
               onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username or email"
               className="w-full rounded-xl border px-3 py-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-300 dark:border-slate-600" 
             />
           </div>
@@ -60,7 +61,7 @@ export default function SignIn() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <p className="mt-3 text-xs opacity-70 text-gray-600 dark:text-gray-300">Tip: seeded admin is <code className="text-gray-800 dark:text-gray-200">admin / admin123</code></p>
+        <p className="mt-3 text-xs opacity-70 text-gray-600 dark:text-gray-300">Tip: seeded admin is <code className="text-gray-800 dark:text-gray-200">admin@example.com / admin123</code></p>
       </div>
     </div>
   );

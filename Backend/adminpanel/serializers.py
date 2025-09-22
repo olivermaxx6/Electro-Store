@@ -368,10 +368,18 @@ class RecentOrderSerializer(serializers.ModelSerializer):
 
 # --- Chat System ---
 class ChatMessageSerializer(serializers.ModelSerializer):
+    sender_email = serializers.SerializerMethodField()
+    
     class Meta:
         model = ChatMessage
-        fields = ["id", "sender_type", "sender_name", "content", "is_read", "created_at"]
+        fields = ["id", "sender_type", "sender_name", "sender_user", "sender_email", "content", "is_read", "created_at"]
         read_only_fields = ["id", "created_at"]
+    
+    def get_sender_email(self, obj):
+        """Get sender email if available"""
+        if obj.sender_user and obj.sender_user.email:
+            return obj.sender_user.email
+        return None
 
 class ChatRoomSerializer(serializers.ModelSerializer):
     messages = ChatMessageSerializer(many=True, read_only=True)
