@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Search, MessageCircle } from 'lucide-react';
+import { Search, Mail } from 'lucide-react';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import { useContactInfo } from '../../hooks/useContactInfo';
-import ChatModal from '../../components/chat/ChatModal';
 import { formatCurrency } from '../../lib/format';
 import { Currency } from '../../lib/types';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
@@ -14,8 +13,6 @@ const TrackOrder: React.FC = () => {
   const [trackingInfo, setTrackingInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [showStatusPopup, setShowStatusPopup] = useState(false);
   
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +27,6 @@ const TrackOrder: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setTrackingInfo(data);
-        setShowStatusPopup(true);
       } else if (response.status === 404) {
         setError('Order not found. Please check your order number and try again.');
         setTrackingInfo(null);
@@ -93,22 +89,22 @@ const TrackOrder: React.FC = () => {
               </button>
             </form>
             
-            {/* Live Chat Support */}
+            {/* Contact Support */}
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 transition-colors duration-300">Need Help?</h3>
                   <p className="text-gray-600 dark:text-gray-300 transition-colors duration-300">
-                    Chat with our support team for real-time assistance with your order.
+                    Contact our support team for assistance with your order.
                   </p>
                 </div>
-                <button
-                  onClick={() => setIsChatOpen(true)}
-                  className="bg-green-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center space-x-2"
+                <a
+                  href="/contact"
+                  className="bg-blue-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-blue-700 transition-colors flex items-center space-x-2"
                 >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Live Chat</span>
-                </button>
+                  <Mail className="w-5 h-5" />
+                  <span>Contact Us</span>
+                </a>
               </div>
             </div>
           </div>
@@ -247,67 +243,7 @@ const TrackOrder: React.FC = () => {
         </div>
       </div>
       
-      {/* Chat Modal */}
-      <ChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
       
-      {/* Order Status Popup */}
-      {showStatusPopup && trackingInfo && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setShowStatusPopup(false)}
-        >
-          <div 
-            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full mx-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Order Status</h3>
-              <button
-                onClick={() => setShowStatusPopup(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  Order #{trackingInfo.id}
-                </div>
-                <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
-                  trackingInfo.status === 'delivered' 
-                    ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                    : trackingInfo.status === 'shipped'
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-                    : trackingInfo.status === 'processing'
-                    ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                    : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-                } transition-colors duration-300`}>
-                  {trackingInfo.status_display}
-                </span>
-              </div>
-              
-              <div className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
-                <div><span className="font-medium">Customer:</span> {trackingInfo.customer_email}</div>
-                <div><span className="font-medium">Total:</span> {formatCurrency(trackingInfo.total_price, settings?.currency as Currency || 'USD')}</div>
-                <div><span className="font-medium">Created:</span> {new Date(trackingInfo.created_at).toLocaleDateString()}</div>
-              </div>
-              
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                <button
-                  onClick={() => setShowStatusPopup(false)}
-                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

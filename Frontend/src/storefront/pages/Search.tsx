@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { Search as SearchIcon, RefreshCw, ShoppingBag } from 'lucide-react';
 import { setSearchQuery, selectProducts } from '../store/productsSlice';
 import { productRepo } from '../lib/repo';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import ProductCard from '../components/products/ProductCard';
 import LoadingScreen from '../components/common/LoadingScreen';
 import TitleUpdater from '../components/common/TitleUpdater';
+import EmptyState from '../components/common/EmptyState';
 
 const Search: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -61,15 +63,32 @@ const Search: React.FC = () => {
         {loading ? (
           <LoadingScreen message="Searching for products..." />
         ) : searchResults.length === 0 && query ? (
-          <div className="text-center py-12 sm:py-16">
-            <Placeholder size="lg" className="mx-auto mb-4 sm:mb-6">
-              <div className="text-gray-400 dark:text-gray-500">No Results</div>
-            </Placeholder>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">No products found</h2>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 px-4">
-              We couldn't find any products matching "{query}". Try different keywords.
-            </p>
-          </div>
+          <EmptyState
+            icon={<SearchIcon className="w-12 h-12 text-blue-500 dark:text-blue-400" />}
+            title="No products found"
+            description={`We couldn't find any products matching "${query}". Try different keywords or browse our collection.`}
+            suggestions={[
+              'Check your spelling and try again',
+              'Try more general keywords',
+              'Browse different categories',
+              'Use fewer or different search terms'
+            ]}
+            actions={[
+              {
+                label: 'Try New Search',
+                href: '/search',
+                variant: 'primary',
+                icon: <RefreshCw className="w-4 h-4" />
+              },
+              {
+                label: 'Browse All Products',
+                href: '/shop',
+                variant: 'secondary',
+                icon: <ShoppingBag className="w-4 h-4" />
+              }
+            ]}
+            className="relative"
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {searchResults.map((product) => (
