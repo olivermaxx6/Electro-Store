@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { ChevronDown, Grid, List } from 'lucide-react';
+import { ChevronDown, Grid, List, Search as SearchIcon, Filter, ShoppingBag, RefreshCw } from 'lucide-react';
 import { setProducts, setCategories, setSortBy, selectProducts, selectCategories } from '../store/productsSlice';
 import { formatCurrencySymbol } from '../lib/format';
 import { Currency } from '../lib/types';
@@ -13,6 +13,7 @@ import ProductCard from '../components/products/ProductCard';
 import Placeholder from '../components/common/Placeholder';
 import DualRangeSlider from '../components/filters/DualRangeSlider';
 import TitleUpdater from '../components/common/TitleUpdater';
+import EmptyState from '../components/common/EmptyState';
 
 const Category: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -122,8 +123,8 @@ const Category: React.FC = () => {
             id: backendProduct.id.toString(),
             slug: backendProduct.name.toLowerCase().replace(/\s+/g, '-'),
             title: backendProduct.name,
-            category: backendProduct.category?.name || 'Uncategorized',
-            categorySlug: backendProduct.category?.slug || 'uncategorized',
+            category: backendProduct.category_data?.name || 'Uncategorized',
+            categorySlug: backendProduct.category_data?.slug || 'uncategorized',
             brand: backendProduct.brand_data?.name || 'Unknown',
             brandSlug: backendProduct.brand_data?.name?.toLowerCase().replace(/\s+/g, '-') || 'unknown',
             price: backendProduct.price,
@@ -260,6 +261,7 @@ const Category: React.FC = () => {
   if (selectedCategories.length > 0) {
     console.log('Applying category filter:', selectedCategories);
     console.log('Available categories:', localCategories.map(cat => ({ name: cat.name, slug: cat.slug, parent: cat.parent })));
+    console.log('Products before filtering:', filteredProducts.map(p => ({ title: p.title, categorySlug: p.categorySlug })));
     
     filteredProducts = filteredProducts.filter(product => {
       const productCategorySlug = product.categorySlug || '';
@@ -286,6 +288,7 @@ const Category: React.FC = () => {
     });
     
     console.log(`After category filter: ${filteredProducts.length} products`);
+    console.log('Filtered products:', filteredProducts.map(p => ({ title: p.title, categorySlug: p.categorySlug })));
   }
 
   // Apply brand filter
@@ -352,22 +355,34 @@ const Category: React.FC = () => {
         
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
-          <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Filters</h3>
-                <button
-                  onClick={clearAllFilters}
-                  className="text-xs text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 underline"
-                >
-                  Clear All
-                </button>
+          <div className="lg:w-72 flex-shrink-0">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow duration-200">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 px-6 py-4 rounded-t-xl border-b border-gray-200 dark:border-slate-600">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <Filter className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Filters</h3>
+                  </div>
+                  <button
+                    onClick={clearAllFilters}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors duration-200 flex items-center space-x-1"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Clear All</span>
+                  </button>
+                </div>
               </div>
               
+              <div className="p-6 space-y-6">
+              
               {/* Category Filter */}
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-slate-100 mb-3">Category</h4>
-                <div className="space-y-2">
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-4 flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span>Category</span>
+                </h4>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
                   {localCategories.length > 0 ? (
                     (() => {
                       // Group categories by parent
@@ -377,14 +392,14 @@ const Category: React.FC = () => {
                       return topLevelCategories.map((parentCategory) => (
                         <div key={parentCategory.id} className="space-y-1">
                           {/* Parent Category */}
-                          <label className="flex items-center">
+                          <label className="flex items-center group cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedCategories.includes(parentCategory.slug)}
                               onChange={() => handleCategoryToggle(parentCategory.slug)}
-                              className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                              className="rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2 transition-all duration-200"
                             />
-                            <span className="ml-2 text-sm font-medium text-gray-900 dark:text-slate-100">
+                            <span className="ml-3 text-sm font-medium text-gray-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
                               {parentCategory.name}
                             </span>
                           </label>
@@ -393,14 +408,14 @@ const Category: React.FC = () => {
                           {subcategories
                             .filter(subcat => subcat.parent === parentCategory.id)
                             .map((subcategory) => (
-                              <label key={subcategory.id} className="flex items-center ml-4">
+                              <label key={subcategory.id} className="flex items-center ml-6 group cursor-pointer">
                                 <input
                                   type="checkbox"
                                   checked={selectedCategories.includes(subcategory.slug)}
                                   onChange={() => handleCategoryToggle(subcategory.slug)}
-                                  className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                                  className="rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2 transition-all duration-200"
                                 />
-                                <span className="ml-2 text-sm text-gray-600 dark:text-slate-400">
+                                <span className="ml-3 text-sm text-gray-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
                                   {subcategory.name}
                                 </span>
                               </label>
@@ -421,40 +436,52 @@ const Category: React.FC = () => {
               </div>
               
               {/* Price Range */}
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Price Range</h4>
-                <DualRangeSlider
-                  min={0}
-                  max={5000}
-                  step={10}
-                  value={priceRange}
-                  onChange={setPriceRange}
-                  formatValue={(val) => `${formatCurrencySymbol(settings?.currency as Currency || 'USD')}${val}`}
-                />
-                <button
-                  onClick={() => setPriceRange([0, 5000])}
-                  className="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300 underline mt-2"
-                >
-                  Reset Price Range
-                </button>
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-4 flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Price Range</span>
+                </h4>
+                <div className="space-y-4">
+                  <DualRangeSlider
+                    min={0}
+                    max={5000}
+                    step={10}
+                    value={priceRange}
+                    onChange={setPriceRange}
+                    formatValue={(val) => `${formatCurrencySymbol(settings?.currency as Currency || 'USD')}${val}`}
+                  />
+                  <button
+                    onClick={() => setPriceRange([0, 5000])}
+                    className="w-full text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Reset Price Range</span>
+                  </button>
+                </div>
               </div>
               
               {/* Brand Filter */}
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-slate-100 mb-3">Brand</h4>
-                <div className="space-y-2">
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-4 flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span>Brand</span>
+                </h4>
+                <div className="space-y-3 max-h-48 overflow-y-auto">
                   {brandsLoading ? (
-                    <div className="text-sm text-gray-500 dark:text-slate-400">Loading brands...</div>
+                    <div className="text-sm text-gray-500 dark:text-slate-400 flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      <span>Loading brands...</span>
+                    </div>
                   ) : dynamicBrands.length > 0 ? (
                     dynamicBrands.map((brand) => (
-                      <label key={brand.slug} className="flex items-center">
+                      <label key={brand.slug} className="flex items-center group cursor-pointer">
                         <input
                           type="checkbox"
                           checked={selectedBrands.includes(brand.slug)}
                           onChange={() => handleBrandToggle(brand.slug)}
-                          className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                          className="rounded border-gray-300 dark:border-slate-600 text-purple-600 focus:ring-purple-500 focus:ring-2 transition-all duration-200"
                         />
-                        <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">{brand.name}</span>
+                        <span className="ml-3 text-sm text-gray-700 dark:text-slate-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200">{brand.name}</span>
                       </label>
                     ))
                   ) : (
@@ -462,95 +489,131 @@ const Category: React.FC = () => {
                   )}
                 </div>
                 {/* Debug info */}
-                <div className="mt-2 text-xs text-gray-400 dark:text-slate-500">
+                <div className="mt-3 text-xs text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-600 rounded px-2 py-1">
                   Brands loaded: {dynamicBrands.length}
                 </div>
               </div>
               
               {/* Rating Filter */}
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-slate-100 mb-3">Rating</h4>
-                <div className="space-y-2">
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-4 flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  <span>Rating</span>
+                </h4>
+                <div className="space-y-3">
                   {[4, 3, 2, 1].map((rating) => (
-                    <label key={rating} className="flex items-center">
+                    <label key={rating} className="flex items-center group cursor-pointer">
                       <input
                         type="checkbox"
                         checked={selectedRatings.includes(rating)}
                         onChange={() => handleRatingToggle(rating)}
-                        className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
+                        className="rounded border-gray-300 dark:border-slate-600 text-yellow-600 focus:ring-yellow-500 focus:ring-2 transition-all duration-200"
                       />
-                      <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">
-                        {rating}+ Stars
-                      </span>
+                      <div className="ml-3 flex items-center space-x-2">
+                        <div className="flex space-x-1">
+                          {[...Array(5)].map((_, i) => (
+                            <div
+                              key={i}
+                              className={`w-3 h-3 ${
+                                i < rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'
+                              }`}
+                            >
+                              ★
+                            </div>
+                          ))}
+                        </div>
+                        <span className="text-sm text-gray-700 dark:text-slate-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors duration-200">
+                          {rating}+ Stars
+                        </span>
+                      </div>
                     </label>
                   ))}
                 </div>
               </div>
               
-              {/* Discount Filter */}
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={onlyDiscounted}
-                    onChange={(e) => {
-                      setOnlyDiscounted(e.target.checked);
-                      const newSearchParams = new URLSearchParams(searchParams);
-                      if (e.target.checked) {
-                        newSearchParams.set('discounted', 'true');
-                      } else {
-                        newSearchParams.delete('discounted');
-                      }
-                      setSearchParams(newSearchParams);
-                    }}
-                    className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
-                  />
-                  <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">Only discounted</span>
-                </label>
-              </div>
+              {/* Special Filters */}
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-slate-700 dark:to-slate-600 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-4 flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  <span>Special Offers</span>
+                </h4>
+                <div className="space-y-4">
+                  {/* Discount Filter */}
+                  <label className="flex items-center group cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={onlyDiscounted}
+                      onChange={(e) => {
+                        setOnlyDiscounted(e.target.checked);
+                        const newSearchParams = new URLSearchParams(searchParams);
+                        if (e.target.checked) {
+                          newSearchParams.set('discounted', 'true');
+                        } else {
+                          newSearchParams.delete('discounted');
+                        }
+                        setSearchParams(newSearchParams);
+                      }}
+                      className="rounded border-gray-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500 focus:ring-2 transition-all duration-200"
+                    />
+                    <div className="ml-3 flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">%</span>
+                      </div>
+                      <span className="text-sm text-gray-700 dark:text-slate-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-200">Only discounted</span>
+                    </div>
+                  </label>
 
-              {/* New Arrivals Filter */}
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={onlyNewArrivals}
-                    onChange={(e) => {
-                      setOnlyNewArrivals(e.target.checked);
-                      const newSearchParams = new URLSearchParams(searchParams);
-                      if (e.target.checked) {
-                        newSearchParams.set('new-arrivals', 'true');
-                      } else {
-                        newSearchParams.delete('new-arrivals');
-                      }
-                      setSearchParams(newSearchParams);
-                    }}
-                    className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
-                  />
-                  <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">New Arrivals</span>
-                </label>
-              </div>
+                  {/* New Arrivals Filter */}
+                  <label className="flex items-center group cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={onlyNewArrivals}
+                      onChange={(e) => {
+                        setOnlyNewArrivals(e.target.checked);
+                        const newSearchParams = new URLSearchParams(searchParams);
+                        if (e.target.checked) {
+                          newSearchParams.set('new-arrivals', 'true');
+                        } else {
+                          newSearchParams.delete('new-arrivals');
+                        }
+                        setSearchParams(newSearchParams);
+                      }}
+                      className="rounded border-gray-300 dark:border-slate-600 text-green-600 focus:ring-green-500 focus:ring-2 transition-all duration-200"
+                    />
+                    <div className="ml-3 flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">N</span>
+                      </div>
+                      <span className="text-sm text-gray-700 dark:text-slate-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-200">New Arrivals</span>
+                    </div>
+                  </label>
 
-              {/* Top Selling Filter */}
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={onlyTopSelling}
-                    onChange={(e) => {
-                      setOnlyTopSelling(e.target.checked);
-                      const newSearchParams = new URLSearchParams(searchParams);
-                      if (e.target.checked) {
-                        newSearchParams.set('top-selling', 'true');
-                      } else {
-                        newSearchParams.delete('top-selling');
-                      }
-                      setSearchParams(newSearchParams);
-                    }}
-                    className="rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary"
-                  />
-                  <span className="ml-2 text-sm text-gray-700 dark:text-slate-300">Top Selling</span>
-                </label>
+                  {/* Top Selling Filter */}
+                  <label className="flex items-center group cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={onlyTopSelling}
+                      onChange={(e) => {
+                        setOnlyTopSelling(e.target.checked);
+                        const newSearchParams = new URLSearchParams(searchParams);
+                        if (e.target.checked) {
+                          newSearchParams.set('top-selling', 'true');
+                        } else {
+                          newSearchParams.delete('top-selling');
+                        }
+                        setSearchParams(newSearchParams);
+                      }}
+                      className="rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2 transition-all duration-200"
+                    />
+                    <div className="ml-3 flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">🔥</span>
+                      </div>
+                      <span className="text-sm text-gray-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">Top Selling</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
               </div>
             </div>
           </div>
@@ -611,12 +674,32 @@ const Category: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <Placeholder size="lg" className="mx-auto mb-4">
-                  <div className="text-gray-400">No products found</div>
-                </Placeholder>
-                <p className="text-gray-600 dark:text-slate-400">No products match your current filters.</p>
-              </div>
+              <EmptyState
+                icon={<SearchIcon className="w-12 h-12 text-blue-500 dark:text-blue-400" />}
+                title="No products found"
+                description="No products match your current filters. Try adjusting your search criteria or browse our full collection."
+                suggestions={[
+                  'Remove some filters to see more products',
+                  'Try a different price range',
+                  'Browse different categories',
+                  'Check out our new arrivals'
+                ]}
+                actions={[
+                  {
+                    label: 'Clear All Filters',
+                    href: '#',
+                    variant: 'primary',
+                    icon: <Filter className="w-4 h-4" />
+                  },
+                  {
+                    label: 'Browse All Products',
+                    href: '/shop',
+                    variant: 'secondary',
+                    icon: <ShoppingBag className="w-4 h-4" />
+                  }
+                ]}
+                className="relative"
+              />
             )}
             
             {/* Pagination */}
