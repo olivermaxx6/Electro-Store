@@ -25,8 +25,9 @@ router.register(r"service-reviews", PublicServiceReviewViewSet, basename="public
 router.register(r"reviews", PublicReviewViewSet, basename="public-review")
 router.register(r"website-content", PublicWebsiteContentViewSet, basename="public-websitecontent")
 router.register(r"store-settings", PublicStoreSettingsViewSet, basename="public-storesettings")
-router.register(r"chat-rooms", PublicChatRoomViewSet, basename="public-chatroom")
-router.register(r"chat-messages", PublicChatMessageViewSet, basename="public-chatmessage")
+# Chat system temporarily disabled to reduce log noise
+# router.register(r"chat-rooms", PublicChatRoomViewSet, basename="public-chatroom")
+# router.register(r"chat-messages", PublicChatMessageViewSet, basename="public-chatmessage")
 router.register(r"contacts", PublicContactViewSet, basename="public-contact")
 router.register(r"service-queries", PublicServiceQueryViewSet, basename="public-servicequery")
 router.register(r"orders", PublicOrderCreateViewSet, basename="public-order")

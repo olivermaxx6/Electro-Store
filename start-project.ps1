@@ -100,11 +100,20 @@ function Start-Storefront {
         Write-Host "   ✅ Node modules found" -ForegroundColor Green
     }
     
-    # Start storefront in new PowerShell window
-    $command = "cd '$frontendPath'; npm run dev:storefront"
+    # Clear Vite cache to prevent "Outdated Optimize Dep" errors
+    Write-Host "   🧹 Clearing Vite dependency cache..." -ForegroundColor Yellow
+    try {
+        Remove-Item -Recurse -Force "node_modules\.vite" -ErrorAction SilentlyContinue
+        Write-Host "   ✅ Vite cache cleared successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "   ⚠️  Warning: Could not clear Vite cache (may not exist)" -ForegroundColor Yellow
+    }
+    
+    # Start storefront in new PowerShell window with force flag to rebuild deps
+    $command = "cd '$frontendPath'; npm run dev:storefront -- --force"
     try {
         Start-Process powershell -ArgumentList "-NoExit", "-Command", $command
-        Write-Host "   🚀 Storefront server starting in new window" -ForegroundColor Green
+        Write-Host "   🚀 Storefront server starting in new window (force rebuild)" -ForegroundColor Green
         Set-Location ".."
         return $true
     } catch {
@@ -137,11 +146,20 @@ function Start-AdminPanel {
         Write-Host "   ✅ Node modules found (reusing from storefront)" -ForegroundColor Green
     }
     
-    # Start admin panel in new PowerShell window
-    $command = "cd '$frontendPath'; npm run dev:admin"
+    # Clear Vite cache to prevent "Outdated Optimize Dep" errors (if not already cleared)
+    Write-Host "   🧹 Ensuring Vite dependency cache is clear..." -ForegroundColor Yellow
+    try {
+        Remove-Item -Recurse -Force "node_modules\.vite" -ErrorAction SilentlyContinue
+        Write-Host "   ✅ Vite cache cleared successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "   ⚠️  Warning: Could not clear Vite cache (may not exist)" -ForegroundColor Yellow
+    }
+    
+    # Start admin panel in new PowerShell window with force flag to rebuild deps
+    $command = "cd '$frontendPath'; npm run dev:admin -- --force"
     try {
         Start-Process powershell -ArgumentList "-NoExit", "-Command", $command
-        Write-Host "   🚀 Admin panel server starting in new window" -ForegroundColor Green
+        Write-Host "   🚀 Admin panel server starting in new window (force rebuild)" -ForegroundColor Green
         Write-Host "   💬 WebSocket chat will be available for admin communication" -ForegroundColor Magenta
         Set-Location ".."
         return $true
@@ -227,6 +245,8 @@ Write-Host "   • Check individual PowerShell windows for detailed error messag
 Write-Host "   • Ensure all dependencies are installed correctly" -ForegroundColor Gray
 Write-Host "   • Verify ports 8001, 5173, and 5174 are not in use" -ForegroundColor Gray
 Write-Host "   • For WebSocket issues, ensure ASGI server is running (not regular Django)" -ForegroundColor Gray
+Write-Host "   • For '504 Outdated Optimize Dep' errors: Vite cache is automatically cleared" -ForegroundColor Gray
+Write-Host "   • If frontend still has issues, manually run: cd Frontend; Remove-Item -Recurse -Force node_modules\.vite" -ForegroundColor Gray
 Write-Host ""
 
 Read-Host "Press Enter to exit"

@@ -43,9 +43,9 @@ try:
     router.register(r"admin/website-content", WebsiteContentViewSet, basename="websitecontent")
     router.register(r"admin/store-settings", StoreSettingsViewSet, basename="storesettings")
     
-    # Chat system
-    router.register(r"admin/chat-rooms", ChatRoomViewSet, basename="chatroom")
-    router.register(r"admin/chat-messages", ChatMessageViewSet, basename="chatmessage")
+    # Chat system temporarily disabled to reduce log noise
+    # router.register(r"admin/chat-rooms", ChatRoomViewSet, basename="chatroom")
+    # router.register(r"admin/chat-messages", ChatMessageViewSet, basename="chatmessage")
     
     # Contact management
     router.register(r"admin/contacts", ContactViewSet, basename="contact")
