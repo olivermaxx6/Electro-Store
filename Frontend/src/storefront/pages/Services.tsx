@@ -5,6 +5,7 @@ import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
 import DualRangeSlider from '../components/filters/DualRangeSlider';
 import TitleUpdater from '../components/common/TitleUpdater';
+import Placeholder from '../components/common/Placeholder';
 import { getServices, getServiceCategories, getServiceReviews, calculateServiceStats, incrementServiceView, Service, ServiceCategory } from '../../lib/servicesApi';
 import { formatPrice } from '../lib/format';
 import { useStoreSettings } from '../hooks/useStoreSettings';

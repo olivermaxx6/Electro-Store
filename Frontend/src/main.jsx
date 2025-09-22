@@ -9,7 +9,7 @@ console.log('[BOOT] main.jsx loaded');
 // Initialize theme immediately to prevent flash
 (function initTheme() {
   const stored = localStorage.getItem('theme');
-  const isDark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = stored ? stored === 'dark' : true; // Default to dark theme
   if (isDark) {
     document.documentElement.classList.add('dark');
   }

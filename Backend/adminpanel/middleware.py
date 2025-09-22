@@ -7,9 +7,22 @@ from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from django.utils.deprecation import MiddlewareMixin
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+class CustomCorsMiddleware(MiddlewareMixin):
+    """
+    Custom CORS middleware to handle cross-origin requests
+    """
+    def process_response(self, request, response):
+        # Add CORS headers
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-CSRFToken'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
 class JWTAuthMiddleware(BaseMiddleware):
     """

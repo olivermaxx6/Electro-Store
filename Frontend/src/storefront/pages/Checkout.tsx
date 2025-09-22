@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { selectCartItems, selectCartTotal, clearCart } from '../store/cartSlice';
 import { selectProducts, setProducts } from '../store/productsSlice';
 import { selectCurrentUser } from '../store/userSlice';
@@ -45,6 +45,7 @@ interface PaymentForm {
 const Checkout: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [currentStep, setCurrentStep] = useState(1);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -57,6 +58,23 @@ const Checkout: React.FC = () => {
   const products = useSelector(selectProducts);
   const cartTotal = useSelector(selectCartTotal(userId));
   const { settings, loading: settingsLoading } = useStoreSettings();
+
+  // Handle cancelled payment redirect
+  useEffect(() => {
+    const cancelled = searchParams.get('cancelled');
+    if (cancelled === 'true') {
+      // Show a message and redirect to shop
+      dispatch(addToast({
+        message: 'Payment was cancelled. You can continue shopping.',
+        type: 'info'
+      }));
+      
+      // Redirect to shop after a short delay
+      setTimeout(() => {
+        navigate('/shop', { replace: true });
+      }, 2000);
+    }
+  }, [searchParams, dispatch, navigate]);
 
   // Load products if they're not already loaded
   useEffect(() => {
@@ -338,10 +356,10 @@ const Checkout: React.FC = () => {
   
   
   const handlePlaceOrder = async () => {
-    console.log('🚀 Place Order button clicked!');
-    console.log('📋 Current form data:', { address, payment, selectedShipping, privacyConsent });
+    console.log('🚀 Starting Stripe Checkout process...');
+    console.log('📋 Current form data:', { address, selectedShipping, privacyConsent });
     
-    // Validate all fields before placing order
+    // Validate required fields (excluding payment fields since Stripe handles those)
     const validation = validateAllFields();
     console.log('✅ Validation result:', validation);
     
@@ -361,198 +379,141 @@ const Checkout: React.FC = () => {
         state: 'State',
         postcode: 'Post Code',
         shipping: 'Shipping Option',
-        cardNumber: 'Card Number',
-        expiryDate: 'Expiry Date',
-        cvv: 'CVV',
-        cardholderName: 'Cardholder Name',
         privacyConsent: 'Privacy Policy Consent'
       };
       
-      const missingFieldLabels = validation.missingFields.map(field => fieldLabels[field] || field);
+      const missingFieldLabels = validation.missingFields
+        .filter(field => !['cardNumber', 'expiryDate', 'cvv', 'cardholderName'].includes(field))
+        .map(field => fieldLabels[field] || field);
       
-      dispatch(addToast({
-        message: `Please complete the following required fields: ${missingFieldLabels.join(', ')}`,
-        type: 'error'
-      }));
-      
-      return;
+      if (missingFieldLabels.length > 0) {
+        dispatch(addToast({
+          message: `Please complete the following required fields: ${missingFieldLabels.join(', ')}`,
+          type: 'error'
+        }));
+        return;
+      }
     }
     
     // Clear validation errors if validation passes
     setValidationErrors([]);
     
     setProcessingPayment(true);
-    console.log('💳 Starting payment process...');
+    console.log('💳 Starting Stripe Checkout process...');
     
     try {
-      // Initialize Stripe
-      console.log('🔧 Initializing Stripe...');
-      const stripe = await getStripe();
-      if (!stripe) {
-        throw new Error('Failed to load Stripe');
-      }
-      console.log('✅ Stripe loaded successfully');
-
-      // Payment method data will be created inline for Stripe
-
-      // Create payment intent on your backend
-      console.log('🌐 Creating payment intent...');
-      const paymentIntentData = {
-        amount: Math.round(finalTotal * 100), // Convert to cents
-        currency: settings?.currency || 'gbp',
-        metadata: {
-          customer_email: address.email,
-          customer_name: `${address.firstName} ${address.lastName}`,
-          cart_items: JSON.stringify(cartItems.map(item => ({
-            product_id: item.productId,
-            quantity: item.qty
-          })))
-        }
-      };
-      console.log('📤 Payment intent data:', paymentIntentData);
+      // Calculate final total
+      const finalTotal = cartTotal + shippingCost + taxAmount;
+      console.log('💰 Final total calculated:', finalTotal);
       
-      const paymentResponse = await fetch('http://127.0.0.1:8001/api/public/create-payment-intent/', {
+      // Prepare order data for local storage (before checkout)
+      const orderData = {
+        id: Date.now(), // Temporary ID
+        tracking_id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        payment_id: '', // Will be updated after Stripe checkout
+        customer_email: address.email,
+        customer_phone: address.phone,
+        shipping_address: address,
+        subtotal: cartTotal,
+        shipping_cost: shippingCost,
+        tax_amount: taxAmount,
+        total_price: finalTotal,
+        status: 'pending',
+        payment_status: 'pending',
+        payment_method: 'Credit/Debit Card via Stripe',
+        shipping_name: selectedShippingOption?.name || 'Standard Shipping',
+        created_at: new Date().toISOString(),
+        items: cartItems.map(item => {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            id: item.productId,
+            product: {
+              id: item.productId,
+              title: product?.title || `Product ID: ${item.productId}`,
+              price: product?.price || 0
+            },
+            quantity: item.qty,
+            unit_price: product?.price || 0
+          };
+        })
+      };
+      
+      // Store order data in localStorage for immediate display
+      console.log('💾 Storing order data locally:', orderData);
+      localStorage.setItem('pendingOrder', JSON.stringify(orderData));
+      localStorage.setItem('orderCheckoutTimestamp', Date.now().toString());
+      
+      // Prepare checkout session data
+      const checkoutData = {
+        cart_items: cartItems.map(item => ({
+          product_id: item.productId,
+          quantity: item.qty,
+          unit_price: products.find(p => p.id === item.productId)?.price || 0
+        })),
+        subtotal: cartTotal,
+        shipping_cost: shippingCost,
+        tax_amount: taxAmount,
+        total_price: finalTotal,
+        customer_email: address.email,
+        customer_phone: address.phone,
+        shipping_address: address,
+        shipping_name: selectedShippingOption?.name || 'Standard Shipping',
+        user_id: userId
+      };
+      
+      console.log('📤 Creating Stripe Checkout session...');
+      
+      // Create Stripe Checkout session
+      const response = await fetch('http://127.0.0.1:8001/api/public/create-checkout-session/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify(paymentIntentData)
+        body: JSON.stringify(checkoutData)
       });
       
-      console.log('📥 Payment response status:', paymentResponse.status);
-
-      if (!paymentResponse.ok) {
-        const errorText = await paymentResponse.text();
-        console.error('❌ Payment intent creation failed:', errorText);
-        throw new Error(`Failed to create payment intent: ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Checkout session creation failed:', errorText);
+        throw new Error(`Failed to create checkout session: ${response.status}`);
       }
 
-      const paymentIntentResult = await paymentResponse.json();
-      console.log('✅ Payment intent created:', paymentIntentResult);
+      const checkoutResult = await response.json();
+      console.log('✅ Checkout session created:', checkoutResult);
 
-      // Complete the actual Stripe payment
-      console.log('💳 Completing Stripe payment...');
-      
-      let paymentIntent;
-      
-      // Use Stripe Elements approach for secure payment processing
-      try {
-        // Create a payment method using Stripe's secure approach
-        const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
-          type: 'card',
-          card: {
-            number: payment.cardNumber.replace(/\s/g, ''),
-            exp_month: parseInt(payment.expiryDate.split('/')[0]),
-            exp_year: parseInt('20' + payment.expiryDate.split('/')[1]),
-            cvc: payment.cvv
-          },
-          billing_details: {
-            name: payment.cardholderName,
-            email: address.email,
-            phone: address.phone,
-            address: {
-              line1: address.address1,
-              line2: address.address2,
-              city: address.city,
-              state: address.state,
-              postal_code: address.postcode,
-              country: 'GB'
-            }
-          }
-        });
-
-        if (pmError) {
-          console.error('❌ Payment method creation error:', pmError);
-          throw new Error(pmError.message || 'Failed to create payment method');
-        }
-
-        console.log('✅ Payment method created:', paymentMethod.id);
-
-        // Confirm payment with the payment method
-        const { error: stripeError, paymentIntent: confirmedPaymentIntent } = await stripe.confirmCardPayment(paymentIntentResult.client_secret, {
-          payment_method: paymentMethod.id
-        });
-
-        if (stripeError) {
-          console.error('❌ Stripe payment error:', stripeError);
-          throw new Error(stripeError.message || 'Payment failed');
-        }
-        
-        paymentIntent = confirmedPaymentIntent;
-        console.log('✅ Payment completed successfully:', paymentIntent);
-      } catch (error) {
-        console.error('❌ Payment processing failed:', error);
-        // For development/testing, we'll simulate a successful payment
-        // In production, you should handle this error properly
-        console.log('⚠️ Simulating successful payment for development...');
-        paymentIntent = {
-          id: paymentIntentResult.payment_intent_id,
-          status: 'succeeded',
-          amount: Math.round(finalTotal * 100),
-          currency: settings?.currency || 'gbp',
-          payment_method: 'pm_simulated_' + Date.now()
+      // Update the stored order data with the Stripe session ID
+      if (checkoutResult.checkout_session_id) {
+        const updatedOrderData = {
+          ...orderData,
+          payment_id: checkoutResult.checkout_session_id,
+          tracking_id: checkoutResult.checkout_session_id // Use Stripe session ID as tracking ID
         };
-        console.log('✅ Payment simulated successfully:', paymentIntent);
+        localStorage.setItem('pendingOrder', JSON.stringify(updatedOrderData));
+        console.log('💾 Updated order data with Stripe session ID:', updatedOrderData);
       }
 
-      if (paymentIntent?.status === 'succeeded') {
-        // Prepare order data
-        const orderData = {
-          cart_items: cartItems.map(item => ({
-            product_id: item.productId,
-            quantity: item.qty,
-            unit_price: products.find(p => p.id === item.productId)?.price || 0
-          })),
-          subtotal: cartTotal,
-          shipping_cost: shippingCost,
-          tax_amount: taxAmount,
-          total_price: finalTotal,
-          payment_id: paymentIntent.id,
-          payment_intent_id: paymentIntent.id,
-          currency: settings?.currency || 'GBP',
-          payment_method: 'credit_card',
-          customer_email: address.email,
-          customer_phone: address.phone,
-          shipping_address: address,
-          shipping_name: selectedShippingOption?.name || 'Standard Shipping'
-        };
-        
-        // Create order
-        const response = await fetch('http://127.0.0.1:8001/api/public/orders/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(orderData)
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          
-          // Clear the cart after successful order placement
-          dispatch(clearCart({ userId }));
-          
-          dispatch(addToast({
-            message: 'Payment successful! Order placed successfully!',
-            type: 'success'
-          }));
-          
-          // Redirect to order confirmation or home
-          navigate(`/order-confirmation/${result.tracking_id}`);
-        } else {
-          throw new Error('Failed to create order');
-        }
+      // Clear cart after successful checkout session creation
+      dispatch(clearCart({ userId }));
+      
+      // Redirect to Stripe Checkout
+      if (checkoutResult.checkout_url) {
+        console.log('🔄 Redirecting to Stripe Checkout...');
+        window.location.href = checkoutResult.checkout_url;
       } else {
-        throw new Error('Payment was not completed successfully');
+        throw new Error('No checkout URL received from server');
       }
+      
     } catch (error) {
-      console.error('❌ Order placement failed:', error);
+      console.error('❌ Stripe Checkout error:', error);
+      // Clear stored order data on error
+      localStorage.removeItem('pendingOrder');
+      localStorage.removeItem('orderCheckoutTimestamp');
+      
       dispatch(addToast({
-        message: error instanceof Error ? error.message : 'Failed to place order. Please try again.',
+        message: error instanceof Error ? error.message : 'Failed to start checkout. Please try again.',
         type: 'error'
       }));
-    } finally {
-      console.log('🏁 Payment process completed');
       setProcessingPayment(false);
     }
   };
@@ -757,99 +718,64 @@ const Checkout: React.FC = () => {
                 )}
                 
                 {currentStep === 3 && (
-                  <div className="space-y-4">
-                    {/* Auto-fill Toggle */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0">
-                            {autoFillEnabled ? (
-                              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
-                                <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                              </div>
-                            ) : (
-                              <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                                <CreditCard className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1 flex items-center">
-                              Auto-fill Payment Information
-                              {autoFillEnabled && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200">
-                                  Active
-                                </span>
-                              )}
-                            </h4>
-                            <p className="text-sm text-blue-700 dark:text-blue-300">
-                              Save your payment details for faster checkout next time (CVV is never saved for security)
-                            </p>
+                  <div className="space-y-6">
+                    {/* Stripe Checkout Info */}
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-6">
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
+                            <CreditCard className="w-6 h-6 text-green-600 dark:text-green-400" />
                           </div>
                         </div>
-                        <div className="flex items-center space-x-4">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={autoFillEnabled}
-                              onChange={(e) => setAutoFillEnabled(e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                          </label>
-                          <button
-                            type="button"
-                            onClick={clearSavedInfo}
-                            className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Clear Saved Info</span>
-                          </button>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
+                            Secure Payment with Stripe
+                          </h3>
+                          <p className="text-green-700 dark:text-green-300 mb-4">
+                            You'll be redirected to Stripe's secure checkout page to complete your payment. 
+                            Stripe supports all major credit cards, Apple Pay, Google Pay, and more.
+                          </p>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>SSL Encrypted</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>PCI Compliant</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>3D Secure</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>Multiple Payment Methods</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="border border-gray-200 dark:border-slate-600 rounded-md p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-medium text-gray-900 dark:text-white">Credit Card</h3>
-                        {autoFillEnabled && (
-                          <div className="flex items-center space-x-1 text-xs text-green-600 dark:text-green-400">
-                            <Save className="w-3 h-3" />
-                            <span>Auto-saving</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-4">
-                        <input
-                          type="text"
-                          placeholder="Card Number"
-                          value={payment.cardNumber}
-                          onChange={(e) => handlePaymentChange('cardNumber', formatCardNumber(e.target.value))}
-                          className={getInputClassName('cardNumber', "w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
-                        />
-                        <input
-                          type="text"
-                          placeholder="Cardholder Name"
-                          value={payment.cardholderName}
-                          onChange={(e) => handlePaymentChange('cardholderName', e.target.value)}
-                          className={getInputClassName('cardholderName', "w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
-                        />
-                        <div className="grid grid-cols-2 gap-4">
-                          <input
-                            type="text"
-                            placeholder="MM/YY"
-                            value={payment.expiryDate}
-                            onChange={(e) => handlePaymentChange('expiryDate', formatExpiryDate(e.target.value))}
-                            className={getInputClassName('expiryDate', "px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
-                          />
-                          <input
-                            type="text"
-                            placeholder="CVV"
-                            value={payment.cvv}
-                            onChange={(e) => handlePaymentChange('cvv', e.target.value.replace(/\D/g, ''))}
-                            className={getInputClassName('cvv', "px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
-                          />
+
+                    {/* Payment Method Summary */}
+                    <div className="bg-gray-50 dark:bg-slate-700 rounded-md p-4">
+                      <h3 className="font-medium text-gray-900 dark:text-white mb-3">Payment Method</h3>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800 rounded flex items-center justify-center">
+                          <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Credit/Debit Card</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            Visa, Mastercard, American Express, Discover
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-600">
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          <strong>Note:</strong> You'll be redirected to Stripe Checkout for secure payment processing. 
+                          Your card details are never stored on our servers.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -883,7 +809,10 @@ const Checkout: React.FC = () => {
                     <div className="bg-gray-50 dark:bg-slate-700 rounded-md p-4">
                       <h3 className="font-medium text-gray-900 dark:text-white mb-2">Payment Method</h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Credit Card ending in {payment.cardNumber.slice(-4)}
+                        Credit/Debit Card via Stripe Checkout
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Secure payment processing with Stripe
                       </p>
                     </div>
                     

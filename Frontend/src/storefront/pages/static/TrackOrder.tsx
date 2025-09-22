@@ -10,27 +10,29 @@ import { useStoreSettings } from '../../hooks/useStoreSettings';
 const TrackOrder: React.FC = () => {
   const { contactInfo, loading: contactLoading, error: contactError } = useContactInfo();
   const { settings } = useStoreSettings();
-  const [trackingId, setTrackingId] = useState('');
+  const [orderNumber, setOrderNumber] = useState('');
   const [trackingInfo, setTrackingInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showStatusPopup, setShowStatusPopup] = useState(false);
   
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackingId.trim()) return;
+    if (!orderNumber.trim()) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      const response = await fetch(`http://127.0.0.1:8001/api/public/track-order/${trackingId}/`);
+      const response = await fetch(`http://127.0.0.1:8001/api/public/track-order/${orderNumber}/`);
       
       if (response.ok) {
         const data = await response.json();
         setTrackingInfo(data);
+        setShowStatusPopup(true);
       } else if (response.status === 404) {
-        setError('Order not found. Please check your tracking ID and try again.');
+        setError('Order not found. Please check your order number and try again.');
         setTrackingInfo(null);
       } else {
         const errorData = await response.json();
@@ -61,14 +63,14 @@ const TrackOrder: React.FC = () => {
             <form onSubmit={handleTrackOrder} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
-                  Tracking ID
+                  Order Number
                 </label>
                 <div className="relative">
                   <input
                     type="text"
-                    value={trackingId}
-                    onChange={(e) => setTrackingId(e.target.value)}
-                    placeholder="Enter your tracking ID (e.g., abc-123-def-456)"
+                    value={orderNumber}
+                    onChange={(e) => setOrderNumber(e.target.value)}
+                    placeholder="Enter your order number (e.g., 12345)"
                     className="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300"
                     required
                   />
@@ -226,7 +228,7 @@ const TrackOrder: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-300">
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white mb-2 transition-colors duration-300">Can't find your order?</h4>
-                <p className="transition-colors duration-300">Make sure you're using the correct order number from your confirmation email.</p>
+                <p className="transition-colors duration-300">Make sure you're using the correct order number from your confirmation email or order receipt.</p>
               </div>
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white mb-2 transition-colors duration-300">Tracking not updating?</h4>
@@ -247,6 +249,65 @@ const TrackOrder: React.FC = () => {
       
       {/* Chat Modal */}
       <ChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      
+      {/* Order Status Popup */}
+      {showStatusPopup && trackingInfo && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowStatusPopup(false)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full mx-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Order Status</h3>
+              <button
+                onClick={() => setShowStatusPopup(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Order #{trackingInfo.id}
+                </div>
+                <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
+                  trackingInfo.status === 'delivered' 
+                    ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                    : trackingInfo.status === 'shipped'
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                    : trackingInfo.status === 'processing'
+                    ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                    : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                } transition-colors duration-300`}>
+                  {trackingInfo.status_display}
+                </span>
+              </div>
+              
+              <div className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                <div><span className="font-medium">Customer:</span> {trackingInfo.customer_email}</div>
+                <div><span className="font-medium">Total:</span> {formatCurrency(trackingInfo.total_price, settings?.currency as Currency || 'USD')}</div>
+                <div><span className="font-medium">Created:</span> {new Date(trackingInfo.created_at).toLocaleDateString()}</div>
+              </div>
+              
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                <button
+                  onClick={() => setShowStatusPopup(false)}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

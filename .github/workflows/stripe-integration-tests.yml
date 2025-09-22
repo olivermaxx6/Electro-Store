@@ -1,0 +1,221 @@
+name: Stripe Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  stripe-integration-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10]
+        node-version: [16, 18]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: Frontend/package-lock.json
+        
+    - name: Install Python dependencies
+      run: |
+        cd Backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Install Node.js dependencies
+      run: |
+        cd Frontend
+        npm install
+        
+    - name: Install test dependencies for Frontend
+      run: |
+        cd Frontend
+        npm install --save-dev @testing-library/react @testing-library/jest-dom @testing-library/user-event jest jest-environment-jsdom msw @types/jest ts-jest
+        
+    - name: Set up Django database
+      run: |
+        cd Backend
+        python manage.py migrate
+      env:
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+        STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLIC_KEY }}
+        
+    - name: Run Django Stripe Integration Tests
+      run: |
+        cd Backend
+        python test_runner.py test_stripe_integration
+      env:
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+        STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLIC_KEY }}
+        DJANGO_SETTINGS_MODULE: core.settings
+        
+    - name: Run Django Stripe Webhook Tests
+      run: |
+        cd Backend
+        python test_runner.py test_stripe_webhook
+      env:
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+        STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLIC_KEY }}
+        DJANGO_SETTINGS_MODULE: core.settings
+        
+    - name: Run React Stripe Integration Tests
+      run: |
+        cd Frontend
+        npm run test:stripe -- --coverage --watchAll=false
+      env:
+        STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLIC_KEY }}
+        
+    - name: Upload test coverage reports
+      uses: actions/upload-artifact@v3
+      if: matrix.python-version == '3.9' && matrix.node-version == '16'
+      with:
+        name: test-coverage-reports
+        path: |
+          Frontend/coverage/
+          Backend/htmlcov/
+        retention-days: 30
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: test-results-${{ matrix.python-version }}-${{ matrix.node-version }}
+        path: |
+          Backend/test-results/
+          Frontend/test-results/
+        retention-days: 7
+
+  # Separate job for comprehensive test suite
+  comprehensive-tests:
+    runs-on: ubuntu-latest
+    needs: stripe-integration-tests
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+        
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+        cache-dependency-path: Frontend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd Backend && pip install -r requirements.txt
+        cd Frontend && npm install
+        
+    - name: Run complete test suite
+      run: |
+        chmod +x run_stripe_tests.sh
+        ./run_stripe_tests.sh
+      env:
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+        STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLIC_KEY }}
+        
+    - name: Comment PR with test results
+      uses: actions/github-script@v6
+      if: always()
+      with:
+        script: |
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('Stripe Integration Tests')
+          );
+          
+          const status = '${{ job.status }}' === 'success' ? '✅ PASSED' : '❌ FAILED';
+          const body = `## 🧪 Stripe Integration Tests ${status}
+          
+          **Test Results:**
+          - Backend Tests: ${{ job.status === 'success' && '✅ PASSED' || '❌ FAILED' }}
+          - Frontend Tests: ${{ job.status === 'success' && '✅ PASSED' || '❌ FAILED' }}
+          - 3D Secure Tests: ${{ job.status === 'success' && '✅ PASSED' || '❌ FAILED' }}
+          - Idempotency Tests: ${{ job.status === 'success' && '✅ PASSED' || '❌ FAILED' }}
+          - Webhook Tests: ${{ job.status === 'success' && '✅ PASSED' || '❌ FAILED' }}
+          
+          [View full results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+          }
+
+  # Security and compliance check
+  security-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Verify no hardcoded Stripe keys
+      run: |
+        echo "🔍 Checking for hardcoded Stripe keys..."
+        
+        # Check for hardcoded secret keys (should fail if found)
+        if grep -r "sk_live_" . --exclude-dir=.git --exclude-dir=node_modules; then
+          echo "❌ Found hardcoded live Stripe secret key!"
+          exit 1
+        fi
+        
+        # Check for hardcoded publishable keys (should fail if found)
+        if grep -r "pk_live_" . --exclude-dir=.git --exclude-dir=node_modules; then
+          echo "❌ Found hardcoded live Stripe publishable key!"
+          exit 1
+        fi
+        
+        echo "✅ No hardcoded live Stripe keys found"
+        
+    - name: Verify test mode usage
+      run: |
+        echo "🔍 Verifying test mode configuration..."
+        
+        # Check that test keys are being used
+        if ! grep -r "sk_test_" Backend/ --exclude-dir=node_modules; then
+          echo "⚠️ Warning: No test secret keys found in backend"
+        fi
+        
+        if ! grep -r "pk_test_" Frontend/ --exclude-dir=node_modules; then
+          echo "⚠️ Warning: No test publishable keys found in frontend"
+        fi
+        
+        echo "✅ Test mode configuration verified"

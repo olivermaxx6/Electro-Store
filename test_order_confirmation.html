@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Order Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Order Confirmation Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Order Confirmation Page</h2>
+        <p>This page tests the order confirmation functionality with existing orders from the database.</p>
+        
+        <button class="test-button" onclick="testOrderConfirmation('cs_test_a14I7CQjzZLI0H6bHm4cAPZg4CXzvBUvRbjfQqJHUSpH33MPfEDaFiqLWi')">
+            Test Order #75
+        </button>
+        
+        <button class="test-button" onclick="testOrderConfirmation('cs_test_a1FEapUjEzCSfH3CNLACLcUGGllqTENtWn08kdmZVChIiXbFTUXr9sODbt')">
+            Test Order #74
+        </button>
+        
+        <button class="test-button" onclick="testBackendHealth()">
+            Test Backend Health
+        </button>
+        
+        <button class="test-button" onclick="testTrackOrderEndpoint()">
+            Test Track Order Endpoint
+        </button>
+        
+        <button class="test-button" onclick="testCheckoutSessionEndpoint()">
+            Test Checkout Session Endpoint
+        </button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        async function testBackendHealth() {
+            try {
+                showResult('Testing backend health...', 'info');
+                const response = await fetch('http://127.0.0.1:8001/api/public/health/');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ Backend is healthy: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    showResult(`❌ Backend health check failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Backend health check error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTrackOrderEndpoint() {
+            const trackingId = 'cs_test_a14I7CQjzZLI0H6bHm4cAPZg4CXzvBUvRbjfQqJHUSpH33MPfEDaFiqLWi';
+            try {
+                showResult('Testing track order endpoint...', 'info');
+                const response = await fetch(`http://127.0.0.1:8001/api/public/track-order/${trackingId}/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ Track order endpoint working: Order ID ${data.id}`, 'success');
+                } else {
+                    showResult(`❌ Track order endpoint failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Track order endpoint error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCheckoutSessionEndpoint() {
+            const sessionId = 'cs_test_a14I7CQjzZLI0H6bHm4cAPZg4CXzvBUvRbjfQqJHUSpH33MPfEDaFiqLWi';
+            try {
+                showResult('Testing checkout session endpoint...', 'info');
+                const response = await fetch(`http://127.0.0.1:8001/api/public/checkout-session/${sessionId}/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ Checkout session endpoint working: Order ID ${data.order?.id}`, 'success');
+                } else {
+                    showResult(`❌ Checkout session endpoint failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Checkout session endpoint error: ${error.message}`, 'error');
+            }
+        }
+
+        function testOrderConfirmation(trackingId) {
+            showResult(`Opening order confirmation page for tracking ID: ${trackingId}`, 'info');
+            window.open(`http://127.0.0.1:5173/order-confirmation/${trackingId}`, '_blank');
+        }
+    </script>
+</body>
+</html>

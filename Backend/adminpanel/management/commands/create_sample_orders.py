@@ -113,9 +113,10 @@ class Command(BaseCommand):
         
         for order_data in sample_orders:
             # Create order
+            from adminpanel.id_generators import generate_unique_tracking_id, generate_unique_payment_id
             order = Order.objects.create(
-                tracking_id=str(uuid.uuid4()),
-                payment_id=f'pay_{uuid.uuid4().hex[:12]}',
+                tracking_id=generate_unique_tracking_id(),
+                payment_id=generate_unique_payment_id(),
                 customer_email=order_data['customer_email'],
                 customer_phone=order_data['customer_phone'],
                 shipping_address=order_data['shipping_address'],
