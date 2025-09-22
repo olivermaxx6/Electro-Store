@@ -9,7 +9,7 @@ from .views_public import (
     PublicBrandViewSet, PublicCategoryViewSet, PublicProductViewSet,
     PublicServiceViewSet, PublicServiceCategoryViewSet, PublicServiceReviewViewSet, PublicReviewViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet,
     PublicChatRoomViewSet, PublicChatMessageViewSet, PublicContactViewSet, PublicServiceQueryViewSet, PublicOrderCreateViewSet, PublicOrderTrackingViewSet,
-    PaymentIntentViewSet
+    PaymentIntentViewSet, StripeCheckoutViewSet, StripeCheckoutSessionViewSet
 )
 from .views_stripe import stripe_webhook, get_payment_intent
 
@@ -32,10 +32,13 @@ router.register(r"service-queries", PublicServiceQueryViewSet, basename="public-
 router.register(r"orders", PublicOrderCreateViewSet, basename="public-order")
 router.register(r"track-order", PublicOrderTrackingViewSet, basename="public-order-tracking")
 router.register(r"create-payment-intent", PaymentIntentViewSet, basename="payment-intent")
+router.register(r"create-checkout-session", StripeCheckoutViewSet, basename="stripe-checkout")
+router.register(r"checkout-session", StripeCheckoutSessionViewSet, basename="checkout-session")
 
 urlpatterns = [
     path("", include(router.urls)),
     path("health/", lambda r: JsonResponse({"status": "ok"}), name="public-health"),
     path("stripe/webhook/", stripe_webhook, name="stripe-webhook"),
     path("payment-intent/<str:payment_intent_id>/", get_payment_intent, name="get-payment-intent"),
+    path("debug/test-webhook/", lambda r: JsonResponse({"message": "Use POST with session_data"}), name="test-webhook-debug"),
 ]

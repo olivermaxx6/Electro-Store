@@ -17,6 +17,7 @@ django.setup()
 
 from django.conf import settings
 from adminpanel.models import Order, Payment
+from adminpanel.id_generators import generate_unique_tracking_id
 
 # Configure Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -53,7 +54,7 @@ def test_complete_card_payment():
         print("🔄 Step 2: Creating Order...")
         order = Order.objects.create(
             user=None,
-            tracking_id=f"CARD-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            tracking_id=generate_unique_tracking_id(),
             payment_id=payment_intent.id,
             customer_email='test@example.com',
             customer_phone='+1234567890',
@@ -239,4 +240,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

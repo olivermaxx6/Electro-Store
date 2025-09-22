@@ -16,7 +16,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
 from django.conf import settings
-from adminpanel.models import Order, Payment, StoreSettings
+from adminpanel.models import Order, Payment
+from adminpanel.id_generators import generate_unique_tracking_id, StoreSettings
 
 # Configure Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -160,7 +161,7 @@ def test_order_creation(payment_result):
         
         order = Order.objects.create(
             user=None,
-            tracking_id=f"TEST-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            tracking_id=generate_unique_tracking_id(),
             payment_id=payment_result['payment_intent'].id,
             customer_email='test@example.com',
             customer_phone='+1234567890',

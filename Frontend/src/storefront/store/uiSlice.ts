@@ -3,7 +3,7 @@ import { UIState, Currency, Toast } from '../lib/types';
 
 const initialState: UIState = {
   currency: 'GBP',
-  theme: 'light',
+  theme: 'dark',
   toasts: [],
 };
 

@@ -103,6 +103,9 @@ def stripe_webhook(request):
         elif event_type == 'payment_intent.canceled':
             payment_intent = event['data']['object']
             handle_payment_canceled(payment_intent)
+        elif event_type == 'checkout.session.completed':
+            session = event['data']['object']
+            handle_checkout_session_completed(session)
         else:
             logger.info(f"Unhandled event type: {event_type}")
     
@@ -264,6 +267,262 @@ def handle_payment_canceled(payment_intent):
         
     except Exception as e:
         logger.error(f"Error handling payment cancellation: {str(e)}")
+
+def handle_checkout_session_completed(session):
+    """Handle successful checkout session completion - IDEMPOTENT"""
+    try:
+        import uuid
+        from .models import Product, OrderItem
+        from django.contrib.auth.models import User
+        
+        session_id = session['id']
+        payment_intent_id = session['payment_intent']
+        amount_total = session['amount_total'] / 100  # Convert from cents
+        currency = session['currency'].upper()
+        customer_email = session.get('customer_email', '')
+        metadata = session.get('metadata', {})
+        
+        logger.info(f"🔄 Processing completed checkout session: {session_id}")
+        logger.info(f"📧 Customer email: {customer_email}")
+        logger.info(f"💰 Amount: {amount_total} {currency}")
+        logger.info(f"🔑 Payment intent: {payment_intent_id}")
+        logger.info(f"📋 Metadata: {metadata}")
+        logger.info(f"📋 Full session data: {json.dumps(session, indent=2, default=str)}")
+        
+        # Extract order_id from metadata (this is the key for idempotency)
+        order_id = metadata.get('order_id')
+        user_id = metadata.get('user_id', 'guest')
+        
+        if not order_id:
+            logger.error(f"No order_id found in metadata for session {session_id}")
+            return
+        
+        # IDEMPOTENT: Find existing order by order_id from metadata
+        try:
+            order = Order.objects.get(id=order_id)
+            logger.info(f"✅ Found existing order {order.id} from metadata")
+            
+            # Extract payment status from session - try multiple sources
+            session_payment_status = session.get('payment_status', '')
+            payment_intent_status = session.get('payment_intent', {}).get('status', '') if isinstance(session.get('payment_intent'), dict) else ''
+            
+            logger.info(f"💳 Session payment_status: {session_payment_status}")
+            logger.info(f"💳 Payment intent status: {payment_intent_status}")
+            
+            # Determine payment status from multiple sources
+            if session_payment_status == 'paid':
+                payment_status = 'paid'
+            elif payment_intent_status == 'succeeded':
+                payment_status = 'paid'
+            elif session_payment_status == 'unpaid':
+                payment_status = 'unpaid'
+            elif payment_intent_status in ['requires_payment_method', 'requires_confirmation', 'requires_action']:
+                payment_status = 'unpaid'
+            elif payment_intent_status == 'canceled':
+                payment_status = 'failed'
+            elif payment_intent_status == 'payment_failed':
+                payment_status = 'failed'
+            else:
+                # For checkout.session.completed, payment was definitely successful
+                # User only reaches this webhook if payment completed successfully
+                payment_status = 'paid'
+                logger.info(f"💳 Setting to 'paid' for completed checkout session (user reached confirmation page)")
+            
+            # Update order with latest session data (idempotent updates)
+            order.tracking_id = session_id  # Update with actual session ID
+            order.payment_id = payment_intent_id
+            order.payment_status = payment_status
+            order.status = 'pending'
+            order.save()
+            
+            logger.info(f"✅ Updated existing order {order.id} with session data")
+            
+        except Order.DoesNotExist:
+            logger.error(f"Order {order_id} from metadata not found for session {session_id}")
+            return
+        
+        # Get line items from the session (skip for test sessions)
+        line_items = None
+        if not session_id.startswith('cs_test_'):
+            try:
+                line_items = stripe.checkout.Session.list_line_items(session_id)
+            except stripe.error.StripeError as e:
+                logger.error(f"Failed to fetch line items for session {session_id}: {str(e)}")
+                line_items = None
+        
+        # Extract shipping information from session
+        shipping_address = {}
+        customer_name = ''
+        customer_phone = ''
+        
+        if 'shipping_details' in session and session['shipping_details']:
+            shipping_details = session['shipping_details']
+            if 'address' in shipping_details:
+                addr = shipping_details['address']
+                shipping_address = {
+                    'firstName': shipping_details.get('name', '').split(' ')[0] if shipping_details.get('name') else '',
+                    'lastName': ' '.join(shipping_details.get('name', '').split(' ')[1:]) if shipping_details.get('name') and len(shipping_details.get('name', '').split(' ')) > 1 else '',
+                    'address1': addr.get('line1', ''),
+                    'address2': addr.get('line2', ''),
+                    'city': addr.get('city', ''),
+                    'state': addr.get('state', ''),
+                    'postcode': addr.get('postal_code', ''),
+                    'country': addr.get('country', '')
+                }
+                customer_name = shipping_details.get('name', '')
+        
+        # Extract customer information - try multiple sources
+        customer_phone = ''
+        if 'customer_details' in session and session['customer_details']:
+            customer_details = session['customer_details']
+            logger.info(f"📞 Customer details: {customer_details}")
+            
+            if not customer_email:
+                customer_email = customer_details.get('email', '')
+            if not customer_name:
+                customer_name = customer_details.get('name', '')
+            customer_phone = customer_details.get('phone', '')
+            
+            logger.info(f"📞 Extracted phone from customer_details: {customer_phone}")
+        
+        # Also try to get phone from shipping details if not found
+        if not customer_phone and 'shipping_details' in session and session['shipping_details']:
+            shipping_details = session['shipping_details']
+            if 'phone' in shipping_details:
+                customer_phone = shipping_details['phone']
+                logger.info(f"📞 Extracted phone from shipping_details: {customer_phone}")
+        
+        # Also try metadata as fallback
+        if not customer_phone and 'metadata' in session and session['metadata']:
+            metadata_phone = session['metadata'].get('customer_phone', '')
+            if metadata_phone:
+                customer_phone = metadata_phone
+                logger.info(f"📞 Extracted phone from metadata: {customer_phone}")
+        
+        # Update order with customer and shipping details
+        order.customer_email = customer_email
+        order.customer_phone = customer_phone
+        order.shipping_address = shipping_address
+        # Make sure payment status is preserved from earlier update
+        order.save()
+        
+        logger.info(f"📞 Updated customer phone: {customer_phone}")
+        logger.info(f"💳 Final payment status: {order.payment_status}")
+        logger.info(f"📧 Final customer email: {order.customer_email}")
+        
+        # IDEMPOTENT: Only create order items if they don't exist
+        existing_items_count = order.items.count()
+        if existing_items_count == 0 and line_items and hasattr(line_items, 'data'):
+            logger.info(f"Creating order items for order {order.id}")
+            for item in line_items.data:
+                try:
+                    # Extract product ID from the price data metadata or name
+                    product_name = item['description']
+                    # Try to find product by name (this is a simple approach)
+                    # In production, you might want to store product IDs in metadata
+                    products = Product.objects.filter(name__icontains=product_name.split(' - ')[0])
+                    if products.exists():
+                        product = products.first()
+                        
+                        OrderItem.objects.create(
+                            order=order,
+                            product=product,
+                            quantity=item['quantity'],
+                            unit_price=item['price']['unit_amount'] / 100
+                        )
+                    else:
+                        logger.warning(f"Product not found for line item: {product_name}")
+                except Exception as e:
+                    logger.error(f"Error creating order item: {str(e)}")
+                    continue
+        elif existing_items_count > 0:
+            logger.info(f"Order {order.id} already has {existing_items_count} items, skipping item creation")
+        
+        # IDEMPOTENT: Create or update payment record
+        payment, created = Payment.objects.get_or_create(
+            stripe_payment_intent_id=payment_intent_id,
+            defaults={
+                'order': order,
+                'amount': amount_total,
+                'currency': currency,
+                'status': 'completed'
+            }
+        )
+        
+        if not created:
+            payment.status = 'completed'
+            payment.save()
+            logger.info(f"Updated existing payment record {payment.id}")
+        else:
+            logger.info(f"Created new payment record {payment.id}")
+        
+        # Send notification to admin panel via WebSocket
+        send_order_notification_to_admin(order)
+        
+        logger.info(f"✅ Order processed successfully: {order.id}")
+        logger.info(f"📦 Order details: {order.tracking_id} - {order.customer_email} - £{order.total_price}")
+        logger.info(f"💳 Payment record: {payment.id}")
+        
+    except Exception as e:
+        logger.error(f"Error handling checkout session completion: {str(e)}")
+
+def send_order_notification_to_admin(order):
+    """Send order notification to admin panel via WebSocket"""
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        from .models import OrderItem
+        
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            # Get order items for the notification
+            order_items = OrderItem.objects.filter(order=order)
+            items_data = []
+            for item in order_items:
+                items_data.append({
+                    'id': item.id,
+                    'product_name': item.product.name if item.product else 'Deleted Product',
+                    'quantity': item.quantity,
+                    'unit_price': float(item.unit_price),
+                    'total_price': float(item.unit_price * item.quantity)
+                })
+            
+            # Prepare order notification data
+            order_data = {
+                'id': order.id,
+                'tracking_id': order.tracking_id,
+                'payment_id': order.payment_id,
+                'customer_email': order.customer_email,
+                'customer_phone': order.customer_phone,
+                'customer_name': f"{order.shipping_address.get('firstName', '')} {order.shipping_address.get('lastName', '')}".strip(),
+                'shipping_address': order.shipping_address,
+                'subtotal': float(order.subtotal),
+                'shipping_cost': float(order.shipping_cost),
+                'tax_amount': float(order.tax_amount),
+                'total_price': float(order.total_price),
+                'status': order.status,
+                'payment_status': order.payment_status,
+                'payment_method': order.payment_method,
+                'shipping_name': order.shipping_name,
+                'created_at': order.created_at.isoformat(),
+                'items': items_data
+            }
+            
+            # Send notification to admin chat group
+            async_to_sync(channel_layer.group_send)(
+                'admin_chat',
+                {
+                    'type': 'new_order_notification',
+                    'order': order_data,
+                    'message': f'New order #{order.id} received from {order.customer_email}',
+                    'timestamp': order.created_at.isoformat()
+                }
+            )
+            
+            logger.info(f"Order notification sent to admin panel for order {order.id}")
+            
+    except Exception as e:
+        logger.error(f"Error sending order notification to admin: {str(e)}")
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

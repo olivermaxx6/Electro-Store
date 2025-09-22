@@ -19,11 +19,15 @@ export const useAuth = create((set, get) => ({
   // Initialize auth header if token exists
   init: () => {
     const token = get().token;
+    console.log('[AUTH] Initializing auth store with token:', token ? 'present' : 'missing');
     if (token) {
       authApi.defaults.headers.common.Authorization = `Bearer ${token}`;
       api.defaults.headers.common.Authorization = `Bearer ${token}`;
       // Initialize proactive token refresh
       initializeTokenRefresh();
+      console.log('[AUTH] Auth headers set and token refresh initialized');
+    } else {
+      console.log('[AUTH] No token found, auth not initialized');
     }
   },
 
@@ -69,7 +73,17 @@ export const useAuth = create((set, get) => ({
       localStorage.setItem('auth', JSON.stringify(authData));
       set({ user: data });
       return data;
-    } catch {
+    } catch (error) {
+      console.error('[AUTH] Me error:', error);
+      // If it's a 401, the token is invalid
+      if (error.response?.status === 401) {
+        console.log('[AUTH] Token invalid, clearing auth data');
+        localStorage.removeItem('auth');
+        localStorage.removeItem('access_token');
+        delete authApi.defaults.headers.common.Authorization;
+        delete api.defaults.headers.common.Authorization;
+        set({ token: null, user: null });
+      }
       return null;
     }
   },

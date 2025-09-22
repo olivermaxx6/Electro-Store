@@ -136,7 +136,7 @@ class Order(models.Model):
     ]
     
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
-    tracking_id = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
+    tracking_id = models.CharField(max_length=100, unique=True)
     payment_id = models.CharField(max_length=200, blank=True)
     
     # Customer Information

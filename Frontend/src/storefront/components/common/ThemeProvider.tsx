@@ -9,7 +9,7 @@ const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     // Apply theme on mount based on localStorage preference
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
-    const initialTheme = savedTheme || 'light';
+    const initialTheme = savedTheme || 'dark';
     
     // Apply the theme
     document.documentElement.classList.remove('light', 'dark');

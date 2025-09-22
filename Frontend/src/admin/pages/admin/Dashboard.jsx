@@ -5,46 +5,45 @@ import { useCurrency } from '../../store/currencyStore';
 import { ThemeLayout, ThemeCard, SectionHeader, ThemeAlert } from '@shared/theme';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from 'recharts';
 import { RefreshCw } from 'lucide-react';
+import { getDashboardStats } from '../../lib/api';
 
 export default function Dashboard() {
-  const { isAuthed, me } = useAuth();
+  const { isAuthed, me, logout } = useAuth();
   const nav = useNavigate();
   const { formatAmount } = useCurrency();
   const [stats, setStats] = useState(null);
   const [err, setErr] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (retryCount = 0) => {
     try {
-      // Get token from the correct location
-      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
-      const token = authData.access || localStorage.getItem('access_token');
-      
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
       console.log('🔄 Loading dashboard data...');
-      const response = await fetch('http://127.0.0.1:8001/api/admin/dashboard/stats/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Dashboard stats loaded successfully:', data);
-        setStats(data);
-        setLastRefresh(Date.now());
-      } else {
-        const errorText = await response.text();
-        console.error('Dashboard API error:', response.status, response.statusText, errorText);
-        throw new Error(`Failed to fetch dashboard stats: ${response.status} ${response.statusText}`);
-      }
+      const { data } = await getDashboardStats();
+      console.log('✅ Dashboard stats loaded successfully:', data);
+      setStats(data);
+      setLastRefresh(Date.now());
+      setErr(null); // Clear any previous errors
     } catch (e) {
       console.error('Dashboard error:', e);
-      setErr(e.message || 'Failed to load dashboard stats');
+      
+      // If it's a 401 error and we haven't retried yet, try to refresh token and retry
+      if (e.response?.status === 401 && retryCount === 0) {
+        console.log('🔄 401 error, attempting token refresh...');
+        try {
+          // The API interceptor should handle token refresh automatically
+          // Let's retry the request once more
+          setTimeout(() => loadDashboardData(1), 1000);
+          return;
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+          setErr('Authentication expired. Please login again.');
+          logout();
+          nav('/admin/sign-in');
+          return;
+        }
+      }
+      
+      setErr(e.uiMessage || e.message || 'Failed to load dashboard stats');
       // Set empty stats as fallback
       setStats({
         totals: {
@@ -66,10 +65,33 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    // Remove redundant auth check - Private component handles this
+    // Initialize auth and load dashboard data
     (async () => {
-      await me();
-      await loadDashboardData();
+      try {
+        // First, ensure we have a valid token
+        const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+        if (!authData.access) {
+          console.error('No access token found');
+          setErr('No authentication token found. Please login again.');
+          return;
+        }
+
+        // Try to get user info first to validate token
+        const userData = await me();
+        if (!userData) {
+          console.error('Failed to get user data - token may be invalid');
+          setErr('Authentication failed. Please login again.');
+          logout();
+          nav('/admin/sign-in');
+          return;
+        }
+
+        // Load dashboard data
+        await loadDashboardData();
+      } catch (error) {
+        console.error('Dashboard initialization error:', error);
+        setErr('Failed to initialize dashboard. Please refresh the page.');
+      }
     })();
   }, [me]);
 

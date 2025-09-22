@@ -253,11 +253,30 @@ export default function OrdersPage() {
                       <div className="font-semibold mb-2">Order Details:</div>
                       <div className="space-y-1">
                         <div><span className="font-medium">Customer:</span> {o.customer_email || 'Guest'}</div>
+                        <div><span className="font-medium">Phone:</span> {o.customer_phone || 'Not provided'}</div>
                         <div><span className="font-medium">Created:</span> {new Date(o.created_at).toLocaleDateString()}</div>
                         <div><span className="font-medium">Payment:</span> {o.payment_method || 'N/A'}</div>
                       </div>
                     </div>
                   </div>
+                  {o.shipping_address && Object.keys(o.shipping_address).length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-600">
+                      <div className="font-semibold mb-2 text-slate-700 dark:text-slate-300">Shipping Info:</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        <div className="mb-2">
+                          <span className="font-medium">Name:</span> {o.shipping_address.firstName} {o.shipping_address.lastName}
+                        </div>
+                        <div className="mb-2">
+                          <span className="font-medium">Phone:</span> {o.customer_phone || 'Not provided'}
+                        </div>
+                        <div className="font-medium mb-1">Address:</div>
+                        <div>{o.shipping_address.address1}</div>
+                        {o.shipping_address.address2 && <div>{o.shipping_address.address2}</div>}
+                        <div>{o.shipping_address.city}, {o.shipping_address.state} {o.shipping_address.postcode}</div>
+                        {o.shipping_address.country && <div>{o.shipping_address.country}</div>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
                 {rows.length === 0 && (

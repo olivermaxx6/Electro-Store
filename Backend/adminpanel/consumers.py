@@ -321,6 +321,15 @@ class AdminChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error refreshing room list: {e}")
 
+    async def new_order_notification(self, event):
+        """Receive notification of new order"""
+        await self.send(text_data=json.dumps({
+            'type': 'new_order_notification',
+            'order': event['order'],
+            'message': event['message'],
+            'timestamp': event['timestamp']
+        }))
+
     @database_sync_to_async
     def get_active_rooms(self):
         """Get list of active chat rooms"""

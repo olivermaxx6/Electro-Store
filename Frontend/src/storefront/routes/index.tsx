@@ -70,6 +70,10 @@ export const router = createBrowserRouter([
         element: <Checkout />,
       },
       {
+        path: 'order-confirmation',
+        element: <OrderConfirmation />,
+      },
+      {
         path: 'order-confirmation/:trackingId',
         element: <OrderConfirmation />,
       },
