@@ -164,5 +164,67 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.scrollbar-thin': {
+          'scrollbar-width': 'thin',
+        },
+        '.scrollbar-thumb-gray-300': {
+          'scrollbar-color': '#d1d5db transparent',
+        },
+        '.scrollbar-thumb-gray-400': {
+          'scrollbar-color': '#9ca3af transparent',
+        },
+        '.scrollbar-thumb-slate-600': {
+          'scrollbar-color': '#475569 transparent',
+        },
+        '.scrollbar-thumb-slate-500': {
+          'scrollbar-color': '#64748b transparent',
+        },
+        '.scrollbar-thumb-slate-700': {
+          'scrollbar-color': '#334155 transparent',
+        },
+        '.scrollbar-track-transparent': {
+          'scrollbar-color': 'transparent transparent',
+        },
+        // Webkit scrollbar styles
+        '.scrollbar-thin::-webkit-scrollbar': {
+          width: '8px',
+        },
+        '.scrollbar-thin::-webkit-scrollbar-track': {
+          background: 'transparent',
+          'border-radius': '4px',
+        },
+        '.scrollbar-thin::-webkit-scrollbar-thumb': {
+          'background-color': '#d1d5db',
+          'border-radius': '4px',
+          'border': '1px solid transparent',
+          'background-clip': 'content-box',
+        },
+        '.scrollbar-thin::-webkit-scrollbar-thumb:hover': {
+          'background-color': '#9ca3af',
+        },
+        '.scrollbar-thumb-gray-300::-webkit-scrollbar-thumb': {
+          'background-color': '#d1d5db',
+        },
+        '.scrollbar-thumb-gray-400::-webkit-scrollbar-thumb': {
+          'background-color': '#9ca3af',
+        },
+        '.scrollbar-thumb-slate-600::-webkit-scrollbar-thumb': {
+          'background-color': '#475569',
+        },
+        '.scrollbar-thumb-slate-500::-webkit-scrollbar-thumb': {
+          'background-color': '#64748b',
+        },
+        '.scrollbar-thumb-slate-700::-webkit-scrollbar-thumb': {
+          'background-color': '#334155',
+        },
+        '.scrollbar-track-transparent::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+      }
+      addUtilities(newUtilities)
+    }
+  ],
 }

@@ -22,7 +22,7 @@ from adminpanel.models import (
     Brand, Category, Product, ProductImage, Order, OrderItem,
     ServiceCategory, Service, ServiceImage, ServiceInquiry,
     Review, ServiceReview, WebsiteContent, StoreSettings,
-    ChatRoom, ChatMessage, Contact, ServiceQuery
+    Contact, ServiceQuery
 )
 
 def clear_database():
@@ -38,8 +38,6 @@ def clear_database():
     models_to_clear = [
         (ServiceQuery, "Service Queries"),
         (Contact, "Contact Messages"),
-        (ChatMessage, "Chat Messages"),
-        (ChatRoom, "Chat Rooms"),
         (ServiceReview, "Service Reviews"),
         (Review, "Product Reviews"),
         (ServiceInquiry, "Service Inquiries"),

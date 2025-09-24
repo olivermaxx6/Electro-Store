@@ -17,7 +17,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           {/* Sign-in route without AdminLayout */}
           <Route path="/admin/sign-in" element={<SignIn />} />

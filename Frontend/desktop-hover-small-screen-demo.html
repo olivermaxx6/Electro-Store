@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desktop Hover Functionality in Small Screen Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            background-clip: content-box;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background-color: #9ca3af;
+        }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #334155;
+        }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background-color: #475569;
+        }
+        
+        .dropdown-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100vw;
+            max-width: 24rem;
+            background: white;
+            border-radius: 0 0 0.75rem 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-top: 2px solid #dc2626;
+            z-index: 50;
+            overflow: hidden;
+        }
+        .dark .dropdown-menu {
+            background: #1e293b;
+            border-top-color: #3b82f6;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: white;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+        }
+        .dark .nav-item {
+            background: #1e293b;
+            border-bottom-color: #334155;
+        }
+        .nav-item:hover {
+            background: #f9fafb;
+        }
+        .dark .nav-item:hover {
+            background: #334155;
+        }
+        
+        .hover-style-item {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .hover-style-item:hover {
+            background: rgba(249, 250, 251, 0.7);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transform: scale(1.02);
+            border-color: rgba(229, 231, 235, 0.5);
+        }
+        .dark .hover-style-item:hover {
+            background: rgba(51, 65, 85, 0.7);
+            border-color: rgba(71, 85, 105, 0.5);
+        }
+        
+        .subcategory-link {
+            display: block;
+            padding: 0.375rem 0.75rem;
+            margin: 0.25rem 0;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .subcategory-link:hover {
+            background: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            transform: scale(1.05);
+        }
+        .dark .subcategory-link:hover {
+            background: rgba(51, 65, 85, 0.6);
+        }
+        
+        .bullet-point {
+            width: 6px;
+            height: 6px;
+            background-color: #9ca3af;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .dark .bullet-point {
+            background-color: #64748b;
+        }
+        .subcategory-link:hover .bullet-point {
+            background-color: #dc2626;
+            transform: scale(1.25);
+        }
+        .dark .subcategory-link:hover .bullet-point {
+            background-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-slate-900">
+    <div class="min-h-screen py-8">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto">
+                <!-- Theme Toggle -->
+                <div class="flex justify-between items-center mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+                        🖥️ Desktop Hover in Small Screen Mode
+                    </h1>
+                    <button id="theme-toggle" class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors duration-300">
+                        <span class="dark:hidden">🌙 Dark Mode</span>
+                        <span class="hidden dark:inline">☀️ Light Mode</span>
+                    </button>
+                </div>
+                
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+                        🎯 Desktop Hover Functionality in Small Screen:
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">✨ Features:</h3>
+                            <ul class="space-y-2 text-gray-600 dark:text-gray-300">
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Same hover effects as desktop
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Card-based layout with animations
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Subcategory previews with bullet points
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Hover state management
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">🎨 Visual Elements:</h3>
+                            <ul class="space-y-2 text-gray-600 dark:text-gray-300">
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Scale animations on hover
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Color transitions for text
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Chevron arrow animations
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Bullet point hover effects
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                            🎯 Interactive Demo - Desktop Hover in Small Screen:
+                        </h3>
+                        
+                        <!-- Dropdown Demo -->
+                        <div class="dropdown-container">
+                            <button id="dropdown-trigger" class="px-6 py-3 text-white font-medium rounded-lg bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                Electrical & Lights
+                            </button>
+                            
+                            <div id="dropdown-menu" class="dropdown-menu hidden">
+                                <!-- Main Menu -->
+                                <div id="main-menu" class="space-y-0">
+                                    <div class="nav-item" data-category="electrical">
+                                        <span class="nav-text">Electrical</span>
+                                        <svg class="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item" data-category="home-security">
+                                        <span class="nav-text">Home security & safety</span>
+                                        <svg class="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item" data-category="indoor-lighting">
+                                        <span class="nav-text">Indoor lights</span>
+                                        <svg class="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item" data-category="outdoor-lighting">
+                                        <span class="nav-text">Outdoor lights</span>
+                                        <svg class="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item" data-category="tv-audio">
+                                        <span class="nav-text">TV, audio & networking</span>
+                                        <svg class="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item" data-category="smart-home">
+                                        <span class="nav-text">Smart home</span>
+                                        <svg class="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                
+                                <!-- Desktop Hover-Style Menu for Small Screen -->
+                                <div id="hover-style-menu" class="hidden">
+                                    <!-- Back Button -->
+                                    <div class="px-3 py-2 border-b border-gray-200 dark:border-slate-700">
+                                        <button id="back-to-main" class="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200">
+                                            <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                            </svg>
+                                            <span class="text-sm text-gray-700 dark:text-gray-300">Back to main menu</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Desktop Hover-Style Content for Small Screen -->
+                                    <div class="p-4 space-y-4">
+                                        <!-- Electrical Category -->
+                                        <div class="hover-style-item" data-subcategory="electrical">
+                                            <div class="flex items-center gap-2 mb-3">
+                                                <span class="text-base font-semibold text-gray-900 dark:text-white">Electrical</span>
+                                                <svg class="w-4 h-4 text-gray-400 dark:text-slate-500 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                            <div class="space-y-1 ml-2">
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Electrical Components</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Back boxes</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Cable & Connectors</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Cable management</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Cable reels</span>
+                                                    </div>
+                                                </div>
+                                                <div class="text-xs text-gray-500 dark:text-slate-400 ml-3">
+                                                    +3 more...
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Home Security Category -->
+                                        <div class="hover-style-item" data-subcategory="home-security">
+                                            <div class="flex items-center gap-2 mb-3">
+                                                <span class="text-base font-semibold text-gray-900 dark:text-white">Home security & safety</span>
+                                                <svg class="w-4 h-4 text-gray-400 dark:text-slate-500 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                            <div class="space-y-1 ml-2">
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Bicycle locks</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Burglar alarms</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Carbon monoxide alarms</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Door locks</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Fire safety</span>
+                                                    </div>
+                                                </div>
+                                                <div class="text-xs text-gray-500 dark:text-slate-400 ml-3">
+                                                    +5 more...
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Indoor Lighting Category -->
+                                        <div class="hover-style-item" data-subcategory="indoor-lighting">
+                                            <div class="flex items-center gap-2 mb-3">
+                                                <span class="text-base font-semibold text-gray-900 dark:text-white">Indoor lights</span>
+                                                <svg class="w-4 h-4 text-gray-400 dark:text-slate-500 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                            <div class="space-y-1 ml-2">
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Ceiling lights</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Chandeliers</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Floor lamps</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Indoor lights</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Light bulbs</span>
+                                                    </div>
+                                                </div>
+                                                <div class="text-xs text-gray-500 dark:text-slate-400 ml-3">
+                                                    +8 more...
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Outdoor Lighting Category -->
+                                        <div class="hover-style-item" data-subcategory="outdoor-lighting">
+                                            <div class="flex items-center gap-2 mb-3">
+                                                <span class="text-base font-semibold text-gray-900 dark:text-white">Outdoor lights</span>
+                                                <svg class="w-4 h-4 text-gray-400 dark:text-slate-500 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                            <div class="space-y-1 ml-2">
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Decking lights</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Ground lights</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Outdoor lanterns</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Outdoor lights</span>
+                                                    </div>
+                                                </div>
+                                                <div class="subcategory-link">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="bullet-point"></div>
+                                                        <span class="text-sm text-gray-600 dark:text-gray-300">Outdoor wall lights</span>
+                                                    </div>
+                                                </div>
+                                                <div class="text-xs text-gray-500 dark:text-slate-400 ml-3">
+                                                    +5 more...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <h4 class="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">
+                                🎯 Desktop Hover Features in Small Screen:
+                            </h4>
+                            <ol class="text-blue-700 dark:text-blue-400 space-y-1">
+                                <li>1. Click "Electrical & Lights" to open dropdown</li>
+                                <li>2. Click any main category to see desktop hover-style layout</li>
+                                <li>3. Hover over subcategory cards to see animations</li>
+                                <li>4. Hover over bullet points to see color changes</li>
+                                <li>5. Click "Back to main menu" to return</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        html.classList.toggle('dark', currentTheme === 'dark');
+        
+        themeToggle.addEventListener('click', () => {
+            const isDark = html.classList.contains('dark');
+            html.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+        });
+
+        // Dropdown functionality
+        const dropdownTrigger = document.getElementById('dropdown-trigger');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        const mainMenu = document.getElementById('main-menu');
+        const hoverStyleMenu = document.getElementById('hover-style-menu');
+        const backToMain = document.getElementById('back-to-main');
+
+        // Toggle dropdown
+        dropdownTrigger.addEventListener('click', () => {
+            dropdownMenu.classList.toggle('hidden');
+        });
+
+        // Back to main menu
+        backToMain.addEventListener('click', () => {
+            mainMenu.classList.remove('hidden');
+            hoverStyleMenu.classList.add('hidden');
+        });
+
+        // Handle category clicks in main menu - Show desktop hover-style
+        mainMenu.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const navItem = e.target.closest('.nav-item');
+            if (navItem && navItem.dataset.category) {
+                // Show desktop hover-style menu
+                mainMenu.classList.add('hidden');
+                hoverStyleMenu.classList.remove('hidden');
+            }
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!dropdownTrigger.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

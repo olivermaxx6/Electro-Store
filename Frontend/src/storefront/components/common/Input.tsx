@@ -19,6 +19,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   className = '',
   ...props
 }, ref) => {
+  // helperText is already extracted from props, so we don't need to exclude it again
+  // The remaining props are safe to pass to the input element
   const baseClasses = `
     w-full
     px-4

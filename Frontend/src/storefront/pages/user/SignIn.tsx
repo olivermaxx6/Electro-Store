@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { signIn, setLoading, setError } from '../../store/userSlice';
 import { selectUserLoading, selectUserError } from '../../store/userSlice';
-import { loginUser } from '../../../lib/authApi';
+import { loginUser } from '../../lib/authApi';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 

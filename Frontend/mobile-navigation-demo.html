@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Mobile Category Navigation - Dark/Light Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            background-clip: content-box;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background-color: #9ca3af;
+        }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #334155;
+        }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background-color: #475569;
+        }
+        
+        .theme-transition {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .mobile-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 50;
+            background: white;
+        }
+        .dark .mobile-nav {
+            background: #0f172a;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: white;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.2s ease;
+        }
+        .dark .nav-item {
+            background: #1e293b;
+            border-bottom-color: #334155;
+        }
+        .nav-item:hover {
+            background: #f9fafb;
+        }
+        .dark .nav-item:hover {
+            background: #334155;
+        }
+        
+        .nav-text {
+            color: #111827;
+            font-weight: 500;
+        }
+        .dark .nav-text {
+            color: #f1f5f9;
+        }
+        
+        .chevron {
+            color: #6b7280;
+        }
+        .dark .chevron {
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-slate-900 theme-transition">
+    <div class="min-h-screen py-8">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto">
+                <!-- Theme Toggle -->
+                <div class="flex justify-between items-center mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+                        Enhanced Mobile Navigation
+                    </h1>
+                    <button id="theme-toggle" class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors duration-300">
+                        <span class="dark:hidden">🌙 Dark Mode</span>
+                        <span class="hidden dark:inline">☀️ Light Mode</span>
+                    </button>
+                </div>
+                
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 theme-transition">
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+                        📱 Mobile-First Design Features:
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">✨ Text Visibility Improvements:</h3>
+                            <ul class="space-y-2 text-gray-600 dark:text-gray-300">
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Enhanced contrast ratios for accessibility
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Optimized font weights and sizes
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Better color contrast in both themes
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    Clear visual hierarchy
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">📱 Mobile Navigation:</h3>
+                            <ul class="space-y-2 text-gray-600 dark:text-gray-300">
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Vertical list layout as shown in images
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Parent category navigation with back button
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Touch-friendly interface
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Responsive design for all screen sizes
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                            🎯 Interactive Mobile Demo:
+                        </h3>
+                        
+                        <div class="flex gap-4 mb-4">
+                            <button id="show-mobile-nav" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                                Show Mobile Navigation
+                            </button>
+                            <button id="show-desktop-nav" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
+                                Show Desktop Navigation
+                            </button>
+                        </div>
+                        
+                        <!-- Mobile Navigation Demo -->
+                        <div id="mobile-nav-demo" class="mobile-nav hidden">
+                            <!-- Header -->
+                            <div class="bg-gray-50 dark:bg-slate-800 px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <button id="back-btn" class="hidden p-1 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors duration-200">
+                                            <svg class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                            </svg>
+                                        </button>
+                                        <h2 id="nav-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+                                            Categories
+                                        </h2>
+                                    </div>
+                                    <button id="close-mobile-nav" class="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors duration-200">
+                                        <svg class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></svg>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Content -->
+                            <div class="flex-1 overflow-y-auto">
+                                <div id="nav-content" class="space-y-0">
+                                    <!-- Main Categories -->
+                                    <div class="nav-item cursor-pointer" data-category="offers">
+                                        <span class="nav-text">Offers & Trends</span>
+                                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item cursor-pointer" data-category="painting">
+                                        <span class="nav-text">Painting & Decorating</span>
+                                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item cursor-pointer" data-category="home">
+                                        <span class="nav-text">Home & Furniture</span>
+                                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item cursor-pointer" data-category="building">
+                                        <span class="nav-text">Building & Hardware</span>
+                                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item cursor-pointer" data-category="garden">
+                                        <span class="nav-text">Garden & Landscaping</span>
+                                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item cursor-pointer" data-category="kitchen">
+                                        <span class="nav-text">Kitchen & Appliances</span>
+                                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                                    
+                                    <div class="nav-item cursor-pointer" data-category="bathroom">
+                                        <span class="nav-text">Bathroom & Showers</span>
+                                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Desktop Navigation Demo -->
+                        <div id="desktop-nav-demo" class="hidden bg-gray-50 dark:bg-slate-700 rounded-lg p-6 theme-transition">
+                            <div class="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-slate-500">
+                                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                                    <!-- Lighting & Electrical Category -->
+                                    <div class="bg-white dark:bg-slate-800 rounded-lg p-4 hover:shadow-lg transition-all duration-300">
+                                        <h4 class="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                            <span>Lighting & Electrical</span>
+                                            <svg class="w-4 h-4 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                            </svg>
+                                        </h4>
+                                        <div class="space-y-1 ml-2">
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors duration-200 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1 h-1 bg-gray-400 dark:bg-slate-500 rounded-full"></div>
+                                                    <span>All Lighting & Electrical</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors duration-200 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1 h-1 bg-gray-400 dark:bg-slate-500 rounded-full"></div>
+                                                    <span>Indoor lights</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors duration-200 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1 h-1 bg-gray-400 dark:bg-slate-500 rounded-full"></div>
+                                                    <span>Outdoor lights</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors duration-200 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1 h-1 bg-gray-400 dark:bg-slate-500 rounded-full"></div>
+                                                    <span>TV, audio & networking</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors duration-200 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1 h-1 bg-gray-400 dark:bg-slate-500 rounded-full"></div>
+                                                    <span>Electrical</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors duration-200 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1 h-1 bg-gray-400 dark:bg-slate-500 rounded-full"></div>
+                                                    <span>Home security & safety</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-colors duration-200 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1 h-1 bg-gray-400 dark:bg-slate-500 rounded-full"></div>
+                                                    <span>Smart home</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        // Check for saved theme preference or default to dark mode
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        html.classList.toggle('dark', currentTheme === 'dark');
+        
+        themeToggle.addEventListener('click', () => {
+            const isDark = html.classList.contains('dark');
+            html.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+        });
+
+        // Mobile navigation functionality
+        const showMobileNav = document.getElementById('show-mobile-nav');
+        const showDesktopNav = document.getElementById('show-desktop-nav');
+        const mobileNavDemo = document.getElementById('mobile-nav-demo');
+        const desktopNavDemo = document.getElementById('desktop-nav-demo');
+        const closeMobileNav = document.getElementById('close-mobile-nav');
+        const backBtn = document.getElementById('back-btn');
+        const navTitle = document.getElementById('nav-title');
+        const navContent = document.getElementById('nav-content');
+
+        showMobileNav.addEventListener('click', () => {
+            mobileNavDemo.classList.remove('hidden');
+            desktopNavDemo.classList.add('hidden');
+        });
+
+        showDesktopNav.addEventListener('click', () => {
+            desktopNavDemo.classList.remove('hidden');
+            mobileNavDemo.classList.add('hidden');
+        });
+
+        closeMobileNav.addEventListener('click', () => {
+            mobileNavDemo.classList.add('hidden');
+            resetMobileNav();
+        });
+
+        backBtn.addEventListener('click', () => {
+            resetMobileNav();
+        });
+
+        function resetMobileNav() {
+            backBtn.classList.add('hidden');
+            navTitle.textContent = 'Categories';
+            // Reset to main categories view
+            navContent.innerHTML = `
+                <div class="nav-item cursor-pointer" data-category="offers">
+                    <span class="nav-text">Offers & Trends</span>
+                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                <div class="nav-item cursor-pointer" data-category="painting">
+                    <span class="nav-text">Painting & Decorating</span>
+                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                <div class="nav-item cursor-pointer" data-category="home">
+                    <span class="nav-text">Home & Furniture</span>
+                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                <div class="nav-item cursor-pointer" data-category="building">
+                    <span class="nav-text">Building & Hardware</span>
+                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                <div class="nav-item cursor-pointer" data-category="garden">
+                    <span class="nav-text">Garden & Landscaping</span>
+                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                <div class="nav-item cursor-pointer" data-category="kitchen">
+                    <span class="nav-text">Kitchen & Appliances</span>
+                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                <div class="nav-item cursor-pointer" data-category="bathroom">
+                    <span class="nav-text">Bathroom & Showers</span>
+                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            `;
+        }
+
+        // Handle category clicks
+        navContent.addEventListener('click', (e) => {
+            const navItem = e.target.closest('.nav-item');
+            if (navItem && navItem.dataset.category) {
+                const category = navItem.dataset.category;
+                
+                // Show subcategories for Lighting & Electrical
+                if (category === 'building') {
+                    backBtn.classList.remove('hidden');
+                    navTitle.textContent = 'Lighting & Electrical';
+                    navContent.innerHTML = `
+                        <div class="nav-item">
+                            <span class="nav-text">All Lighting & Electrical</span>
+                            <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                        <div class="nav-item">
+                            <span class="nav-text">Indoor lights</span>
+                            <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                        <div class="nav-item">
+                            <span class="nav-text">Outdoor lights</span>
+                            <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                        <div class="nav-item">
+                            <span class="nav-text">TV, audio & networking</span>
+                            <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                        <div class="nav-item">
+                            <span class="nav-text">Electrical</span>
+                            <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                        <div class="nav-item">
+                            <span class="nav-text">Home security & safety</span>
+                            <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="border-b border-gray-100 dark:border-slate-700"></div>
+                        <div class="nav-item">
+                            <span class="nav-text">Smart home</span>
+                            <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                    `;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

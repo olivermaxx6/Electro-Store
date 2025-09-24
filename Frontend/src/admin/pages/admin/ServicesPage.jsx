@@ -1,15 +1,89 @@
 import { useEffect, useState } from 'react';
 import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeSelect, ThemeTextarea } from '@shared/theme';
 import { useCurrency } from '../../store/currencyStore';
-import { listServiceCategories, createServiceCategory, updateServiceCategory, deleteServiceCategory, listServices, createService as createServiceAPI, updateService, deleteService as deleteServiceAPI, authStore, api } from '../../lib/api';
+import { listServiceCategories, getServiceCategoryTree, createServiceCategory, updateServiceCategory, deleteServiceCategory, listServices, createService as createServiceAPI, updateService, deleteService as deleteServiceAPI, api } from '../../lib/api';
+import { useAuth } from '../../store/authStore';
+
+// Recursive component to display hierarchical categories
+const CategoryItem = ({ category, onEdit, onDelete, services, level = 0 }) => {
+  const indentStyle = level > 0 ? { marginLeft: `${level * 1.5}rem` } : {};
+  const bgClass = level === 0 ? 'bg-slate-50 dark:bg-slate-700' : level === 1 ? 'bg-slate-100 dark:bg-slate-600' : 'bg-slate-200 dark:bg-slate-500';
+  
+  return (
+    <div style={indentStyle} className={`${bgClass} rounded-2xl border border-slate-200 dark:border-slate-600 hover:shadow-md transition-all duration-300`}>
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-2">
+            {level > 0 && <span className="text-slate-400 text-lg">└─</span>}
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+              {category.name}
+            </h3>
+            {category.depth > 0 && (
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                Level {category.depth}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-1">
+            <ThemeButton 
+              onClick={() => onEdit(category)}
+              variant="warning" 
+              icon="✏️"
+              className="min-w-fit flex-shrink-0 text-xs px-2"
+              title="Edit Category"
+            />
+            <ThemeButton 
+              onClick={() => onDelete(category.id)}
+              variant="danger" 
+              icon="🗑️"
+              className="min-w-fit flex-shrink-0 text-xs px-2"
+              title="Delete Category"
+            />
+          </div>
+        </div>
+        
+        {category.description && (
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+            {category.description}
+          </p>
+        )}
+        
+        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-2">
+          <span>Services: {services.filter(s => s.category_id === category.id).length}</span>
+          {category.parent_name && (
+            <span>Parent: {category.parent_name}</span>
+          )}
+        </div>
+        
+        {/* Render children recursively */}
+        {category.children && category.children.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {category.children.map(child => (
+              <CategoryItem 
+                key={child.id} 
+                category={child} 
+                onEdit={onEdit}
+                onDelete={onDelete}
+                services={services}
+                level={level + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function ServicesPage() {
   const { formatAmount } = useCurrency();
+  const authStore = useAuth();
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [editing, setEditing] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState(null);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
@@ -18,11 +92,13 @@ export default function ServicesPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [newCategoryOrdering, setNewCategoryOrdering] = useState('0');
+  const [newCategoryParent, setNewCategoryParent] = useState('');
   
   // Form states for editing category
   const [eCategoryName, setECategoryName] = useState('');
   const [eCategoryDescription, setECategoryDescription] = useState('');
   const [eCategoryOrdering, setECategoryOrdering] = useState('0');
+  const [eCategoryParent, setECategoryParent] = useState('');
   
   // Form states for creating new service
   const [newName, setNewName] = useState('');
@@ -30,6 +106,7 @@ export default function ServicesPage() {
   const [newPrice, setNewPrice] = useState('');
   const [newImage, setNewImage] = useState(null);
   const [newCategoryId, setNewCategoryId] = useState('');
+  const [newSubcategoryId, setNewSubcategoryId] = useState('');
   const [newRating, setNewRating] = useState('0.0');
   const [newReviewCount, setNewReviewCount] = useState('0');
   const [newOverview, setNewOverview] = useState('');
@@ -47,6 +124,7 @@ export default function ServicesPage() {
   const [eImage, setEImage] = useState(null);
   const [eFiles, setEFiles] = useState([]);
   const [eCategoryId, setECategoryId] = useState('');
+  const [eSubcategoryId, setESubcategoryId] = useState('');
   const [eRating, setERating] = useState('0.0');
   const [eReviewCount, setEReviewCount] = useState('0');
   const [eOverview, setEOverview] = useState('');
@@ -66,6 +144,72 @@ export default function ServicesPage() {
   useEffect(() => {
     console.log('[ServicesPage] Categories updated:', categories);
   }, [categories]);
+
+  // Helper function to flatten category tree for dropdowns
+  const flattenCategories = (categories, level = 0) => {
+    let flattened = [];
+    categories.forEach(category => {
+      flattened.push({
+        ...category,
+        displayName: '  '.repeat(level) + category.name,
+        level: level
+      });
+      if (category.children && category.children.length > 0) {
+        flattened = flattened.concat(flattenCategories(category.children, level + 1));
+      }
+    });
+    return flattened;
+  };
+
+  // Helper function to get all categories (flattened) for dropdowns
+  const getAllCategories = () => {
+    return flattenCategories(categories);
+  };
+
+  // Helper function to get root categories (categories with no parent)
+  const getRootCategories = () => {
+    // The tree endpoint returns root categories directly, so we don't need to filter
+    // Add extra safety checks to ensure we have valid categories with IDs
+    return categories.filter(category => 
+      category && 
+      category.id && 
+      category.name && 
+      typeof category.id !== 'undefined' &&
+      category.id !== null
+    );
+  };
+
+  // Helper function to get subcategories of a specific parent category
+  const getSubcategories = (parentId) => {
+    if (!parentId) return [];
+    
+    // First try to find the parent category in the nested structure
+    const findCategoryById = (categories, id) => {
+      for (const category of categories) {
+        if (category && category.id && category.id === parseInt(id)) {
+          return category;
+        }
+        if (category && category.children && category.children.length > 0) {
+          const found = findCategoryById(category.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const parentCategory = findCategoryById(categories, parentId);
+    if (parentCategory && parentCategory.children) {
+      // Filter out any children without valid IDs
+      return parentCategory.children.filter(child => 
+        child && 
+        child.id && 
+        child.name && 
+        typeof child.id !== 'undefined' &&
+        child.id !== null
+      );
+    }
+    return [];
+  };
 
   // Helper functions to parse JSON fields
   const parseFeaturesList = (text) => {
@@ -179,6 +323,7 @@ export default function ServicesPage() {
     setNewPrice('');
     setNewImage(null);
     setNewCategoryId('');
+    setNewSubcategoryId('');
     setNewRating('0.0');
     setNewReviewCount('0');
     setNewOverview('');
@@ -197,6 +342,7 @@ export default function ServicesPage() {
     setEImage(null);
     setEFiles([]);
     setECategoryId('');
+    setESubcategoryId('');
     setERating('0.0');
     setEReviewCount('0');
     setEOverview('');
@@ -210,23 +356,19 @@ export default function ServicesPage() {
 
   const resetCategoryForm = () => {
     setNewCategoryName('');
+    setNewCategoryDescription('');
+    setNewCategoryOrdering('0');
+    setNewCategoryParent('');
   };
 
   const loadCategories = async () => {
     try {
-      console.log('[ServicesPage] Loading categories from API...');
-      console.log('[ServicesPage] API endpoint: /api/admin/service-categories/');
-      console.log('[ServicesPage] Auth token exists:', !!authStore.access());
-      console.log('[ServicesPage] Auth token:', authStore.access() ? 'Present' : 'Missing');
-      const response = await listServiceCategories();
-      console.log('[ServicesPage] Categories response type:', typeof response);
-      console.log('[ServicesPage] Categories response:', response);
-      console.log('[ServicesPage] Categories response.data:', response.data);
-      console.log('[ServicesPage] Categories response.data.results:', response.data?.results);
-      console.log('[ServicesPage] Is response.data an array?', Array.isArray(response.data));
-      console.log('[ServicesPage] Is response.data.results an array?', Array.isArray(response.data?.results));
-      console.log('[ServicesPage] Response status:', response.status || 'No status');
-      console.log('[ServicesPage] Response headers:', response.headers || 'No headers');
+      console.log('[ServicesPage] Loading categories tree from API...');
+      console.log('[ServicesPage] API endpoint: /api/admin/service-categories/tree/');
+      console.log('[ServicesPage] Auth token exists:', !!authStore.token);
+      console.log('[ServicesPage] Auth token:', authStore.token ? 'Present' : 'Missing');
+      const response = await getServiceCategoryTree();
+      console.log('[ServicesPage] Categories tree response:', response);
       
       // Handle different response structures - axios wraps the response in .data
       let categoriesData = [];
@@ -245,13 +387,14 @@ export default function ServicesPage() {
         categoriesData = [];
       }
       
-      console.log('[ServicesPage] Categories data to set:', categoriesData);
+      console.log('[ServicesPage] Categories tree data to set:', categoriesData);
       console.log('[ServicesPage] Is categoriesData an array?', Array.isArray(categoriesData));
       
       setCategories(categoriesData);
-      console.log('[ServicesPage] Categories set successfully, count:', categoriesData.length);
+      setLoading(false);
+      console.log('[ServicesPage] Categories tree set successfully, count:', categoriesData.length);
     } catch (err) {
-      console.error('[ServicesPage] Failed to load categories:', err);
+      console.error('[ServicesPage] Failed to load categories tree:', err);
       console.error('[ServicesPage] Error details:', {
         message: err.message,
         status: err.response?.status,
@@ -259,6 +402,7 @@ export default function ServicesPage() {
         config: err.config
       });
       setCategories([]); // Set empty array on error
+      setLoading(false);
       
       // Check if it's an authentication error
       if (err.response?.status === 401) {
@@ -276,7 +420,8 @@ export default function ServicesPage() {
     const formData = {
       name: newCategoryName,
       description: newCategoryDescription,
-      ordering: newCategoryOrdering
+      ordering: newCategoryOrdering,
+      parent: newCategoryParent || null
     };
     
     const errors = validateCategoryForm(formData);
@@ -295,8 +440,9 @@ export default function ServicesPage() {
       console.log('[ServicesPage] Creating category:', newCategoryName.trim());
       const response = await createServiceCategory({
         name: newCategoryName.trim(),
-        description: '',
-        ordering: categories.length + 1,
+        description: newCategoryDescription.trim(),
+        ordering: parseInt(newCategoryOrdering) || 0,
+        parent: newCategoryParent ? parseInt(newCategoryParent) : null,
         is_active: true
       });
       
@@ -336,6 +482,9 @@ export default function ServicesPage() {
   const startEditCategory = (category) => {
     setEditingCategory(category);
     setECategoryName(category.name || '');
+    setECategoryDescription(category.description || '');
+    setECategoryOrdering(category.ordering ? category.ordering.toString() : '0');
+    setECategoryParent(category.parent ? category.parent.toString() : '');
     setShowCategoryForm(false); // Hide the add form when editing
   };
 
@@ -350,8 +499,9 @@ export default function ServicesPage() {
     
     const formData = {
       name: eCategoryName,
-      description: editingCategory.description || '',
-      ordering: editingCategory.ordering || 0
+      description: eCategoryDescription,
+      ordering: eCategoryOrdering,
+      parent: eCategoryParent || null
     };
     
     const errors = validateCategoryForm(formData);
@@ -370,8 +520,9 @@ export default function ServicesPage() {
       console.log('[ServicesPage] Updating category:', editingCategory.id, 'to:', eCategoryName.trim());
       const updatedCategory = await updateServiceCategory(editingCategory.id, {
         name: eCategoryName.trim(),
-        description: editingCategory.description || '',
-        ordering: editingCategory.ordering || 0,
+        description: eCategoryDescription.trim(),
+        ordering: parseInt(eCategoryOrdering) || 0,
+        parent: eCategoryParent ? parseInt(eCategoryParent) : null,
         is_active: editingCategory.is_active !== false
       });
       
@@ -396,14 +547,17 @@ export default function ServicesPage() {
 
   const resetCategoryEditForm = () => {
     setECategoryName('');
+    setECategoryDescription('');
+    setECategoryOrdering('0');
+    setECategoryParent('');
   };
 
   const loadServices = async () => {
     try {
       console.log('[ServicesPage] Loading services from API...');
       console.log('[ServicesPage] API endpoint: /api/admin/services/');
-      console.log('[ServicesPage] Auth token exists:', !!authStore.access());
-      console.log('[ServicesPage] Auth token:', authStore.access() ? 'Present' : 'Missing');
+      console.log('[ServicesPage] Auth token exists:', !!authStore.token);
+      console.log('[ServicesPage] Auth token:', authStore.token ? 'Present' : 'Missing');
       const response = await listServices();
       console.log('[ServicesPage] Services response type:', typeof response);
       console.log('[ServicesPage] Services response:', response);
@@ -494,6 +648,10 @@ export default function ServicesPage() {
         formData.append('category_id', parseInt(newCategoryId));
       }
       
+      if (newSubcategoryId) {
+        formData.append('subcategory_id', parseInt(newSubcategoryId));
+      }
+      
       formData.append('rating', parseFloat(newRating));
       formData.append('review_count', parseInt(newReviewCount));
       formData.append('overview', newOverview.trim());
@@ -582,6 +740,10 @@ export default function ServicesPage() {
         formData.append('category_id', parseInt(eCategoryId));
       }
       
+      if (eSubcategoryId) {
+        formData.append('subcategory_id', parseInt(eSubcategoryId));
+      }
+      
       formData.append('rating', parseFloat(eRating));
       formData.append('review_count', parseInt(eReviewCount));
       formData.append('overview', eOverview.trim());
@@ -656,6 +818,7 @@ export default function ServicesPage() {
     setEImage(null);
     setEFiles([]);
     setECategoryId(service.category_id ? service.category_id.toString() : '');
+    setESubcategoryId(service.subcategory_id ? service.subcategory_id.toString() : '');
     setERating(service.rating ? service.rating.toString() : '0.0');
     setEReviewCount(service.review_count ? service.review_count.toString() : '0');
     setEOverview(service.overview || '');
@@ -677,6 +840,17 @@ export default function ServicesPage() {
 
   return (
     <ThemeLayout>
+      {loading ? (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <span className="text-white text-2xl">⚙️</span>
+            </div>
+            <div className="text-slate-600 dark:text-slate-400 font-medium">Loading services...</div>
+            <div className="text-sm text-slate-500 dark:text-slate-500 mt-1">Please wait while we load your data</div>
+          </div>
+        </div>
+      ) : (
         <div className="space-y-8">
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
@@ -749,8 +923,8 @@ export default function ServicesPage() {
             {/* Add Category Form */}
             {showCategoryForm && (
               <form onSubmit={createCategory} className="space-y-4 mb-6 p-4 bg-slate-50 dark:bg-slate-700 rounded-2xl">
-                <div className="flex gap-4 items-end">
-                  <div className="flex-1 space-y-2">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
                       Category Name *
                     </label>
@@ -768,18 +942,49 @@ export default function ServicesPage() {
                     />
                     {renderFieldError('name')}
                   </div>
-                  <div className="flex items-end">
-                    <ThemeButton 
-                      type="submit" 
-                      disabled={busy} 
-                      loading={busy} 
-                      variant="success" 
-                      icon="💾"
-                      className="whitespace-nowrap"
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Parent Category
+                    </label>
+                    <select
+                      value={newCategoryParent}
+                      onChange={(e) => setNewCategoryParent(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     >
-                      Create Category
-                    </ThemeButton>
+                      <option value="">No Parent (Root Category)</option>
+                      {getAllCategories().map(category => (
+                        <option key={category.id} value={category.id ? category.id.toString() : ''}>
+                          {category.displayName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Description
+                  </label>
+                  <ThemeTextarea
+                    value={newCategoryDescription}
+                    onChange={(e) => setNewCategoryDescription(e.target.value)}
+                    placeholder="Enter category description..."
+                    rows={2}
+                  />
+                </div>
+                
+                <div className="flex justify-end">
+                  <ThemeButton 
+                    type="submit" 
+                    disabled={busy} 
+                    loading={busy} 
+                    variant="success" 
+                    icon="💾"
+                    className="whitespace-nowrap"
+                  >
+                    Create Category
+                  </ThemeButton>
                 </div>
               </form>
             )}
@@ -793,8 +998,9 @@ export default function ServicesPage() {
                   </div>
                   <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Edit Category</h3>
                 </div>
-                <div className="flex gap-4 items-end">
-                  <div className="flex-1 space-y-2">
+                
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
                       Category Name *
                     </label>
@@ -812,63 +1018,76 @@ export default function ServicesPage() {
                     />
                     {renderFieldError('name')}
                   </div>
-                  <div className="flex items-end gap-2">
-                    <ThemeButton 
-                      type="button"
-                      onClick={cancelEditCategory}
-                      variant="warning" 
-                      icon="❌"
-                      className="whitespace-nowrap"
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Parent Category
+                    </label>
+                    <select
+                      value={eCategoryParent}
+                      onChange={(e) => setECategoryParent(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     >
-                      Cancel
-                    </ThemeButton>
-                    <ThemeButton 
-                      type="submit" 
-                      disabled={busy} 
-                      loading={busy} 
-                      variant="success" 
-                      icon="💾"
-                      className="whitespace-nowrap"
-                    >
-                      Update
-                    </ThemeButton>
+                      <option value="">No Parent (Root Category)</option>
+                      {getAllCategories().filter(cat => cat.id !== editingCategory.id).map(category => (
+                        <option key={category.id} value={category.id ? category.id.toString() : ''}>
+                          {category.displayName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Description
+                  </label>
+                  <ThemeTextarea
+                    value={eCategoryDescription}
+                    onChange={(e) => setECategoryDescription(e.target.value)}
+                    placeholder="Enter category description..."
+                    rows={2}
+                  />
+                </div>
+                
+                <div className="flex gap-3 justify-end">
+                  <ThemeButton 
+                    type="button"
+                    onClick={cancelEditCategory}
+                    variant="warning" 
+                    icon="❌"
+                    className="whitespace-nowrap"
+                  >
+                    Cancel
+                  </ThemeButton>
+                  <ThemeButton 
+                    type="submit" 
+                    disabled={busy} 
+                    loading={busy} 
+                    variant="success" 
+                    icon="💾"
+                    className="whitespace-nowrap"
+                  >
+                    Update
+                  </ThemeButton>
                 </div>
               </form>
             )}
 
             {/* Categories List */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {Array.isArray(categories) && categories.filter(category => category && category.id && category.name).map(category => (
-                <div key={category.id} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600 hover:shadow-md transition-all duration-300">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                      {category.name}
-                    </h3>
-                    <div className="flex gap-1">
-                      <ThemeButton 
-                        onClick={() => startEditCategory(category)}
-                        variant="warning" 
-                        icon="✏️"
-                        className="min-w-fit flex-shrink-0 text-xs px-2"
-                        title="Edit Category"
-                      />
-                      <ThemeButton 
-                        onClick={() => deleteCategory(category.id)}
-                        variant="danger" 
-                        icon="🗑️"
-                        className="min-w-fit flex-shrink-0 text-xs px-2"
-                        title="Delete Category"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span>Services: {services.filter(s => s.category_id === category.id).length}</span>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              {Array.isArray(categories) && getRootCategories().map(category => (
+                <CategoryItem 
+                  key={category.id} 
+                  category={category} 
+                  onEdit={startEditCategory}
+                  onDelete={deleteCategory}
+                  services={services}
+                  level={0}
+                />
               ))}
               {categories.length === 0 && (
-                <div className="col-span-full text-center py-8">
+                <div className="text-center py-8">
                   <div className="w-16 h-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-4">
                     <span className="text-2xl">📂</span>
                   </div>
@@ -934,28 +1153,66 @@ export default function ServicesPage() {
                 </div>
               </div>
 
-              {/* Service Category */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Service Category
-                </label>
-                <select
-                  value={newCategoryId}
-                  onChange={(e) => setNewCategoryId(e.target.value)}
-                  className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="">No Category</option>
-                  {Array.isArray(categories) && categories.filter(category => category && category.id && category.name).map(category => (
-                    <option key={category.id} value={category.id.toString()}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                {categories.length === 0 && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    No categories available. Create a category first.
-                  </p>
-                )}
+              {/* Service Category Selection */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Main Category */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Service Category
+                  </label>
+                  <select
+                    value={newCategoryId}
+                    onChange={(e) => {
+                      setNewCategoryId(e.target.value);
+                      setNewSubcategoryId(''); // Reset subcategory when main category changes
+                    }}
+                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    <option value="">Select Main Category</option>
+                    {getRootCategories().map(category => (
+                      <option key={category.id} value={category.id ? category.id.toString() : ''}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  {getRootCategories().length === 0 && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      No main categories available. Create a category first.
+                    </p>
+                  )}
+                </div>
+
+                {/* Subcategory */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Service Subcategory
+                  </label>
+                  <select
+                    value={newSubcategoryId}
+                    onChange={(e) => setNewSubcategoryId(e.target.value)}
+                    disabled={!newCategoryId}
+                    className={`block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                      !newCategoryId ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <option value="">Select Subcategory (Optional)</option>
+                    {getSubcategories(newCategoryId).map(subcategory => (
+                      <option key={subcategory.id} value={subcategory.id ? subcategory.id.toString() : ''}>
+                        {subcategory.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!newCategoryId && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Select a main category first to choose subcategories
+                    </p>
+                  )}
+                  {newCategoryId && getSubcategories(newCategoryId).length === 0 && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      No subcategories available for this category
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Service Description */}
@@ -1309,27 +1566,66 @@ export default function ServicesPage() {
                 </div>
 
                 {/* Service Category */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Service Category
-                  </label>
-                  <select
-                    value={eCategoryId}
-                    onChange={(e) => setECategoryId(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  >
-                    <option value="">No Category</option>
-                    {Array.isArray(categories) && categories.filter(category => category && category.id && category.name).map(category => (
-                      <option key={category.id} value={category.id.toString()}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  {categories.length === 0 && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      No categories available. Create a category first.
-                    </p>
-                  )}
+                {/* Service Category Selection */}
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Main Category */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Service Category
+                    </label>
+                    <select
+                      value={eCategoryId}
+                      onChange={(e) => {
+                        setECategoryId(e.target.value);
+                        setESubcategoryId(''); // Reset subcategory when main category changes
+                      }}
+                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    >
+                      <option value="">Select Main Category</option>
+                      {getRootCategories().map(category => (
+                        <option key={category.id} value={category.id ? category.id.toString() : ''}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                    {getRootCategories().length === 0 && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        No main categories available. Create a category first.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Subcategory */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Service Subcategory
+                    </label>
+                    <select
+                      value={eSubcategoryId}
+                      onChange={(e) => setESubcategoryId(e.target.value)}
+                      disabled={!eCategoryId}
+                      className={`block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                        !eCategoryId ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <option value="">Select Subcategory (Optional)</option>
+                      {getSubcategories(eCategoryId).map(subcategory => (
+                        <option key={subcategory.id} value={subcategory.id ? subcategory.id.toString() : ''}>
+                          {subcategory.name}
+                        </option>
+                      ))}
+                    </select>
+                    {!eCategoryId && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Select a main category first to choose subcategories
+                      </p>
+                    )}
+                    {eCategoryId && getSubcategories(eCategoryId).length === 0 && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        No subcategories available for this category
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Service Description */}
@@ -1556,6 +1852,7 @@ export default function ServicesPage() {
             </section>
           )}
         </div>
-      </ThemeLayout>
+      )}
+    </ThemeLayout>
   );
 }

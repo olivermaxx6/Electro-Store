@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Electrical & Lights Dropdown Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background-color: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-12">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto">
+                <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center">
+                    Enhanced Electrical & Lights Dropdown Demo
+                </h1>
+                
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">
+                        Features Showcase:
+                    </h2>
+                    
+                    <ul class="space-y-2 text-gray-600 mb-8">
+                        <li class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Beautiful hover effects with smooth animations
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Vertical scroll functionality for long category lists
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Enhanced visual design with gradients and shadows
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Responsive design that works on all screen sizes
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Custom scrollbar styling for better UX
+                        </li>
+                    </ul>
+
+                    <div class="border-t border-gray-200 pt-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">
+                            Sample Dropdown Structure:
+                        </h3>
+                        
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="max-h-64 overflow-y-auto scrollbar-thin">
+                                <div class="space-y-4">
+                                    <div class="p-3 rounded-lg hover:bg-gray-100 transition-all duration-300">
+                                        <h4 class="font-semibold text-gray-900 mb-2">Electrical</h4>
+                                        <div class="ml-4 space-y-1">
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Electrical Components</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Back boxes</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Cable</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Cable connectors</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Cable management</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-3 rounded-lg hover:bg-gray-100 transition-all duration-300">
+                                        <h4 class="font-semibold text-gray-900 mb-2">Home Security & Safety</h4>
+                                        <div class="ml-4 space-y-1">
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Bicycle locks</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Burglar alarms</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Carbon monoxide alarms</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Door locks</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Fire safety</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-3 rounded-lg hover:bg-gray-100 transition-all duration-300">
+                                        <h4 class="font-semibold text-gray-900 mb-2">Indoor Lighting</h4>
+                                        <div class="ml-4 space-y-1">
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Ceiling lights</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Chandeliers</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Floor lamps</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Indoor lights</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Light bulbs</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-3 rounded-lg hover:bg-gray-100 transition-all duration-300">
+                                        <h4 class="font-semibold text-gray-900 mb-2">Outdoor Lighting</h4>
+                                        <div class="ml-4 space-y-1">
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Decking lights</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Ground lights</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Outdoor lanterns</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Outdoor lights</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Outdoor wall lights</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-3 rounded-lg hover:bg-gray-100 transition-all duration-300">
+                                        <h4 class="font-semibold text-gray-900 mb-2">Smart Home</h4>
+                                        <div class="ml-4 space-y-1">
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Smart TVs</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Smart doorbells</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Smart indoor lighting</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Smart kitchen appliances</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Smart light bulbs</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-3 rounded-lg hover:bg-gray-100 transition-all duration-300">
+                                        <h4 class="font-semibold text-gray-900 mb-2">TV, Audio & Networking</h4>
+                                        <div class="ml-4 space-y-1">
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Audio cables & adaptors</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Ethernet cable</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">HDMI cables</div>
+                                            <div class="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200">Home cinema</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

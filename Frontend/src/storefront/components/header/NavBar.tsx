@@ -2,17 +2,27 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useCategoriesWithHierarchy } from '../../hooks/useCategories';
+import CategoryDropdown from './CategoryDropdown';
+import { DropdownProvider } from '../../contexts/DropdownContext';
 
 const NavBar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { categories, loading: categoriesLoading } = useCategoriesWithHierarchy();
   
-  // Static navigation items
-  const navItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Shop', href: '/shop' },
-    { label: 'Services', href: '/services' },
-    { label: 'Categories', href: '/categories' },
+  // Categories that should show dropdown menus
+  const dropdownCategories = ['Electrical & Lights', 'Tools & Equipment'];
+  
+  // Create navigation items with dynamic categories
+  const navItems: Array<{ label: string; href: string; hasDropdown: boolean }> = [
+    { label: 'Home', href: '/', hasDropdown: false },
+    { label: 'Services', href: '/services', hasDropdown: false },
+    ...categories.map(category => ({
+      label: category.name,
+      href: `/allsubcategories?category=${category.id}&name=${encodeURIComponent(category.name)}`,
+      hasDropdown: dropdownCategories.includes(category.name)
+    }))
   ];
   
   const isActive = (href: string) => {
@@ -23,47 +33,108 @@ const NavBar: React.FC = () => {
   };
   
   return (
-    <nav className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 sticky top-0 z-40 shadow-xl backdrop-blur-sm border-b border-red-500/20 dark:border-blue-600/30">
-      <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between">
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={clsx(
-                  'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
-                  isActive(item.href)
-                    ? 'text-white'
-                    : 'text-red-100 dark:text-blue-200 hover:text-white'
-                )}
-              >
-                <span className="relative z-10">{item.label}</span>
-                
-                {/* Background Hover Effect */}
-                <div className={clsx(
-                  'absolute inset-0 rounded-lg transition-all duration-300 ease-in-out',
-                  isActive(item.href)
-                    ? 'bg-white/20 dark:bg-blue-300/20 shadow-lg'
-                    : 'bg-transparent group-hover:bg-white/10 dark:group-hover:bg-blue-300/10 group-hover:shadow-md'
-                )} />
-                
-                {/* Active Indicator */}
-                {isActive(item.href) && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-white dark:bg-blue-300 rounded-full shadow-lg" />
-                )}
-                
-                {/* Hover Glow Effect */}
-                <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-white/5 to-white/10 dark:from-blue-300/5 dark:to-blue-300/10" />
-              </Link>
-            ))}
+    <DropdownProvider>
+      <nav className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 sticky top-0 z-40 shadow-lg backdrop-blur-sm border-b border-red-500/20 dark:border-blue-600/30">
+        <div className="container mx-auto px-4 lg:px-6">
+          <div className="flex items-center justify-between">
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center space-x-1">
+            {categoriesLoading ? (
+              <div className="px-6 py-4 text-sm font-semibold text-red-100 dark:text-blue-200">
+                Loading...
+              </div>
+            ) : (
+              navItems.map((item) => {
+                if (item.label === 'Home' || item.label === 'Services') {
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      className={clsx(
+                        'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                        isActive(item.href)
+                          ? 'text-white'
+                          : 'text-red-100 dark:text-blue-200 hover:text-white'
+                      )}
+                    >
+                      <span className="relative z-10">{item.label}</span>
+                      
+                      {/* Background Hover Effect */}
+                      <div className={clsx(
+                        'absolute inset-0 rounded-lg transition-all duration-300 ease-in-out',
+                        isActive(item.href)
+                          ? 'bg-white/20 shadow-lg'
+                          : 'bg-transparent group-hover:bg-white/10 group-hover:shadow-md'
+                      )} />
+                      
+                      {/* Active Indicator */}
+                      {isActive(item.href) && (
+                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-white rounded-full shadow-lg" />
+                      )}
+                      
+                      {/* Hover Glow Effect */}
+                      <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-white/5 to-white/10" />
+                    </Link>
+                  );
+                }
+
+                const category = categories.find(cat => cat.name === item.label);
+                if (!category) return null;
+
+                if (item.hasDropdown && category.children && category.children.length > 0) {
+                  return (
+                    <CategoryDropdown
+                      key={item.href}
+                      category={category}
+                      isActive={isActive(item.href)}
+                      className={clsx(
+                        'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                        isActive(item.href)
+                          ? 'text-white'
+                          : 'text-red-100 dark:text-blue-200 hover:text-white'
+                      )}
+                    />
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={clsx(
+                      'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                      isActive(item.href)
+                        ? 'text-white'
+                        : 'text-red-100 dark:text-blue-200 hover:text-white'
+                    )}
+                  >
+                    <span className="relative z-10">{item.label}</span>
+                    
+                    {/* Background Hover Effect */}
+                    <div className={clsx(
+                      'absolute inset-0 rounded-lg transition-all duration-300 ease-in-out',
+                      isActive(item.href)
+                        ? 'bg-white/20 shadow-lg'
+                        : 'bg-transparent group-hover:bg-white/10 group-hover:shadow-md'
+                    )} />
+                    
+                    {/* Active Indicator */}
+                    {isActive(item.href) && (
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-white rounded-full shadow-lg" />
+                    )}
+                    
+                    {/* Hover Glow Effect */}
+                    <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-white/5 to-white/10" />
+                  </Link>
+                );
+              })
+            )}
           </div>
           
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 sm:p-3 rounded-lg bg-white/10 dark:bg-blue-300/10 text-white hover:bg-white/20 dark:hover:bg-blue-300/20 transition-all duration-300 backdrop-blur-sm border border-white/20 dark:border-blue-300/20"
+            className="lg:hidden p-2 sm:p-3 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all duration-300 backdrop-blur-sm border border-white/20 shadow-sm"
             aria-label="Toggle mobile menu"
           >
             <div className="relative w-5 h-5 sm:w-6 sm:h-6">
@@ -88,16 +159,21 @@ const NavBar: React.FC = () => {
           'lg:hidden overflow-hidden transition-all duration-500 ease-in-out',
           isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         )}>
-          <div className="py-4 sm:py-6 space-y-1 sm:space-y-2 border-t border-white/20 dark:border-blue-300/20">
-            {navItems.map((item, index) => (
+          <div className="py-4 sm:py-6 space-y-1 sm:space-y-2 border-t border-white/20">
+            {categoriesLoading ? (
+              <div className="py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base font-semibold text-red-100 dark:text-blue-200">
+                Loading...
+              </div>
+            ) : (
+              navItems.map((item, index) => (
               <Link
                 key={item.href}
                 to={item.href}
                 className={clsx(
                   'block py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base font-semibold transition-all duration-300 ease-in-out rounded-lg mx-2 group',
                   isActive(item.href)
-                    ? 'text-white bg-white/20 dark:bg-blue-300/20 shadow-lg'
-                    : 'text-red-100 dark:text-blue-200 hover:text-white hover:bg-white/10 dark:hover:bg-blue-300/10 hover:shadow-md'
+                    ? 'text-white bg-white/20 shadow-lg'
+                    : 'text-red-100 hover:text-white hover:bg-white/10 hover:shadow-md'
                 )}
                 style={{ 
                   animationDelay: `${index * 50}ms`,
@@ -107,14 +183,16 @@ const NavBar: React.FC = () => {
               >
                 <span className="relative z-10">{item.label}</span>
                 {isActive(item.href) && (
-                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-4 sm:h-6 bg-white dark:bg-blue-300 rounded-r-full" />
+                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-4 sm:h-6 bg-white rounded-r-full" />
                 )}
               </Link>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
     </nav>
+    </DropdownProvider>
   );
 };
 

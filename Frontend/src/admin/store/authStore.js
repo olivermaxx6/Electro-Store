@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import axios from 'axios';
-import { api, initializeTokenRefresh } from '../lib/api';
 
 // Create a separate API instance for auth store
 const authApi = axios.create({
@@ -8,6 +7,54 @@ const authApi = axios.create({
   timeout: 30000,
   withCredentials: false,
 });
+
+// Add response interceptor for token refresh
+authApi.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = JSON.parse(localStorage.getItem('auth') || '{}').refresh;
+        if (refreshToken) {
+          const response = await axios.post('http://127.0.0.1:8001/api/auth/refresh/', {
+            refresh: refreshToken
+          });
+          
+          const { access } = response.data;
+          localStorage.setItem('auth', JSON.stringify({
+            ...JSON.parse(localStorage.getItem('auth') || '{}'),
+            access
+          }));
+          localStorage.setItem('access_token', access);
+          
+          authApi.defaults.headers.common.Authorization = `Bearer ${access}`;
+          originalRequest.headers.Authorization = `Bearer ${access}`;
+          
+          return authApi(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        localStorage.removeItem('auth');
+        localStorage.removeItem('access_token');
+        delete authApi.defaults.headers.common.Authorization;
+        window.location.href = '/admin/sign-in';
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// Initialize token refresh
+const initializeTokenRefresh = () => {
+  console.log('Token refresh initialized');
+  // Token refresh logic is handled by the API interceptor
+  // No additional setup needed for now
+};
 
 export const useAuth = create((set, get) => ({
   user: JSON.parse(localStorage.getItem('auth') || '{}').user || null,
@@ -22,13 +69,13 @@ export const useAuth = create((set, get) => ({
     console.log('[AUTH] Initializing auth store with token:', token ? 'present' : 'missing');
     if (token) {
       authApi.defaults.headers.common.Authorization = `Bearer ${token}`;
-      api.defaults.headers.common.Authorization = `Bearer ${token}`;
       // Initialize proactive token refresh
       initializeTokenRefresh();
       console.log('[AUTH] Auth headers set and token refresh initialized');
     } else {
       console.log('[AUTH] No token found, auth not initialized');
     }
+    return Promise.resolve(); // Return a promise to indicate initialization is complete
   },
 
   login: async (username, password) => {
@@ -50,7 +97,6 @@ export const useAuth = create((set, get) => ({
       
       // Set authorization header for future requests
       authApi.defaults.headers.common.Authorization = `Bearer ${data.access}`;
-      api.defaults.headers.common.Authorization = `Bearer ${data.access}`;
       
       // Initialize proactive token refresh after successful login
       initializeTokenRefresh();
@@ -66,6 +112,7 @@ export const useAuth = create((set, get) => ({
 
   me: async () => {
     try {
+      console.log('[AUTH] Calling /api/auth/me/ with token:', !!authApi.defaults.headers.common.Authorization);
       const { data } = await authApi.get('/api/auth/me/');
       // Update the auth data in localStorage
       const authData = JSON.parse(localStorage.getItem('auth') || '{}');
@@ -81,7 +128,6 @@ export const useAuth = create((set, get) => ({
         localStorage.removeItem('auth');
         localStorage.removeItem('access_token');
         delete authApi.defaults.headers.common.Authorization;
-        delete api.defaults.headers.common.Authorization;
         set({ token: null, user: null });
       }
       return null;
@@ -115,7 +161,6 @@ export const useAuth = create((set, get) => ({
     localStorage.removeItem('auth');
     localStorage.removeItem('access_token');
     delete authApi.defaults.headers.common.Authorization;
-    delete api.defaults.headers.common.Authorization;
     set({ token: null, user: null });
   },
 }));

@@ -4,9 +4,11 @@ import Pager from '../../components/ui/Pager';
 import { ThemeLayout, ThemeCard, ThemeSelect, ThemeButton } from '@shared/theme';
 import { useCurrency } from '../../store/currencyStore';
 import { listOrders, updateOrder, deleteOrder } from '../../lib/api';
+import { useAuth } from '../../store/authStore';
 import { Copy, Check, Trash2 } from 'lucide-react';
 
 export default function OrdersPage() {
+  const authStore = useAuth();
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
@@ -24,15 +26,48 @@ export default function OrdersPage() {
     try {
       setIsLoading(true);
       console.log('Loading orders with filters:', { page, status: status || 'all' });
+      
+      // Check authentication first
+      if (!authStore.isAuthed()) {
+        console.error('❌ User not authenticated');
+        alert('You must be logged in to view orders. Please log in first.');
+        return;
+      }
+      
+      // Debug authentication state
+      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+      const token = authData.access || localStorage.getItem('access_token');
+      console.log('🔐 Auth token present:', !!token);
+      console.log('🔐 Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+      
       const { data } = await listOrders({ page, status: status || undefined });
       setRows(data.results || data);
       setHasNext(!!data.next); setHasPrev(!!data.previous);
       console.log('✅ Orders loaded successfully:', data.results?.length || data.length || 0, 'orders');
     } catch (error) {
       console.error('❌ Failed to load orders:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       setRows([]);
       setHasNext(false); setHasPrev(false);
-      alert(`Failed to load orders: ${error.message || 'Unknown error'}`);
+      
+      // More detailed error message
+      let errorMessage = 'Unknown error';
+      if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Access denied. You may not have admin permissions.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(`Failed to load orders: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }

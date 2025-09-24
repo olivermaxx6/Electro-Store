@@ -85,12 +85,7 @@ All Vite configurations are set up to proxy API requests to `http://127.0.0.1:80
 
 If you encounter port conflicts:
 
-1. **Check what's using port 8000:**
-   ```bash
-   netstat -ano | findstr :8000
-   ```
-
-2. **Check what's using port 8001:**
+1. **Check what's using port 8001:**
    ```bash
    netstat -ano | findstr :8001
    ```
@@ -103,9 +98,7 @@ If you encounter port conflicts:
 
 ### Common Issues
 
-1. **Splunk using port 8000:** Splunk often uses port 8000 by default. Our policy prevents Django from conflicting with it.
-
-2. **Other development servers:** If you have other Django projects or web servers using port 8000, they won't conflict with this project.
+1. **Other development servers:** If you have other Django projects or web servers, they won't conflict with this project since we use port 8001.
 
 3. **Docker/WSL considerations:** The scripts support binding to `0.0.0.0:8001` for Docker/WSL environments while maintaining the port policy.
 
@@ -133,7 +126,6 @@ This policy applies only to development environments. Production deployments use
 ## Enforcement History
 
 This policy was implemented to:
-- Prevent conflicts with Splunk and other services using port 8000
 - Ensure consistent development environment setup
 - Provide clear error messages when incorrect ports are used
 - Maintain compatibility with existing tooling while enforcing the policy

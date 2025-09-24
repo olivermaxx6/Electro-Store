@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 class Brand(models.Model):
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True, null=True, blank=True)
+    image = models.ImageField(upload_to="brands/", null=True, blank=True, help_text="Brand logo/image")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -44,6 +45,7 @@ class Category(models.Model):
         on_delete=models.CASCADE,
         related_name="children",
     )
+    image = models.ImageField(upload_to="categories/", null=True, blank=True, help_text="Category image (typically used for grandchild categories)")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -61,6 +63,23 @@ class Category(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        # Validate hierarchy depth before saving
+        if self.parent and self.get_depth() > 2:
+            raise ValueError("Category hierarchy cannot exceed 3 levels (parent -> child -> grandchild)")
+        
+        # Prevent circular references
+        if self.parent and self.parent.pk == self.pk:
+            raise ValueError("Category cannot be its own parent")
+        
+        # Check for duplicate names within the same parent (case-insensitive)
+        existing_query = Category.objects.filter(name__iexact=self.name, parent=self.parent)
+        if self.pk:  # If updating, exclude current instance
+            existing_query = existing_query.exclude(pk=self.pk)
+        
+        if existing_query.exists():
+            parent_name = "root level" if self.parent is None else f"under parent category '{self.parent.name}'"
+            raise ValueError(f"A category with the name '{self.name}' already exists {parent_name}. Please choose a different name.")
+        
         if not self.slug:
             self.slug = self.generate_slug()
         super().save(*args, **kwargs)
@@ -74,6 +93,55 @@ class Category(models.Model):
             slug = f"{base_slug}-{counter}"
             counter += 1
         return slug
+
+    def get_depth(self):
+        """Get the depth level of this category in the hierarchy"""
+        depth = 0
+        current = self.parent
+        while current:
+            depth += 1
+            current = current.parent
+        return depth
+
+    def get_level(self):
+        """Get the hierarchy level: 0=parent, 1=child, 2=grandchild"""
+        return self.get_depth()
+
+    def get_level_name(self):
+        """Get a human-readable level name"""
+        level = self.get_level()
+        level_names = {0: 'Parent Category', 1: 'Child Category', 2: 'Grandchild Category'}
+        return level_names.get(level, 'Unknown Level')
+
+    def get_full_path(self):
+        """Get the full hierarchical path as a string"""
+        path_parts = []
+        current = self
+        while current:
+            path_parts.insert(0, current.name)
+            current = current.parent
+        return ' / '.join(path_parts)
+
+    def get_all_descendants(self):
+        """Get all descendants (children, grandchildren, etc.)"""
+        descendants = []
+        for child in self.children.all():
+            descendants.append(child)
+            descendants.extend(child.get_all_descendants())
+        return descendants
+
+    def can_have_children(self):
+        """Check if this category can have children (not exceeding depth limit)"""
+        return self.get_depth() < 2
+
+    def get_ancestors(self):
+        """Get all ancestors (parent, grandparent, etc.)"""
+        ancestors = []
+        current = self.parent
+        while current:
+            ancestors.append(current)
+            current = current.parent
+        return ancestors
 
     def __str__(self):
         return f"{self.parent.name + ' / ' if self.parent else ''}{self.name}"
@@ -193,16 +261,100 @@ class OrderItem(models.Model):
 
 # --- Services ---
 class ServiceCategory(models.Model):
-    name = models.CharField(max_length=200, unique=True)
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, null=True, blank=True)
     description = models.TextField(blank=True)
     ordering = models.PositiveIntegerField(default=0, help_text="Order in which categories appear")
     is_active = models.BooleanField(default=True)
+    
+    # self-referential FK for subcategories
+    parent = models.ForeignKey(
+        "self",
+        null=True, blank=True,
+        on_delete=models.CASCADE,
+        related_name="children",
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Service Category"
         verbose_name_plural = "Service Categories"
         ordering = ['ordering', 'name']
+        # Unique name within same parent (case-insensitive)
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"), "parent",
+                name="uniq_service_category_name_per_parent_ci",
+            ),
+            models.UniqueConstraint(
+                "slug", "parent",
+                name="uniq_service_category_slug_per_parent",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Validate hierarchy depth before saving
+        if self.parent and self.get_depth() > 2:
+            raise ValueError("Service category hierarchy cannot exceed 3 levels (parent -> child -> grandchild)")
+        
+        # Prevent circular references
+        if self.parent and self.parent.pk == self.pk:
+            raise ValueError("Service category cannot be its own parent")
+        
+        # Check for duplicate names within the same parent (case-insensitive)
+        existing_query = ServiceCategory.objects.filter(name__iexact=self.name, parent=self.parent)
+        if self.pk:  # If updating, exclude current instance
+            existing_query = existing_query.exclude(pk=self.pk)
+        
+        if existing_query.exists():
+            parent_name = "root level" if self.parent is None else f"parent '{self.parent.name}'"
+            raise ValueError(f"A service category with the name '{self.name}' already exists at {parent_name}")
+        
+        # Generate slug if not provided
+        if not self.slug:
+            self.slug = self.generate_slug()
+        
+        super().save(*args, **kwargs)
+
+    def generate_slug(self):
+        """Generate a unique slug for the category"""
+        from django.utils.text import slugify
+        base_slug = slugify(self.name)
+        slug = base_slug
+        counter = 1
+        
+        while ServiceCategory.objects.filter(slug=slug, parent=self.parent).exclude(pk=self.pk).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        return slug
+
+    def get_depth(self):
+        """Get the depth of this category in the hierarchy"""
+        depth = 0
+        parent = self.parent
+        while parent:
+            depth += 1
+            parent = parent.parent
+        return depth
+
+    def get_ancestors(self):
+        """Get all ancestors of this category"""
+        ancestors = []
+        parent = self.parent
+        while parent:
+            ancestors.insert(0, parent)
+            parent = parent.parent
+        return ancestors
+
+    def get_descendants(self):
+        """Get all descendants of this category"""
+        descendants = []
+        for child in self.children.all():
+            descendants.append(child)
+            descendants.extend(child.get_descendants())
+        return descendants
 
     def __str__(self):
         return self.name
@@ -358,51 +510,51 @@ class StoreSettings(models.Model):
     saturday_hours = models.CharField(max_length=100, blank=True, help_text="Saturday hours (e.g., '10:00 AM - 4:00 PM')")
     sunday_hours = models.CharField(max_length=100, blank=True, help_text="Sunday hours (e.g., 'Closed')")
 
-# --- Chat System ---
-class ChatRoom(models.Model):
-    """Represents a chat conversation between a customer and admin"""
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    customer_name = models.CharField(max_length=200, blank=True)
-    customer_email = models.EmailField(blank=True)
-    customer_phone = models.CharField(max_length=50, blank=True)
-    customer_session = models.CharField(max_length=40, blank=True, help_text="Django session key for anonymous customers")
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_rooms', help_text="Authenticated user (optional)")
-    status = models.CharField(max_length=20, choices=[
-        ('active', 'Active'),
-        ('closed', 'Closed'),
-        ('waiting', 'Waiting for Response')
-    ], default='active')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    last_message_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        ordering = ['-last_message_at']
-    
-    def __str__(self):
-        return f"Chat {self.id} - {self.customer_name or 'Anonymous'}"
+# --- Chat System - COMMENTED OUT ---
+# class ChatRoom(models.Model):
+#     """Represents a chat conversation between a customer and admin"""
+#     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+#     customer_name = models.CharField(max_length=200, blank=True)
+#     customer_email = models.EmailField(blank=True)
+#     customer_phone = models.CharField(max_length=50, blank=True)
+#     customer_session = models.CharField(max_length=40, blank=True, help_text="Django session key for anonymous customers")
+#     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_rooms', help_text="Authenticated user (optional)")
+#     status = models.CharField(max_length=20, choices=[
+#         ('active', 'Active'),
+#         ('closed', 'Closed'),
+#         ('waiting', 'Waiting for Response')
+#     ], default='active')
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+#     last_message_at = models.DateTimeField(auto_now=True)
+#     
+#     class Meta:
+#         ordering = ['-last_message_at']
+#     
+#     def __str__(self):
+#         return f"Chat {self.id} - {self.customer_name or 'Anonymous'}"
 
-class ChatMessage(models.Model):
-    """Individual messages within a chat room"""
-    SENDER_CHOICES = [
-        ('customer', 'Customer'),
-        ('admin', 'Admin'),
-        ('system', 'System')
-    ]
-    
-    room = models.ForeignKey(ChatRoom, related_name='messages', on_delete=models.CASCADE)
-    sender_type = models.CharField(max_length=10, choices=SENDER_CHOICES)
-    sender_name = models.CharField(max_length=200, blank=True)  # For display purposes
-    sender_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='sent_messages', help_text="User who sent the message (if authenticated)")
-    content = models.TextField()
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['created_at']
-    
-    def __str__(self):
-        return f"{self.sender_type}: {self.content[:50]}..."
+# class ChatMessage(models.Model):
+#     """Individual messages within a chat room"""
+#     SENDER_CHOICES = [
+#         ('customer', 'Customer'),
+#         ('admin', 'Admin'),
+#         ('system', 'System')
+#     ]
+#     
+#     room = models.ForeignKey(ChatRoom, related_name='messages', on_delete=models.CASCADE)
+#     sender_type = models.CharField(max_length=10, choices=SENDER_CHOICES)
+#     sender_name = models.CharField(max_length=200, blank=True)  # For display purposes
+#     sender_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='sent_messages', help_text="User who sent the message (if authenticated)")
+#     content = models.TextField()
+#     is_read = models.BooleanField(default=False)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     
+#     class Meta:
+#         ordering = ['created_at']
+#     
+#     def __str__(self):
+#         return f"{self.sender_type}: {self.content[:50]}..."
 
 # --- Contact Form ---
 class Contact(models.Model):

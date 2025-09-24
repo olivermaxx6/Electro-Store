@@ -8,7 +8,7 @@ import { RefreshCw } from 'lucide-react';
 import { getDashboardStats } from '../../lib/api';
 
 export default function Dashboard() {
-  const { isAuthed, me, logout } = useAuth();
+  const { isAuthed, me, logout, init } = useAuth();
   const nav = useNavigate();
   const { formatAmount } = useCurrency();
   const [stats, setStats] = useState(null);
@@ -76,6 +76,9 @@ export default function Dashboard() {
           return;
         }
 
+        // Wait for auth store to be initialized
+        await init();
+
         // Try to get user info first to validate token
         const userData = await me();
         if (!userData) {
@@ -93,7 +96,7 @@ export default function Dashboard() {
         setErr('Failed to initialize dashboard. Please refresh the page.');
       }
     })();
-  }, [me]);
+  }, [me, init]);
 
   // Refresh dashboard when page becomes visible (user navigates back from orders page)
   useEffect(() => {
