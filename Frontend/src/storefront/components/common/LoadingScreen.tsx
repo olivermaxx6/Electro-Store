@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTheme } from '../../lib/theme';
+import { useTheme } from '../../lib/theme.jsx';
 
 interface LoadingScreenProps {
   message?: string;

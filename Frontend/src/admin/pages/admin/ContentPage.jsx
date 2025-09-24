@@ -85,7 +85,25 @@ export default function ContentPage() {
       }));
     } catch (err) {
       console.error('Failed to load data:', err);
-      setMsg({ kind: 'error', text: 'Failed to load content data.' });
+      console.error('Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      
+      // More specific error messages
+      let errorMessage = 'Failed to load content data.';
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied. You may not have admin permissions.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setMsg({ kind: 'error', text: errorMessage });
     }
   };
 
@@ -197,7 +215,12 @@ export default function ContentPage() {
       setBrands(prev => prev.filter(b => b.id !== id));
       setMsg({ kind: 'success', text: 'Brand deleted successfully!' });
     } catch (err) {
-      setMsg({ kind: 'error', text: 'Failed to delete brand.' });
+      // Handle detailed error messages from backend
+      let errorMessage = 'Failed to delete brand.';
+      if (err?.response?.status === 400 && err?.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+      setMsg({ kind: 'error', text: errorMessage });
     } finally {
       setBusy(false);
     }
@@ -233,7 +256,12 @@ export default function ContentPage() {
       setCategories(prev => prev.filter(c => c.id !== id));
       setMsg({ kind: 'success', text: 'Category deleted successfully!' });
     } catch (err) {
-      setMsg({ kind: 'error', text: 'Failed to delete category.' });
+      // Handle detailed error messages from backend
+      let errorMessage = 'Failed to delete category.';
+      if (err?.response?.status === 400 && err?.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+      setMsg({ kind: 'error', text: errorMessage });
     } finally {
       setBusy(false);
     }

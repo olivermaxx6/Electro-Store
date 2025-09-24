@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Category Delete</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        button { padding: 10px 15px; margin: 5px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Test Category Delete Functionality</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Authentication</h3>
+        <input type="email" id="email" placeholder="Email" value="admin@example.com">
+        <input type="password" id="password" placeholder="Password" value="admin123">
+        <button onclick="testLogin()">Login</button>
+        <div id="auth-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. List Categories</h3>
+        <button onclick="listCategories()">List Categories</button>
+        <div id="categories-list"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Delete Category</h3>
+        <input type="number" id="category-id" placeholder="Category ID to delete">
+        <button onclick="testDeleteCategory()">Delete Category</button>
+        <div id="delete-result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8001/api';
+        let authToken = null;
+
+        function getAuthToken() {
+            return authToken || localStorage.getItem('access_token');
+        }
+
+        async function apiRequest(endpoint, options = {}) {
+            const token = getAuthToken();
+            console.log(`Making request to ${endpoint} with token:`, token ? 'present' : 'missing');
+            
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...options.headers,
+                },
+                ...options,
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Network error' }));
+                    const error = new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+                    error.response = { status: response.status, data: errorData };
+                    throw error;
+                }
+                
+                const data = await response.json();
+                return { data, status: response.status };
+            } catch (error) {
+                console.error(`API Error [${endpoint}]:`, error);
+                if (!error.response) {
+                    error.response = { 
+                        status: 0, 
+                        data: { detail: error.message || 'Network error' }
+                    };
+                }
+                throw error;
+            }
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await apiRequest('/auth/login/', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password }),
+                });
+                
+                authToken = response.data.access;
+                localStorage.setItem('access_token', authToken);
+                document.getElementById('auth-result').innerHTML = 
+                    '<span class="success">Login successful!</span>';
+            } catch (error) {
+                document.getElementById('auth-result').innerHTML = 
+                    `<span class="error">Login failed: ${error.message}</span>`;
+            }
+        }
+
+        async function listCategories() {
+            try {
+                const response = await apiRequest('/admin/categories/');
+                const categories = response.data.results || response.data;
+                
+                let html = '<h4>Categories:</h4><ul>';
+                categories.forEach(cat => {
+                    html += `<li>ID: ${cat.id}, Name: ${cat.name}, Level: ${cat.level || 0}</li>`;
+                });
+                html += '</ul>';
+                
+                document.getElementById('categories-list').innerHTML = html;
+            } catch (error) {
+                document.getElementById('categories-list').innerHTML = 
+                    `<span class="error">Failed to list categories: ${error.message}</span>`;
+            }
+        }
+
+        async function testDeleteCategory() {
+            const categoryId = document.getElementById('category-id').value;
+            
+            if (!categoryId) {
+                document.getElementById('delete-result').innerHTML = 
+                    '<span class="error">Please enter a category ID</span>';
+                return;
+            }
+
+            try {
+                await apiRequest(`/admin/categories/${categoryId}/`, {
+                    method: 'DELETE',
+                });
+                
+                document.getElementById('delete-result').innerHTML = 
+                    '<span class="success">Category deleted successfully!</span>';
+            } catch (error) {
+                let errorMessage = error.message;
+                if (error.response && error.response.data && error.response.data.detail) {
+                    errorMessage = error.response.data.detail;
+                }
+                
+                document.getElementById('delete-result').innerHTML = 
+                    `<span class="error">Delete failed: ${errorMessage}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

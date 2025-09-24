@@ -11,8 +11,11 @@ export default function ThemeInput({
   color = 'primary',
   required = false,
   disabled = false,
+  helperText,
   ...props 
 }) {
+  // helperText is already extracted from props, so we don't need to exclude it again
+  // The remaining props are safe to pass to the input element
   const colorConfig = themeConfig.colors[color] || themeConfig.colors.primary;
   const inputClasses = `
     w-full 
@@ -45,6 +48,11 @@ export default function ThemeInput({
         className={inputClasses}
         {...props}
       />
+      {helperText && (
+        <p className={`text-sm ${themeConfig.text.muted}`}>
+          {helperText}
+        </p>
+      )}
     </div>
   );
 }

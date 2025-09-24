@@ -21,7 +21,7 @@ export default function SignIn() {
       nav('/admin/dashboard');
     } else {
       console.log('[SignIn] Login failed:', res.error);
-      setError('Invalid credentials');
+      setError(res.error?.detail || res.error || 'Invalid credentials');
     }
   };
 

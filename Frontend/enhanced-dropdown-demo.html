@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Electrical & Lights Dropdown - Dark/Light Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            background-clip: content-box;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background-color: #9ca3af;
+        }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #334155;
+        }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background-color: #475569;
+        }
+        
+        .theme-transition {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .hover-glow {
+            position: relative;
+            overflow: hidden;
+        }
+        .hover-glow::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+        .hover-glow:hover::before {
+            left: 100%;
+        }
+        .dark .hover-glow::before {
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-slate-900 theme-transition">
+    <div class="min-h-screen py-12">
+        <div class="container mx-auto px-4">
+            <div class="max-w-6xl mx-auto">
+                <!-- Theme Toggle -->
+                <div class="flex justify-end mb-8">
+                    <button id="theme-toggle" class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors duration-300">
+                        <span class="dark:hidden">🌙 Dark Mode</span>
+                        <span class="hidden dark:inline">☀️ Light Mode</span>
+                    </button>
+                </div>
+
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-8 text-center">
+                    Enhanced Electrical & Lights Dropdown
+                </h1>
+                
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 theme-transition">
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+                        🎨 Enhanced Dark/Light Mode Features:
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">✨ Light Mode Enhancements:</h3>
+                            <ul class="space-y-2 text-gray-600 dark:text-gray-300">
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                    Enhanced white gradients with better opacity
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                    Subtle border glows for depth
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                    Improved contrast and visibility
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                    Energy effects with white overlays
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">🌙 Dark Mode Enhancements:</h3>
+                            <ul class="space-y-2 text-gray-600 dark:text-gray-300">
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Blue-400 gradients for better visibility
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Enhanced sparkle effects
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Improved scrollbar contrast
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Energy effects with blue overlays
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                            🎯 Interactive Demo - Try Both Themes:
+                        </h3>
+                        
+                        <div class="bg-gray-50 dark:bg-slate-700 rounded-lg p-6 theme-transition">
+                            <div class="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-slate-500">
+                                <div class="space-y-4">
+                                    <!-- Electrical Section -->
+                                    <div class="group/subcategory space-y-3 p-4 rounded-lg hover:bg-gray-50/70 dark:hover:bg-slate-700/70 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] border border-transparent hover:border-gray-200/50 dark:hover:border-slate-600/50 hover-glow">
+                                        <h4 class="text-base font-semibold text-gray-900 dark:text-white group-hover/subcategory:scale-105 transition-all duration-300 hover:text-red-600 dark:hover:text-blue-400">
+                                            <div class="flex items-center gap-2">
+                                                <span>Electrical</span>
+                                                <svg class="w-4 h-4 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                        </h4>
+                                        <div class="space-y-1 ml-2">
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Electrical Components</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Back boxes</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Cable & Connectors</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Home Security Section -->
+                                    <div class="group/subcategory space-y-3 p-4 rounded-lg hover:bg-gray-50/70 dark:hover:bg-slate-700/70 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] border border-transparent hover:border-gray-200/50 dark:hover:border-slate-600/50 hover-glow">
+                                        <h4 class="text-base font-semibold text-gray-900 dark:text-white group-hover/subcategory:scale-105 transition-all duration-300 hover:text-red-600 dark:hover:text-blue-400">
+                                            <div class="flex items-center gap-2">
+                                                <span>Home Security & Safety</span>
+                                                <svg class="w-4 h-4 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                        </h4>
+                                        <div class="space-y-1 ml-2">
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Burglar alarms</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Security cameras</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Indoor Lighting Section -->
+                                    <div class="group/subcategory space-y-3 p-4 rounded-lg hover:bg-gray-50/70 dark:hover:bg-slate-700/70 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] border border-transparent hover:border-gray-200/50 dark:hover:border-slate-600/50 hover-glow">
+                                        <h4 class="text-base font-semibold text-gray-900 dark:text-white group-hover/subcategory:scale-105 transition-all duration-300 hover:text-red-600 dark:hover:text-blue-400">
+                                            <div class="flex items-center gap-2">
+                                                <span>Indoor Lighting</span>
+                                                <svg class="w-4 h-4 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                        </h4>
+                                        <div class="space-y-1 ml-2">
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Ceiling lights</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Chandeliers</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Smart Home Section -->
+                                    <div class="group/subcategory space-y-3 p-4 rounded-lg hover:bg-gray-50/70 dark:hover:bg-slate-700/70 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] border border-transparent hover:border-gray-200/50 dark:hover:border-slate-600/50 hover-glow">
+                                        <h4 class="text-base font-semibold text-gray-900 dark:text-white group-hover/subcategory:scale-105 transition-all duration-300 hover:text-red-600 dark:hover:text-blue-400">
+                                            <div class="flex items-center gap-2">
+                                                <span>Smart Home</span>
+                                                <svg class="w-4 h-4 transition-all duration-300 opacity-0 group-hover/subcategory:opacity-60 group-hover/subcategory:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                        </h4>
+                                        <div class="space-y-1 ml-2">
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Smart light bulbs</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm hover:scale-105">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-slate-500 rounded-full hover:bg-red-600 dark:hover:bg-blue-400 transition-all duration-200 hover:scale-125"></div>
+                                                    <span>Smart switches</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        // Check for saved theme preference or default to dark mode
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        html.classList.toggle('dark', currentTheme === 'dark');
+        
+        themeToggle.addEventListener('click', () => {
+            const isDark = html.classList.contains('dark');
+            html.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+        });
+    </script>
+</body>
+</html>

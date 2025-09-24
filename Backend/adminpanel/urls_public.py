@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from .views_public import (
     PublicBrandViewSet, PublicCategoryViewSet, PublicProductViewSet,
     PublicServiceViewSet, PublicServiceCategoryViewSet, PublicServiceReviewViewSet, PublicReviewViewSet, PublicWebsiteContentViewSet, PublicStoreSettingsViewSet,
-    PublicChatRoomViewSet, PublicChatMessageViewSet, PublicContactViewSet, PublicServiceQueryViewSet, PublicOrderCreateViewSet, PublicOrderTrackingViewSet,
+    PublicContactViewSet, PublicServiceQueryViewSet, PublicOrderCreateViewSet, PublicOrderTrackingViewSet,
     PaymentIntentViewSet, StripeCheckoutViewSet, StripeCheckoutSessionViewSet
 )
 from .views_stripe import stripe_webhook, get_payment_intent

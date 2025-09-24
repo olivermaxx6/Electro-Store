@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ThemeLayout, ThemeCard, ThemeButton, ThemeAlert, ThemeSelect } from '@shared/theme';
-import { listServiceReviews, deleteServiceReview, markServiceReviewVerified, markServiceReviewUnverified, authStore } from '../../lib/api';
+import { listServiceReviews, deleteServiceReview, markServiceReviewVerified, markServiceReviewUnverified } from '../../lib/api';
 
 export default function ServiceReviewsPage() {
   const [reviews, setReviews] = useState([]);

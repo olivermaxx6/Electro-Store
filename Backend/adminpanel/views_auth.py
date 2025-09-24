@@ -11,6 +11,9 @@ from .serializers_auth import MeSerializer, AdminProfileUpdateSerializer, AdminP
 User = get_user_model()
 
 class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
+    # Allow login with username or email
+    username_field = 'username'
+    
     # include user payload in login response
     @classmethod
     def get_token(cls, user):
@@ -20,6 +23,7 @@ class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
+        # The custom authentication backend handles username/email lookup
         data = super().validate(attrs)
         data["user"] = MeSerializer(self.user).data
         return data

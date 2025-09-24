@@ -25,12 +25,12 @@ class AllowAnyOrAuthenticated(permissions.BasePermission):
 from .models import (
     Brand, Category, Product, ProductImage, Order, OrderItem,
     Service, ServiceImage, ServiceCategory, ServiceReview, Review, WebsiteContent, StoreSettings,
-    ChatRoom, ChatMessage, Contact, ServiceQuery
+    Contact, ServiceQuery
 )
 from .serializers import (
     BrandSerializer, CategorySerializer, ProductSerializer, ProductImageSerializer,
     ServiceSerializer, ServiceImageSerializer, ServiceCategorySerializer, ServiceReviewSerializer, ReviewSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
-    ChatRoomSerializer, ChatMessageSerializer, ContactSerializer, ServiceQuerySerializer, OrderSerializer
+    ContactSerializer, ServiceQuerySerializer, OrderSerializer
 )
 
 class PublicBrandViewSet(viewsets.ReadOnlyModelViewSet):
@@ -41,7 +41,7 @@ class PublicBrandViewSet(viewsets.ReadOnlyModelViewSet):
 
 class PublicCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """Public read-only access to categories"""
-    queryset = Category.objects.all().select_related("parent").order_by("name")
+    queryset = Category.objects.all().select_related("parent").prefetch_related("children__children").order_by("name")
     serializer_class = CategorySerializer
     permission_classes = [permissions.AllowAny]
 
@@ -58,6 +58,18 @@ class PublicCategoryViewSet(viewsets.ReadOnlyModelViewSet):
         if top_only:
             qs = qs.filter(parent__isnull=True)
         return qs
+    
+    @action(detail=False, methods=["get"], url_path="with-hierarchy")
+    def with_hierarchy(self, request):
+        """Get categories with full hierarchy (children and grandchildren) for hover menus"""
+        # Get top-level categories only
+        top_categories = Category.objects.filter(parent__isnull=True).prefetch_related(
+            "children__children"
+        ).order_by("name")
+        
+        # Serialize with full hierarchy
+        serializer = self.get_serializer(top_categories, many=True)
+        return Response(serializer.data)
 
 class PublicProductViewSet(viewsets.ReadOnlyModelViewSet):
     """Public read-only access to products"""
@@ -247,279 +259,7 @@ class PublicStoreSettingsViewSet(viewsets.ViewSet):
         obj = self._get_singleton()
         return Response(StoreSettingsSerializer(obj).data)
 
-# --- Public Chat System ---
-class PublicChatRoomViewSet(viewsets.ModelViewSet):
-    """Public chat endpoints for customers"""
-    serializer_class = ChatRoomSerializer
-    permission_classes = [AllowAnyOrAuthenticated]
-    http_method_names = ['get', 'post', 'put', 'patch']
-    
-    def get_queryset(self):
-        """Get chat rooms for the current user with proper error handling"""
-        try:
-            # For one-to-many chat system, allow users to access their own chat rooms
-            if self.request.user.is_authenticated:
-                # Authenticated users see only their own chat rooms
-                return ChatRoom.objects.filter(user=self.request.user).order_by('-last_message_at')
-            else:
-                # Anonymous users see only their session-based chat rooms
-                session_key = self.request.session.session_key
-                if session_key:
-                    return ChatRoom.objects.filter(customer_session=session_key).order_by('-last_message_at')
-                else:
-                    # No session, return empty queryset
-                    return ChatRoom.objects.none()
-        except Exception as e:
-            logger.error(f"Error in PublicChatRoomViewSet.get_queryset: {e}")
-            return ChatRoom.objects.none()
-    
-    def list(self, request, *args, **kwargs):
-        """Override list to handle empty queryset gracefully"""
-        try:
-            queryset = self.get_queryset()
-            
-            # Handle empty queryset gracefully
-            if not queryset.exists():
-                return Response({
-                    'results': [],
-                    'count': 0,
-                    'message': 'No chat rooms found. Start a new conversation!'
-                }, status=status.HTTP_200_OK)
-            
-            serializer = self.get_serializer(queryset, many=True)
-            return Response({
-                'results': serializer.data,
-                'count': queryset.count()
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"Error in PublicChatRoomViewSet.list: {e}")
-            return Response({
-                'error': 'Failed to fetch chat rooms',
-                'details': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    def get_object(self):
-        """Override get_object to handle chat room access more gracefully"""
-        try:
-            return super().get_object()
-        except Http404:
-            # If chat room doesn't exist or user doesn't have access, create a new one
-            if self.request.user.is_authenticated:
-                # Create a new chat room for authenticated user
-                session_key = self.request.session.session_key
-                if not session_key:
-                    self.request.session.create()
-                    session_key = self.request.session.session_key
-                
-                # Auto-populate customer info from authenticated user
-                user = self.request.user
-                customer_name = ''
-                if user.first_name and user.last_name:
-                    customer_name = f"{user.first_name} {user.last_name}"
-                elif user.first_name:
-                    customer_name = user.first_name
-                elif user.username:
-                    customer_name = user.username
-                else:
-                    customer_name = user.username  # Fallback to username
-                
-                room = ChatRoom.objects.create(
-                    customer_name=customer_name,
-                    customer_email=user.email,
-                    customer_session=session_key,
-                    user=user,
-                    status='active'
-                )
-                return room
-            else:
-                # For anonymous users, create a new room
-                session_key = self.request.session.session_key
-                if not session_key:
-                    self.request.session.create()
-                    session_key = self.request.session.session_key
-                
-                room = ChatRoom.objects.create(
-                    customer_name='Anonymous User',
-                    customer_email='user@example.com',
-                    customer_session=session_key,
-                    status='active'
-                )
-                return room
-    
-    def perform_create(self, serializer):
-        # Create a new chat room for the customer
-        session_key = self.request.session.session_key
-        if not session_key:
-            self.request.session.create()
-            session_key = self.request.session.session_key
-        
-        # If user is authenticated, associate the chat room with the user
-        user = self.request.user if self.request.user.is_authenticated else None
-        
-        # Auto-populate customer info from authenticated user if not provided
-        customer_data = {}
-        if user and user.is_authenticated:
-            # Use user's name if customer_name is not provided or is default
-            customer_name = serializer.validated_data.get('customer_name', '')
-            if not customer_name or customer_name == 'Anonymous User':
-                if user.first_name and user.last_name:
-                    customer_data['customer_name'] = f"{user.first_name} {user.last_name}"
-                elif user.first_name:
-                    customer_data['customer_name'] = user.first_name
-                elif user.username:
-                    customer_data['customer_name'] = user.username
-            
-            # Use user's email if customer_email is not provided or is default
-            customer_email = serializer.validated_data.get('customer_email', '')
-            if not customer_email or customer_email == 'user@example.com':
-                customer_data['customer_email'] = user.email
-        
-        serializer.save(
-            customer_session=session_key,
-            user=user,
-            **customer_data
-        )
-    
-    @action(detail=True, methods=['patch'])
-    def update_customer_info(self, request, pk=None):
-        """Update customer information for an existing chat room"""
-        print(f"Update customer info called for room {pk}")
-        print(f"Request user: {request.user}")
-        print(f"User authenticated: {request.user.is_authenticated}")
-        
-        room = self.get_object()
-        print(f"Room found: {room}")
-        print(f"Current room customer_name: {room.customer_name}")
-        
-        # Only allow the room owner to update their info
-        if request.user.is_authenticated and room.user != request.user:
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        
-        # Update customer info from authenticated user
-        if request.user.is_authenticated:
-            print(f"User details - first_name: {request.user.first_name}, last_name: {request.user.last_name}, username: {request.user.username}")
-            
-            if request.user.first_name and request.user.last_name:
-                room.customer_name = f"{request.user.first_name} {request.user.last_name}"
-            elif request.user.first_name:
-                room.customer_name = request.user.first_name
-            elif request.user.username:
-                room.customer_name = request.user.username
-            
-            room.customer_email = request.user.email
-            room.user = request.user
-            room.save()
-            
-            print(f"Updated room customer_name to: {room.customer_name}")
-            
-            return Response({
-                'message': 'Customer information updated successfully',
-                'customer_name': room.customer_name,
-                'customer_email': room.customer_email
-            })
-        
-        return Response({'error': 'User not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
-    
-    @action(detail=True, methods=['post'])
-    def send_message(self, request, pk=None):
-        """Send a message from customer to admin"""
-        room = self.get_object()
-        content = request.data.get('content', '').strip()
-        
-        if not content:
-            return Response({'error': 'Message content is required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Use the room's customer name, or fall back to user info if available
-        sender_name = room.customer_name or 'Anonymous'
-        if not sender_name or sender_name == 'Anonymous':
-            if room.user:
-                if room.user.first_name and room.user.last_name:
-                    sender_name = f"{room.user.first_name} {room.user.last_name}"
-                elif room.user.first_name:
-                    sender_name = room.user.first_name
-                elif room.user.username:
-                    sender_name = room.user.username
-        
-        message = ChatMessage.objects.create(
-            room=room,
-            sender_type='customer',
-            sender_name=sender_name,
-            content=content,
-            is_read=False  # Customer messages need to be read by admin
-        )
-        
-        # Update room status and last message time
-        room.status = 'waiting'
-        room.last_message_at = message.created_at
-        room.save()
-        
-        # Broadcast message via WebSocket
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
-        
-        channel_layer = get_channel_layer()
-        if channel_layer:
-            # Send to room group
-            async_to_sync(channel_layer.group_send)(
-                f'chat_{room.id}',
-                {
-                    'type': 'chat_message',
-                    'message': {
-                        'id': message.id,
-                        'content': message.content,
-                        'sender_type': message.sender_type,
-                        'sender_name': message.sender_name,
-                        'created_at': message.created_at.isoformat(),
-                        'is_read': message.is_read
-                    }
-                }
-            )
-            
-            # Notify admin group of new customer message
-            async_to_sync(channel_layer.group_send)(
-                'admin_chat',
-                {
-                    'type': 'new_customer_message',
-                    'room_id': str(room.id),
-                    'message': {
-                        'id': message.id,
-                        'content': message.content,
-                        'sender_type': message.sender_type,
-                        'sender_name': message.sender_name,
-                        'created_at': message.created_at.isoformat(),
-                        'is_read': message.is_read
-                    }
-                }
-            )
-        
-        serializer = ChatMessageSerializer(message)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    @action(detail=True, methods=['get'])
-    def get_messages(self, request, pk=None):
-        """Get all messages for a chat room"""
-        room = self.get_object()
-        messages = room.messages.all().order_by('created_at')
-        serializer = ChatMessageSerializer(messages, many=True)
-        return Response(serializer.data)
-
-class PublicChatMessageViewSet(viewsets.ReadOnlyModelViewSet):
-    """Public read-only access to chat messages"""
-    serializer_class = ChatMessageSerializer
-    permission_classes = [permissions.AllowAny]
-    
-    def get_queryset(self):
-        # Handle both DRF Request and WSGIRequest objects
-        if hasattr(self.request, 'query_params'):
-            room_id = self.request.query_params.get('room_id')
-        else:
-            room_id = self.request.GET.get('room_id')
-        
-        if room_id:
-            # For now, allow access to all messages (in production, you'd use session-based filtering)
-            return ChatMessage.objects.filter(room_id=room_id).order_by('created_at')
-        return ChatMessage.objects.none()
+# --- Public Chat System --- COMMENTED OUT (Chat functionality disabled)
 
 class PublicContactViewSet(viewsets.ModelViewSet):
     """Public contact form submission endpoint"""

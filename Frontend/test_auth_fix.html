@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Fix Test</title>
+</head>
+<body>
+    <h1>Authentication Fix Test</h1>
+    <div id="status"></div>
+    <button onclick="testAuth()">Test Authentication</button>
+    <button onclick="testDashboard()">Test Dashboard</button>
+    <button onclick="clearAuth()">Clear Auth</button>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8001/api';
+        
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+        }
+
+        async function testAuth() {
+            try {
+                updateStatus('Testing login...');
+                
+                const loginResponse = await fetch(`${API_BASE_URL}/auth/login/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+
+                const loginData = await loginResponse.json();
+                updateStatus('Login successful! Token: ' + (loginData.access ? 'present' : 'missing'));
+                
+                // Store auth data
+                localStorage.setItem('auth', JSON.stringify(loginData));
+                localStorage.setItem('access_token', loginData.access);
+                
+                // Test /me endpoint
+                updateStatus('Testing /me endpoint...');
+                const meResponse = await fetch(`${API_BASE_URL}/auth/me/`, {
+                    headers: {
+                        'Authorization': `Bearer ${loginData.access}`
+                    }
+                });
+
+                if (!meResponse.ok) {
+                    throw new Error(`/me failed: ${meResponse.status}`);
+                }
+
+                const meData = await meResponse.json();
+                updateStatus('/me successful! User: ' + meData.username);
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message);
+            }
+        }
+
+        async function testDashboard() {
+            try {
+                const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+                if (!authData.access) {
+                    updateStatus('No auth token found. Please login first.');
+                    return;
+                }
+
+                updateStatus('Testing dashboard endpoint...');
+                const dashboardResponse = await fetch(`${API_BASE_URL}/admin/dashboard/stats/`, {
+                    headers: {
+                        'Authorization': `Bearer ${authData.access}`
+                    }
+                });
+
+                if (!dashboardResponse.ok) {
+                    throw new Error(`Dashboard failed: ${dashboardResponse.status}`);
+                }
+
+                const dashboardData = await dashboardResponse.json();
+                updateStatus('Dashboard successful! Orders: ' + dashboardData.totals.orders);
+                
+            } catch (error) {
+                updateStatus('Dashboard Error: ' + error.message);
+            }
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('auth');
+            localStorage.removeItem('access_token');
+            updateStatus('Auth data cleared');
+        }
+    </script>
+</body>
+</html>

@@ -40,7 +40,20 @@ export default function SettingsPage() {
         status: err.response?.status,
         data: err.response?.data
       });
-      setError(err.message || 'Failed to load settings');
+      
+      // More specific error messages
+      let errorMessage = 'Failed to load settings';
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied. You may not have admin permissions.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
       console.log('[SETTINGS] Loading finished');

@@ -1,21 +1,31 @@
-import json
+# CHAT FUNCTIONALITY COMMENTED OUT
+# import json
+# import logging
+# import asyncio
+# from channels.generic.websocket import AsyncWebsocketConsumer
+# from channels.db import database_sync_to_async
+# from django.contrib.auth.models import AnonymousUser
+# from .models import ChatRoom, ChatMessage
+# from .encryption import encrypt_chat_message, decrypt_chat_message
+
 import logging
-import asyncio
-from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
-from django.contrib.auth.models import AnonymousUser
-from .models import ChatRoom, ChatMessage
-from .encryption import encrypt_chat_message, decrypt_chat_message
 
 logger = logging.getLogger(__name__)
 
-# Global connection tracking
-active_connections = {
-    'admin': set(),
-    'customers': {}
-}
+# Global connection tracking - COMMENTED OUT
+# active_connections = {
+#     'admin': set(),
+#     'customers': {}
+# }
 
-class ChatConsumer(AsyncWebsocketConsumer):
+# Mock consumers for compatibility
+class ChatConsumer:
+    """Mock WebSocket consumer for customer chat rooms - COMMENTED OUT"""
+    pass
+
+class AdminChatConsumer:
+    """Mock WebSocket consumer for admin chat interface - COMMENTED OUT"""
+    pass
     """WebSocket consumer for customer chat rooms with persistent connections"""
     
     async def connect(self):

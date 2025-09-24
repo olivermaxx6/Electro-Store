@@ -34,6 +34,7 @@ export default function ProductsPage(){
   const [brands, setBrands] = useState([]);
   const [topCats, setTopCats] = useState([]);
   const [subcats, setSubcats] = useState([]);
+  const [grandchildCats, setGrandchildCats] = useState([]);
 
   // CREATE form
   const [cName, setCName] = useState('');
@@ -44,6 +45,7 @@ export default function ProductsPage(){
   const [cBrand, setCBrand] = useState('');
   const [cTopCat, setCTopCat] = useState('');
   const [cSubcat, setCSubcat] = useState('');
+  const [cGrandchildCat, setCGrandchildCat] = useState('');
   const [cSpecs, setCSpecs] = useState([{key:'',value:''}]);
   const [cImages, setCImages] = useState([]);
   const [cMainImage, setCMainImage] = useState(null);
@@ -55,7 +57,9 @@ export default function ProductsPage(){
   const [fBrand, setFBrand] = useState('');
   const [fTopCat, setFTopCat] = useState('');
   const [fSubcat, setFSubcat] = useState('');
+  const [fGrandchildCat, setFGrandchildCat] = useState('');
   const [fSubList, setFSubList] = useState([]);
+  const [fGrandchildList, setFGrandchildList] = useState([]);
 
   // LIST & EDIT
   const [products, setProducts] = useState([]);
@@ -70,6 +74,7 @@ export default function ProductsPage(){
   const [eBrand, setEBrand] = useState('');
   const [eTopCat, setETopCat] = useState('');
   const [eSubcat, setESubcat] = useState('');
+  const [eGrandchildCat, setEGrandchildCat] = useState('');
   const [eSpecs, setESpecs] = useState([{key:'',value:''}]);
   const [eFiles, setEFiles] = useState([]);
   const [eImages, setEImages] = useState([]);
@@ -132,12 +137,36 @@ export default function ProductsPage(){
     }
   };
 
+  const loadGrandchild = async (subId, setter) => {
+    if (!subId){ setter([]); return; }
+    const parentId = Number(subId); // Ensure it's a number
+    try {
+      const response = await listSubcategories(parentId);
+      const data = response.data;
+      const grandchildData = data.results || data;
+      setter(grandchildData);
+    } catch (err) {
+      console.error('Failed to load grandchild categories from API:', err);
+      
+      // Load from localStorage (data created in manage-categories page)
+      const savedCats = localStorage.getItem('admin_categories');
+      if (savedCats) {
+        const allCats = JSON.parse(savedCats);
+        // Filter to get grandchild categories for this subcategory
+        const grandchildCats = allCats.filter(cat => cat.parent === parentId);
+        setter(grandchildCats);
+      } else {
+        setter([]);
+      }
+    }
+  };
+
   // load products
   const loadList = async () => {
     try {
     const params = {};
     if (q.trim()) params.q = q.trim();
-    const catId = fSubcat || fTopCat;
+    const catId = fGrandchildCat || fSubcat || fTopCat;
     if (fBrand) params.brand = fBrand;
     if (catId) params.category = catId;
     const { data } = await listProducts(params);
@@ -149,16 +178,21 @@ export default function ProductsPage(){
   };
 
   useEffect(()=>{ loadTaxonomy(); loadList(); }, []);
-  useEffect(()=>{ if(fTopCat){ loadSub(fTopCat, setFSubList) } else { setFSubList([]); setFSubcat(''); } }, [fTopCat]);
+  useEffect(()=>{ if(fTopCat){ loadSub(fTopCat, setFSubList) } else { setFSubList([]); setFSubcat(''); setFGrandchildCat(''); setFGrandchildList([]); } }, [fTopCat]);
+  useEffect(()=>{ if(fSubcat){ loadGrandchild(fSubcat, setFGrandchildList) } else { setFGrandchildList([]); setFGrandchildCat(''); } }, [fSubcat]);
   useEffect(()=>{ 
     if(cTopCat){ 
       loadSub(cTopCat, setSubcats) 
     } else { 
       setSubcats([]); 
       setCSubcat(''); 
+      setCGrandchildCat('');
+      setGrandchildCats([]);
     } 
   }, [cTopCat]);
+  useEffect(()=>{ if(cSubcat){ loadGrandchild(cSubcat, setGrandchildCats) } else { setGrandchildCats([]); setCGrandchildCat(''); } }, [cSubcat]);
   useEffect(()=>{ if(eTopCat){ loadSub(eTopCat, setSubcats) } }, [eTopCat]);
+  useEffect(()=>{ if(eSubcat){ loadGrandchild(eSubcat, setGrandchildCats) } else { setGrandchildCats([]); setEGrandchildCat(''); } }, [eSubcat]);
   
   // Listen for taxonomy updates from manage-categories page
   useEffect(() => {
@@ -177,7 +211,7 @@ export default function ProductsPage(){
     setEName(p.name||''); setEDesc(p.description||'');
     setEPrice(p.price??0); setEDiscount(p.discount_rate??0); setEStock(p.stock??0);
     setEBrand(p.brand||'');
-    setETopCat(''); setESubcat(p.category||'');
+    setETopCat(''); setESubcat(p.category||''); setEGrandchildCat('');
     setESpecs(objectToKv(p.technical_specs||{}));
     setEIsNewArrival(p.isNew||false);
     setEIsTopSelling(p.is_top_selling||false);
@@ -214,8 +248,8 @@ export default function ProductsPage(){
     
     if (!cName.trim()) return setMsg({kind:'error',text:'Name is required.'});
     if (!cBrand) return setMsg({kind:'error',text:'Select a Brand.'});
-    const category = cSubcat || cTopCat;
-    if (!category) return setMsg({kind:'error',text:'Select Category/Subcategory.'});
+    const category = cGrandchildCat || cSubcat || cTopCat;
+    if (!category) return setMsg({kind:'error',text:'Select Category/Subcategory/Grandchild Category.'});
     if (cImages.length === 0) return setMsg({kind:'error',text:'At least one product image is required.'});
     
     console.log('Validation passed, proceeding with product creation...');
@@ -256,7 +290,7 @@ export default function ProductsPage(){
       
       // reset
       setCName(''); setCDesc(''); setCPrice(''); setCDiscount(''); setCStock('');
-      setCBrand(''); setCTopCat(''); setCSubcat('');
+      setCBrand(''); setCTopCat(''); setCSubcat(''); setCGrandchildCat('');
       setCSpecs([{key:'',value:''}]); 
       setCImages([]);
       setCMainImage(null);
@@ -295,7 +329,7 @@ export default function ProductsPage(){
     setMsg(null);
     try{
       setBusy(true);
-      const category = eSubcat || eTopCat || editing.category;
+      const category = eGrandchildCat || eSubcat || eTopCat || editing.category;
       const payload = {
         name: eName.trim(),
         description: eDesc.trim(),
@@ -481,11 +515,23 @@ export default function ProductsPage(){
               <select 
                 className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" 
                 value={cSubcat} 
-                onChange={e=>setCSubcat(e.target.value)} 
+                onChange={e=>{ setCSubcat(e.target.value); setCGrandchildCat(''); }} 
                 disabled={!cTopCat}
               >
                 <option value="">{cTopCat ? 'Select Subcategory' : 'Select a category first'}</option>
               {subcats.map(sc=><option key={sc.id} value={sc.id}>{sc.name}</option>)}
+            </select>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Grandchild Category</label>
+              <select 
+                className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" 
+                value={cGrandchildCat} 
+                onChange={e=>setCGrandchildCat(e.target.value)} 
+                disabled={!cSubcat}
+              >
+                <option value="">{cSubcat ? 'Select Grandchild Category' : 'Select a subcategory first'}</option>
+              {grandchildCats.map(gc=><option key={gc.id} value={gc.id}>{gc.name}</option>)}
             </select>
             </div>
           </div>
@@ -721,7 +767,7 @@ export default function ProductsPage(){
               </div>
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Search & Filter</h3>
             </div>
-            <div className="grid gap-4 md:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-6">
               <div className="md:col-span-2 space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Search Products</label>
                 <input 
@@ -758,13 +804,25 @@ export default function ProductsPage(){
                 <select 
                   className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" 
                   value={fSubcat} 
-                  onChange={e=>setFSubcat(e.target.value)} 
+                  onChange={e=>{ setFSubcat(e.target.value); setFGrandchildCat(''); }} 
                   disabled={!fTopCat}
                 >
               <option value="">{fTopCat ? 'All subcategories' : 'Select a category first'}</option>
               {fSubList.map(sc=><option key={sc.id} value={sc.id}>{sc.name}</option>)}
             </select>
-          </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Grandchild Category</label>
+                <select 
+                  className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" 
+                  value={fGrandchildCat} 
+                  onChange={e=>setFGrandchildCat(e.target.value)} 
+                  disabled={!fSubcat}
+                >
+              <option value="">{fSubcat ? 'All grandchild categories' : 'Select a subcategory first'}</option>
+              {fGrandchildList.map(gc=><option key={gc.id} value={gc.id}>{gc.name}</option>)}
+            </select>
+              </div>
             </div>
             <div className="mt-6 flex justify-end">
               <button 
@@ -995,11 +1053,23 @@ export default function ProductsPage(){
                 <select 
                   className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" 
                   value={eSubcat} 
-                  onChange={e=>setESubcat(e.target.value)} 
+                  onChange={e=>{ setESubcat(e.target.value); setEGrandchildCat(''); }} 
                   disabled={!eTopCat && !editing.category}
                 >
                   <option value="">{eTopCat ? 'Select Subcategory' : 'Keep existing or pick a Category'}</option>
                 {subcats.map(sc=><option key={sc.id} value={sc.id}>{sc.name}</option>)}
+              </select>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Grandchild Category</label>
+                <select 
+                  className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" 
+                  value={eGrandchildCat} 
+                  onChange={e=>setEGrandchildCat(e.target.value)} 
+                  disabled={!eSubcat}
+                >
+                  <option value="">{eSubcat ? 'Select Grandchild Category' : 'Select a subcategory first'}</option>
+                {grandchildCats.map(gc=><option key={gc.id} value={gc.id}>{gc.name}</option>)}
               </select>
               </div>
             </div>

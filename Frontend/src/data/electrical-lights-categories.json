@@ -1,0 +1,104 @@
+{
+  "id": 7,
+  "name": "Electrical & Lights",
+  "children": [
+    {
+      "id": 7-1,
+      "name": "Electrical",
+      "children": [
+        { "id": 7-1-1, "name": "Electrical Components" },
+        { "id": 7-1-2, "name": "Back boxes" },
+        { "id": 7-1-3, "name": "Cable" },
+        { "id": 7-1-4, "name": "Cable connectors" },
+        { "id": 7-1-5, "name": "Cable management" },
+        { "id": 7-1-6, "name": "Cable reels" },
+        { "id": 7-1-7, "name": "Door bells" },
+        { "id": 7-1-8, "name": "Extension leads" },
+        { "id": 7-1-9, "name": "Junction boxes" },
+        { "id": 7-1-10, "name": "Plug adaptors" },
+        { "id": 7-1-11, "name": "Surrounds" },
+        { "id": 7-1-12, "name": "Switches & sockets" },
+        { "id": 7-1-13, "name": "Wiring" }
+      ]
+    },
+    {
+      "id": 7-2,
+      "name": "Home Security & Safety",
+      "children": [
+        { "id": 7-2-1, "name": "Bicycle locks" },
+        { "id": 7-2-2, "name": "Burglar alarms" },
+        { "id": 7-2-3, "name": "Carbon monoxide alarms" },
+        { "id": 7-2-4, "name": "Door locks" },
+        { "id": 7-2-5, "name": "Fire safety" },
+        { "id": 7-2-6, "name": "Key cabinets" },
+        { "id": 7-2-7, "name": "Padlocks" },
+        { "id": 7-2-8, "name": "Safes" },
+        { "id": 7-2-9, "name": "Safety signs" },
+        { "id": 7-2-10, "name": "Security cameras" },
+        { "id": 7-2-11, "name": "Smoke alarms" }
+      ]
+    },
+    {
+      "id": 7-3,
+      "name": "Indoor Lighting",
+      "children": [
+        { "id": 7-3-1, "name": "Ceiling lights" },
+        { "id": 7-3-2, "name": "Chandeliers" },
+        { "id": 7-3-3, "name": "Floor lamps" },
+        { "id": 7-3-4, "name": "Indoor lights" },
+        { "id": 7-3-5, "name": "Light bulbs" },
+        { "id": 7-3-6, "name": "Light fixtures & fittings" },
+        { "id": 7-3-7, "name": "Light shades" },
+        { "id": 7-3-8, "name": "Pendant lights" },
+        { "id": 7-3-9, "name": "Spotlights & downlights" },
+        { "id": 7-3-10, "name": "Table lamps" },
+        { "id": 7-3-11, "name": "Wall lights" }
+      ]
+    },
+    {
+      "id": 7-4,
+      "name": "Outdoor Lighting",
+      "children": [
+        { "id": 7-4-1, "name": "Decking lights" },
+        { "id": 7-4-2, "name": "Ground lights" },
+        { "id": 7-4-3, "name": "Outdoor lanterns" },
+        { "id": 7-4-4, "name": "Outdoor lights" },
+        { "id": 7-4-5, "name": "Outdoor wall lights" },
+        { "id": 7-4-6, "name": "Post lights" },
+        { "id": 7-4-7, "name": "Security lights" },
+        { "id": 7-4-8, "name": "Solar security lights" },
+        { "id": 7-4-9, "name": "Solar string lights" },
+        { "id": 7-4-10, "name": "Solar wall lights" },
+        { "id": 7-4-11, "name": "String lights" }
+      ]
+    },
+    {
+      "id": 7-5,
+      "name": "Smart Home",
+      "children": [
+        { "id": 7-5-1, "name": "Smart TVs" },
+        { "id": 7-5-2, "name": "Smart doorbells" },
+        { "id": 7-5-3, "name": "Smart indoor lighting" },
+        { "id": 7-5-4, "name": "Smart kitchen appliances" },
+        { "id": 7-5-5, "name": "Smart light bulbs" },
+        { "id": 7-5-6, "name": "Smart locks & padlocks" },
+        { "id": 7-5-7, "name": "Smart plug adaptors" },
+        { "id": 7-5-8, "name": "Smart security cameras" },
+        { "id": 7-5-9, "name": "Smart showers" },
+        { "id": 7-5-10, "name": "Smart sockets" },
+        { "id": 7-5-11, "name": "Smart switches" },
+        { "id": 7-5-12, "name": "Smart thermostats" }
+      ]
+    },
+    {
+      "id": 7-6,
+      "name": "TV, Audio & Networking",
+      "children": [
+        { "id": 7-6-1, "name": "Audio cables & adaptors" },
+        { "id": 7-6-2, "name": "Ethernet cable" },
+        { "id": 7-6-3, "name": "HDMI cables" },
+        { "id": 7-6-4, "name": "Home cinema" }
+      ]
+    }
+  ]
+}

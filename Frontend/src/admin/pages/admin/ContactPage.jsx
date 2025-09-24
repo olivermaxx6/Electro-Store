@@ -4,7 +4,7 @@ import { ThemeLayout, ThemeCard, SectionHeader } from '@shared/theme';
 import { 
   listContacts, markContactAsRead, markContactAsReplied, closeContact, deleteContact,
   listServiceQueries, markServiceQueryAsRead, markServiceQueryAsReplied, closeServiceQuery, deleteServiceQuery
-} from '@shared/admin/lib/api';
+} from '../../lib/api';
 
 export default function ContactPage() {
   const [activeTab, setActiveTab] = useState('contacts');

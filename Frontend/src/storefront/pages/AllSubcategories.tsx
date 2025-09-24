@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Grid, List, ArrowRight } from 'lucide-react';
-import { getProducts } from '../../lib/productsApi';
-import ProductCard from '../components/products/ProductCard';
+import { ChevronLeft, ChevronRight, Home, ShoppingBag } from 'lucide-react';
 import LoadingScreen from '../components/common/LoadingScreen';
 
 interface Category {
@@ -11,58 +9,214 @@ interface Category {
   slug: string;
   parent: number | null;
   description?: string;
-}
-
-interface BackendProduct {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  rating: number;
-  review_count: number;
-  view_count: number;
-  category: number; // This is the category ID from the API
-  category_data?: {
-    id: number;
-    name: string;
-    slug: string;
-  };
-  images: Array<{
-    id: number;
-    image: string;
-  }>;
-  created_at: string;
-}
-
-interface Product {
-  id: string;
-  slug: string;
-  title: string;
-  category: string;
-  brand: string;
-  price: number;
-  oldPrice?: number;
-  rating: number;
-  ratingCount: number;
-  isNew: boolean;
-  discountPct: number;
-  description: string;
-  images: string[];
-  inStock: boolean;
-  sku: string;
-  specs: Record<string, any>;
-  viewCount: number;
   image?: string;
 }
+
+interface GrandchildCategory {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number | null;
+  image?: string;
+}
+
+// Enhanced CategoryCard component with larger pictures
+const CategoryCard: React.FC<{ 
+  category: GrandchildCategory; 
+  onClick: (category: GrandchildCategory) => void;
+}> = ({ category, onClick }) => (
+  <div
+    className="flex-shrink-0 w-40 sm:w-44 md:w-48 lg:w-52 cursor-pointer group"
+    onClick={() => onClick(category)}
+    style={{ minWidth: '160px', maxWidth: '208px' }}
+  >
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-200 group-hover:scale-105 group-hover:border-red-300 dark:group-hover:border-blue-500 h-full">
+      <div className="aspect-square bg-gray-100 dark:bg-slate-700 relative overflow-hidden">
+        {category.image ? (
+          <img
+            src={category.image}
+            alt={category.name}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+              <span className="text-white text-lg font-medium">
+                {category.name.charAt(0)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="p-3">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white text-center line-clamp-2 group-hover:text-red-600 dark:group-hover:text-blue-400 transition-colors duration-200">
+          {category.name}
+        </h3>
+      </div>
+    </div>
+  </div>
+);
+
+// CategorySection component for each subcategory with enhanced horizontal scrolling
+const CategorySection: React.FC<{
+  subcategory: Category;
+  grandchildCategories: GrandchildCategory[];
+  onCategoryClick: (category: GrandchildCategory) => void;
+  onShopAllClick: (subcategory: Category) => void;
+}> = ({ subcategory, grandchildCategories, onCategoryClick, onShopAllClick }) => {
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Handle scroll events
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  };
+
+  // Scroll functions
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -400, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 400, behavior: 'smooth' });
+    }
+  };
+
+  // Set up scroll event listener
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      // Initial check
+      handleScroll();
+    }
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [grandchildCategories]);
+
+  // Calculate visible items based on container width
+  const getVisibleItemsCount = () => {
+    if (typeof window === 'undefined') return 3;
+    const screenWidth = window.innerWidth;
+    if (screenWidth < 640) return 1; // Mobile
+    if (screenWidth < 1024) return 2; // Tablet
+    if (screenWidth < 1280) return 3; // Desktop
+    return 4; // Large desktop
+  };
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+          {subcategory.name}
+        </h2>
+        {grandchildCategories.length > getVisibleItemsCount() && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {grandchildCategories.length} items
+          </div>
+        )}
+      </div>
+      
+      {/* Compact horizontal scrollable list */}
+      <div className="relative w-full overflow-hidden">
+        {/* Scroll Left Button - Only show when needed */}
+        {canScrollLeft && (
+          <button
+            onClick={scrollLeft}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white dark:bg-slate-800 shadow-md rounded-full p-1.5 hover:bg-red-50 dark:hover:bg-blue-900/20 transition-all duration-200 border border-red-200 dark:border-blue-600"
+          >
+            <ChevronLeft className="w-4 h-4 text-red-600 dark:text-blue-400" />
+          </button>
+        )}
+        
+        {/* Scroll Right Button - Only show when needed */}
+        {canScrollRight && (
+          <button
+            onClick={scrollRight}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white dark:bg-slate-800 shadow-md rounded-full p-1.5 hover:bg-red-50 dark:hover:bg-blue-900/20 transition-all duration-200 border border-red-200 dark:border-blue-600"
+          >
+            <ChevronRight className="w-4 h-4 text-red-600 dark:text-blue-400" />
+          </button>
+        )}
+        
+        {/* Horizontal scrollable container - no extra padding */}
+        <div
+          ref={scrollContainerRef}
+          className="horizontal-scroll-container flex gap-3 pb-2"
+          style={{ 
+            maxWidth: '100%',
+            width: '100%'
+          }}
+        >
+          {grandchildCategories.map((grandchild) => (
+            <CategoryCard
+              key={grandchild.id}
+              category={grandchild}
+              onClick={onCategoryClick}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Shop all button */}
+      <div className="mt-4">
+        <button
+          onClick={() => onShopAllClick(subcategory)}
+          className="inline-flex items-center px-4 py-2 bg-red-600 dark:bg-blue-600 text-white rounded-lg hover:bg-red-700 dark:hover:bg-blue-700 transition-colors font-medium text-sm"
+        >
+          <ShoppingBag className="w-4 h-4 mr-2" />
+          Shop all {subcategory.name}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const AllSubcategories: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<BackendProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Add CSS to hide scrollbars and ensure proper container behavior
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .horizontal-scroll-container {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+      }
+      .horizontal-scroll-container::-webkit-scrollbar {
+        display: none;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   // Get category ID from URL params
   const categoryId = searchParams.get('category');
@@ -92,10 +246,6 @@ const AllSubcategories: React.FC = () => {
         
         setCategories(allCategories);
         
-        // Fetch all products from backend
-        const productsData = await getProducts();
-        setProducts(productsData);
-        
       } catch (err) {
         console.error('Failed to load data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -105,51 +255,52 @@ const AllSubcategories: React.FC = () => {
     };
 
     loadData();
-  }, []);
+  }, [categoryId]);
 
   // Get the parent category
   const parentCategory = categories.find(cat => cat.id === parseInt(categoryId || '0'));
 
-  // Get all subcategories for this parent category
+  // Get all subcategories for this parent category, excluding "Electrical"
   const getSubcategories = () => {
     if (!categoryId) return [];
-    return categories.filter(cat => cat.parent === parseInt(categoryId));
+    return categories.filter(cat => cat.parent === parseInt(categoryId) && cat.name !== 'Electrical');
   };
 
-  // Get products for a specific subcategory
-  const getProductsBySubcategory = (subcategoryId: number) => {
-    return products.filter(product => product.category === subcategoryId);
+  // Get grandchild categories for a specific subcategory
+  const getGrandchildCategories = (subcategoryId: number): GrandchildCategory[] => {
+    return categories.filter(cat => cat.parent === subcategoryId);
   };
 
-  // Convert backend product to ProductCard format
-  const convertToProductCard = (backendProduct: BackendProduct): Product => {
-    return {
-      id: backendProduct.id.toString(),
-      slug: backendProduct.name.toLowerCase().replace(/\s+/g, '-'),
-      title: backendProduct.name,
-      category: backendProduct.category_data?.name || 'Uncategorized',
-      brand: 'Unknown',
-      price: backendProduct.price,
-      oldPrice: undefined,
-      rating: backendProduct.rating,
-      ratingCount: backendProduct.review_count,
-      isNew: false,
-      discountPct: 0,
-      description: backendProduct.description,
-      images: backendProduct.images.map(img => img.image),
-      inStock: true,
-      sku: `SKU-${backendProduct.id}`,
-      specs: {},
-      viewCount: backendProduct.view_count,
-      image: backendProduct.images.length > 0 ? backendProduct.images[0].image : undefined,
-    };
+  // Get description for the main category
+  const getCategoryDescription = () => {
+    if (categoryId === '12') { // Electrical & Lights
+      return "Browse our stunning range of lighting here at Electro-Store. We have everything you need, from statement pieces with the wow factor, to functional items helping to light the way in your home or garden. Our wide range of electrical products ensures you will have everything you need to get the job done. Whether you're looking for modern LED fixtures, traditional chandeliers, outdoor lighting solutions, or essential electrical components, our carefully curated collection offers premium quality products at competitive prices.";
+    }
+    return `Explore our comprehensive range of ${categoryName || parentCategory?.name || 'products'}. Discover high-quality items carefully selected to meet your needs, featuring the latest innovations and timeless classics. Our extensive collection ensures you'll find exactly what you're looking for, backed by our commitment to quality and customer satisfaction.`;
+  };
+
+  // Event handlers
+  const handleCategoryClick = (category: GrandchildCategory) => {
+    navigate(`/category/${category.slug}`);
+  };
+
+  const handleShopAllClick = (subcategory: Category) => {
+    navigate(`/category/${subcategory.slug}`);
+  };
+
+  const handleSubcategoryClick = (subcategory: Category) => {
+    // Scroll to the subcategory section
+    const element = document.getElementById(`subcategory-${subcategory.id}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const subcategories = getSubcategories();
 
   // Loading state
   if (loading) {
-    return <LoadingScreen message="Loading subcategories..." />;
+    return <LoadingScreen message="Loading categories..." />;
   }
 
   // Error state
@@ -188,103 +339,96 @@ const AllSubcategories: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <div className="mb-6">
+          <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              <Home className="w-4 h-4 mr-1" />
+              Home
+            </button>
+            <ChevronRight className="w-4 h-4" />
+            <span className="text-gray-900 dark:text-white font-medium">
+              {categoryName || parentCategory.name}
+            </span>
+          </nav>
+        </div>
+
+        {/* 1. Parent Category Header */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate('/categories')}
-            className="flex items-center text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Back to Categories
-          </button>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {categoryName || parentCategory.name}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                All subcategories and products in {categoryName || parentCategory.name}
-              </p>
-            </div>
-            
-            {/* View Toggle */}
-            <div className="flex items-center bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === 'grid'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <Grid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === 'list'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <List className="w-5 h-5" />
-              </button>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            {categoryName || parentCategory.name}
+          </h1>
+          <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
+            {getCategoryDescription()}
+          </p>
+        </div>
+
+        {/* Main Content Layout */}
+        <div className="flex flex-col xl:flex-row gap-8">
+          {/* 2. Left Sidebar - Subcategories with Grandchild Lists */}
+          <div className="w-full xl:w-80 flex-shrink-0">
+            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6 xl:sticky xl:top-8">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Subcategories
+              </h2>
+              <div className="space-y-4">
+                {subcategories.map((subcategory) => {
+                  const grandchildCategories = getGrandchildCategories(subcategory.id);
+                  return (
+                    <div key={subcategory.id} className="border-b border-gray-200 dark:border-slate-700 pb-4 last:border-b-0">
+                      {/* Subcategory Header */}
+                      <button
+                        onClick={() => handleSubcategoryClick(subcategory)}
+                        className="w-full text-left px-3 py-2 rounded-md transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-red-600 dark:hover:text-blue-400 font-medium"
+                      >
+                        {subcategory.name}
+                      </button>
+                      
+                      {/* Grandchild Categories Vertical List */}
+                      {grandchildCategories.length > 0 && (
+                        <div className="mt-2 ml-4 space-y-1">
+                          {grandchildCategories.map((grandchild) => (
+                            <button
+                              key={grandchild.id}
+                              onClick={() => handleCategoryClick(grandchild)}
+                              className="w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-red-600 dark:hover:text-blue-400"
+                            >
+                              {grandchild.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Subcategories List */}
-        <div className="space-y-12">
-          {subcategories.map((subcategory) => {
-            const subcategoryProducts = getProductsBySubcategory(subcategory.id);
-            
-            return (
-              <div key={subcategory.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-                {/* Subcategory Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        {subcategory.name}
-                      </h2>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {subcategoryProducts.length} products available
-                      </p>
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
+          {/* 3. Right/Main Content Area */}
+          <div className="flex-1 min-w-0">
+            {/* Loop through each subcategory */}
+            {subcategories.map((subcategory) => {
+              const grandchildCategories = getGrandchildCategories(subcategory.id);
+              return (
+                <div 
+                  key={subcategory.id} 
+                  id={`subcategory-${subcategory.id}`}
+                  className="mb-8 w-full"
+                >
+                  <CategorySection
+                    subcategory={subcategory}
+                    grandchildCategories={grandchildCategories}
+                    onCategoryClick={handleCategoryClick}
+                    onShopAllClick={handleShopAllClick}
+                  />
                 </div>
-
-                {/* Products Grid/List */}
-                <div className="p-6">
-                  {subcategoryProducts.length > 0 ? (
-                    <div className={`grid gap-6 ${
-                      viewMode === 'grid' 
-                        ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-                        : 'grid-cols-1'
-                    }`}>
-                      {subcategoryProducts.map((product) => (
-                        <ProductCard
-                          key={product.id}
-                          product={convertToProductCard(product)}
-                          viewMode={viewMode}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <p className="text-gray-500 dark:text-gray-400">
-                        No products available in this subcategory
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
 
         {/* No subcategories message */}
         {subcategories.length === 0 && (
@@ -300,6 +444,8 @@ const AllSubcategories: React.FC = () => {
             </button>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );

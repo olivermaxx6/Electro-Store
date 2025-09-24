@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Admin Services API</title>
+</head>
+<body>
+    <h1>Test Admin Services API</h1>
+    <button onclick="testAPI()">Test API Call</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test the exact same API call that ServicesPage makes
+                const response = await fetch('/api/admin/services/', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Add auth token if available
+                        'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `<pre>Success: ${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<pre style="color: red;">Error: ${error.message}</pre>`;
+                console.error('API Test Error:', error);
+            }
+        }
+        
+        // Test on page load
+        window.onload = () => {
+            console.log('Page loaded, testing API...');
+            testAPI();
+        };
+    </script>
+</body>
+</html>

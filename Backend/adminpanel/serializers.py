@@ -5,7 +5,7 @@ from .models import (
     Brand, Category, Product, ProductImage,
     Service, ServiceImage, ServiceInquiry, ServiceQuery, ServiceCategory,
     Order, OrderItem, Review, ServiceReview, WebsiteContent, StoreSettings,
-    ChatRoom, ChatMessage, Contact
+    Contact
 )
 
 class SafeModelSerializer(serializers.ModelSerializer):
@@ -33,7 +33,7 @@ class BrandSerializer(SafeModelSerializer):
 
     class Meta:
         model = Brand
-        fields = ["id", "name", "slug", "created_at"]
+        fields = ["id", "name", "slug", "image", "created_at"]
         read_only_fields = ["id", "slug", "created_at"]
 
     def validate_name(self, value):
@@ -49,17 +49,89 @@ class CategorySerializer(SafeModelSerializer):
         required=False,
     )
     name = serializers.CharField(max_length=120)
+    
+    # Additional hierarchical fields
+    depth = serializers.SerializerMethodField()
+    level = serializers.SerializerMethodField()
+    level_name = serializers.SerializerMethodField()
+    full_path = serializers.SerializerMethodField()
+    can_have_children = serializers.SerializerMethodField()
+    children_count = serializers.SerializerMethodField()
+    children = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "name", "slug", "parent", "created_at"]
-        read_only_fields = ["id", "slug", "created_at"]
+        fields = [
+            "id", "name", "slug", "parent", "image", "created_at",
+            "depth", "level", "level_name", "full_path", 
+            "can_have_children", "children_count", "children"
+        ]
+        read_only_fields = ["id", "slug", "created_at", "depth", "level", "level_name", "full_path", "can_have_children", "children_count", "children"]
 
     def validate_name(self, v):
         v = (v or "").strip()
         if not v:
             raise serializers.ValidationError("Category name is required.")
+        
+        # Check for duplicate names within the same parent (case-insensitive)
+        parent_id = self.initial_data.get('parent') if hasattr(self, 'initial_data') else None
+        if parent_id is None and hasattr(self, 'instance') and self.instance:
+            parent_id = self.instance.parent_id
+        
+        # Convert to None if empty string
+        if parent_id == '' or parent_id == 'null':
+            parent_id = None
+        
+        # Check for existing categories with the same name under the same parent
+        existing_query = Category.objects.filter(name__iexact=v, parent_id=parent_id)
+        
+        # If updating, exclude the current instance
+        if hasattr(self, 'instance') and self.instance and self.instance.pk:
+            existing_query = existing_query.exclude(pk=self.instance.pk)
+        
+        if existing_query.exists():
+            parent_name = "root level" if parent_id is None else f"under parent category"
+            raise serializers.ValidationError(f"A category with the name '{v}' already exists {parent_name}. Please choose a different name.")
+        
         return v
+
+    def validate_parent(self, value):
+        """Validate parent selection"""
+        if value is not None:
+            # Check if parent can have children (not exceeding depth limit)
+            if not value.can_have_children():
+                raise serializers.ValidationError(f"Cannot add subcategory to '{value.name}' - maximum hierarchy depth reached.")
+            
+            # Prevent circular references
+            if hasattr(self, 'instance') and self.instance and value.pk == self.instance.pk:
+                raise serializers.ValidationError("Category cannot be its own parent.")
+        
+        return value
+
+    def get_depth(self, obj):
+        return obj.get_depth()
+
+    def get_level(self, obj):
+        return obj.get_level()
+
+    def get_level_name(self, obj):
+        return obj.get_level_name()
+
+    def get_full_path(self, obj):
+        return obj.get_full_path()
+
+    def get_can_have_children(self, obj):
+        return obj.can_have_children()
+
+    def get_children_count(self, obj):
+        return obj.children.count()
+
+    def get_children(self, obj):
+        """Get immediate children with their children (grandchildren)"""
+        children = obj.children.all()
+        if not children.exists():
+            return []
+        return CategorySerializer(children, many=True, context=self.context).data
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -193,9 +265,40 @@ class OrderSerializer(serializers.ModelSerializer):
 
 # --- Services ---
 class ServiceCategorySerializer(serializers.ModelSerializer):
+    children = serializers.SerializerMethodField()
+    parent_name = serializers.SerializerMethodField()
+    depth = serializers.SerializerMethodField()
+    services_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = ServiceCategory
-        fields = ["id","name","description","ordering","is_active","created_at"]
+        fields = ["id", "name", "slug", "description", "ordering", "is_active", "parent", "parent_name", "children", "depth", "services_count", "created_at"]
+        extra_kwargs = {
+            'parent': {'write_only': True},
+        }
+    
+    def get_children(self, obj):
+        """Get direct children of this category"""
+        children = obj.children.all().order_by('ordering', 'name')
+        return ServiceCategorySerializer(children, many=True, context=self.context).data
+    
+    def get_parent_name(self, obj):
+        """Get the name of the parent category"""
+        return obj.parent.name if obj.parent else None
+    
+    def get_depth(self, obj):
+        """Get the depth of this category in the hierarchy"""
+        return obj.get_depth()
+    
+    def get_services_count(self, obj):
+        """Get the count of services in this category"""
+        return obj.services.count()
+    
+    def validate_parent(self, value):
+        """Validate that the parent is not the same as the current instance"""
+        if value and hasattr(self, 'instance') and self.instance and value.pk == self.instance.pk:
+            raise serializers.ValidationError("A category cannot be its own parent.")
+        return value
 
 class ServiceImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -367,57 +470,58 @@ class RecentOrderSerializer(serializers.ModelSerializer):
         fields = ["id","tracking_id","payment_id","total_price","status","created_at","shipping_name","customer_email"]
 
 # --- Chat System ---
-class ChatMessageSerializer(serializers.ModelSerializer):
-    sender_email = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = ChatMessage
-        fields = ["id", "sender_type", "sender_name", "sender_user", "sender_email", "content", "is_read", "created_at"]
-        read_only_fields = ["id", "created_at"]
-    
-    def get_sender_email(self, obj):
-        """Get sender email if available"""
-        if obj.sender_user and obj.sender_user.email:
-            return obj.sender_user.email
-        return None
+# --- Chat System Serializers - COMMENTED OUT ---
+# class ChatMessageSerializer(serializers.ModelSerializer):
+#     sender_email = serializers.SerializerMethodField()
+#     
+#     class Meta:
+#         model = ChatMessage
+#         fields = ["id", "sender_type", "sender_name", "sender_user", "sender_email", "content", "is_read", "created_at"]
+#         read_only_fields = ["id", "created_at"]
+#     
+#     def get_sender_email(self, obj):
+#         """Get sender email if available"""
+#         if obj.sender_user and obj.sender_user.email:
+#             return obj.sender_user.email
+#         return None
 
-class ChatRoomSerializer(serializers.ModelSerializer):
-    messages = ChatMessageSerializer(many=True, read_only=True)
-    unread_count = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = ChatRoom
-        fields = ["id", "customer_name", "customer_email", "customer_phone", "customer_session",
-                 "user", "status", "created_at", "updated_at", "last_message_at", 
-                 "messages", "unread_count"]
-        read_only_fields = ["id", "created_at", "updated_at", "last_message_at"]
-    
-    def get_unread_count(self, obj):
-        return obj.messages.filter(is_read=False, sender_type='customer').count()
+# class ChatRoomSerializer(serializers.ModelSerializer):
+#     messages = ChatMessageSerializer(many=True, read_only=True)
+#     unread_count = serializers.SerializerMethodField()
+#     
+#     class Meta:
+#         model = ChatRoom
+#         fields = ["id", "customer_name", "customer_email", "customer_phone", "customer_session",
+#                  "user", "status", "created_at", "updated_at", "last_message_at", 
+#                  "messages", "unread_count"]
+#         read_only_fields = ["id", "created_at", "updated_at", "last_message_at"]
+#     
+#     def get_unread_count(self, obj):
+#         return obj.messages.filter(is_read=False, sender_type='customer').count()
 
-class ChatRoomListSerializer(serializers.ModelSerializer):
-    """Simplified serializer for chat room lists"""
-    unread_count = serializers.SerializerMethodField()
-    last_message = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = ChatRoom
-        fields = ["id", "customer_name", "customer_email", "customer_session", "user", "status", 
-                 "created_at", "updated_at", "last_message_at", 
-                 "unread_count", "last_message"]
-    
-    def get_unread_count(self, obj):
-        return obj.messages.filter(is_read=False, sender_type='customer').count()
-    
-    def get_last_message(self, obj):
-        last_msg = obj.messages.last()
-        if last_msg:
-            return {
-                "content": last_msg.content,
-                "sender_type": last_msg.sender_type,
-                "created_at": last_msg.created_at
-            }
-        return None
+# class ChatRoomListSerializer(serializers.ModelSerializer):
+#     """Simplified serializer for chat room lists"""
+#     unread_count = serializers.SerializerMethodField()
+#     last_message = serializers.SerializerMethodField()
+#     
+#     class Meta:
+#         model = ChatRoom
+#         fields = ["id", "customer_name", "customer_email", "customer_session", "user", "status", 
+#                  "created_at", "updated_at", "last_message_at", 
+#                  "unread_count", "last_message"]
+#     
+#     def get_unread_count(self, obj):
+#         return obj.messages.filter(is_read=False, sender_type='customer').count()
+#     
+#     def get_last_message(self, obj):
+#         last_msg = obj.messages.last()
+#         if last_msg:
+#             return {
+#                 "content": last_msg.content,
+#                 "sender_type": last_msg.sender_type,
+#                 "created_at": last_msg.created_at
+#             }
+#         return None
 
 # --- Contact Form ---
 class ContactSerializer(SafeModelSerializer):
