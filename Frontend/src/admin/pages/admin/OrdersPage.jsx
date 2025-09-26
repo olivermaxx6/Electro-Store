@@ -5,10 +5,10 @@ import { ThemeLayout, ThemeCard, ThemeSelect, ThemeButton } from '@shared/theme'
 import { useCurrency } from '../../store/currencyStore';
 import { listOrders, updateOrder, deleteOrder } from '../../lib/api';
 import { useAuth } from '../../store/authStore';
-import { Copy, Check, Trash2 } from 'lucide-react';
+import { Copy, Check, Trash2, RefreshCw, AlertCircle, AlertTriangle } from 'lucide-react';
 
 export default function OrdersPage() {
-  const authStore = useAuth();
+  const { isAuthed, init, logout } = useAuth();
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
@@ -16,63 +16,381 @@ export default function OrdersPage() {
   const [hasPrev, setHasPrev] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [copiedPaymentId, setCopiedPaymentId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { formatAmount } = useCurrency();
 
-  const load = async () => {
+  // Authentication state management
+  const [authState, setAuthState] = useState('checking'); // 'checking', 'authenticated', 'unauthenticated'
+  const [fetchStatus, setFetchStatus] = useState('idle'); // 'idle', 'loading', 'success', 'error'
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
+
+  // Comprehensive error diagnostic function
+  const diagnose500Error = async (response, url) => {
+    console.error('🚨 500 Internal Server Error Details:');
+    console.error('URL:', url);
+    console.error('Status:', response.status);
+    console.error('Status Text:', response.statusText);
+    
     try {
-      setIsLoading(true);
-      console.log('Loading orders with filters:', { page, status: status || 'all' });
+      // Try to get more details from the response
+      const errorText = await response.text();
+      console.error('Response Body:', errorText);
       
-      // Check authentication first
-      if (!authStore.isAuthed()) {
-        console.error('❌ User not authenticated');
-        alert('You must be logged in to view orders. Please log in first.');
+      // Try to parse as JSON if possible
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error('Parsed Error JSON:', errorJson);
+        
+        if (errorJson.detail) {
+          console.error('Error Detail:', errorJson.detail);
+        }
+        if (errorJson.error) {
+          console.error('Error Message:', errorJson.error);
+        }
+      } catch (e) {
+        console.error('Raw Error Response:', errorText);
+      }
+    } catch (textError) {
+      console.error('Could not read response body:', textError);
+    }
+    
+    // Check common 500 error patterns
+    const commonIssues = [
+      'Database connection issues',
+      'Missing database tables',
+      'Serializer validation errors',
+      'Permission class failures',
+      'Middleware exceptions',
+      'View function errors'
+    ];
+    
+    console.error('🔍 Common causes of 500 errors:');
+    commonIssues.forEach(issue => console.error('•', issue));
+  };
+
+  // Backend health checker
+  const checkBackendHealth = async () => {
+    try {
+      console.log('🔍 Checking backend health...');
+      
+      // Test basic API connectivity
+      const healthResponse = await fetch('http://127.0.0.1:8001/api/admin/health/ping/', {
+        method: 'GET',
+      });
+      
+      if (healthResponse.ok) {
+        console.log('✅ Backend is reachable');
+        return true;
+      }
+      
+      // Test if Django admin is accessible
+      const adminResponse = await fetch('http://127.0.0.1:8001/admin/', {
+        method: 'GET',
+      });
+      
+      console.log('Django admin status:', adminResponse.status);
+      return adminResponse.status < 500;
+      
+    } catch (error) {
+      console.error('❌ Backend health check failed:', error);
+      return false;
+    }
+  };
+
+  // Enhanced authentication check with backend health
+  const checkAuth = async () => {
+    try {
+      console.log('[AUTH] Checking authentication state...');
+      setAuthState('checking');
+      
+      // First check if backend is reachable
+      const backendHealthy = await checkBackendHealth();
+      if (!backendHealthy) {
+        setError(`
+          🚨 Cannot connect to the backend server.
+          
+          Please ensure:
+          1. The Django server is running: python manage.py runserver 127.0.0.1:8001
+          2. The server is accessible at http://127.0.0.1:8001
+          3. There are no firewall or CORS issues
+        `);
+        setAuthState('unauthenticated');
         return;
       }
       
-      // Debug authentication state
+      // Initialize auth store first
+      await init();
+      
+      // Check if we have a valid token
       const authData = JSON.parse(localStorage.getItem('auth') || '{}');
       const token = authData.access || localStorage.getItem('access_token');
-      console.log('🔐 Auth token present:', !!token);
-      console.log('🔐 Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
       
-      const { data } = await listOrders({ page, status: status || undefined });
-      setRows(data.results || data);
-      setHasNext(!!data.next); setHasPrev(!!data.previous);
-      console.log('✅ Orders loaded successfully:', data.results?.length || data.length || 0, 'orders');
-    } catch (error) {
-      console.error('❌ Failed to load orders:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
+      if (!token) {
+        console.log('[AUTH] No token found');
+        setAuthState('unauthenticated');
+        return;
+      }
+      
+      // Verify token is still valid by calling /api/auth/me/
+      const response = await fetch('http://127.0.0.1:8001/api/auth/me/', {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-      setRows([]);
-      setHasNext(false); setHasPrev(false);
       
-      // More detailed error message
+      if (response.ok) {
+        console.log('[AUTH] Token is valid');
+        setAuthState('authenticated');
+      } else if (response.status === 401) {
+        console.log('[AUTH] Token expired, attempting refresh...');
+        
+        // Try to refresh the token
+        const refreshSuccess = await attemptTokenRefresh();
+        if (refreshSuccess) {
+          setAuthState('authenticated');
+        } else {
+          console.log('[AUTH] Token refresh failed');
+          localStorage.removeItem('auth');
+          localStorage.removeItem('access_token');
+          setAuthState('unauthenticated');
+        }
+      } else {
+        console.log('[AUTH] Token verification failed:', response.status);
+        setAuthState('unauthenticated');
+      }
+    } catch (error) {
+      console.error('[AUTH] Auth check failed:', error);
+      setAuthState('unauthenticated');
+    }
+  };
+
+  // Attempt token refresh
+  const attemptTokenRefresh = async () => {
+    try {
+      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+      const refreshToken = authData.refresh;
+      
+      if (!refreshToken) {
+        return false;
+      }
+      
+      const response = await fetch('http://127.0.0.1:8001/api/auth/refresh/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: refreshToken })
+      });
+      
+      if (response.ok) {
+        const refreshData = await response.json();
+        const newAuthData = { ...authData, access: refreshData.access };
+        localStorage.setItem('auth', JSON.stringify(newAuthData));
+        localStorage.setItem('access_token', refreshData.access);
+        console.log('[AUTH] Token refreshed successfully');
+        return true;
+      }
+    } catch (error) {
+      console.error('[AUTH] Token refresh failed:', error);
+    }
+    return false;
+  };
+
+  const load = async () => {
+    // Only proceed if authenticated
+    if (authState !== 'authenticated') {
+      console.log('[LOAD] Skipping load - not authenticated');
+      return;
+    }
+
+    // Check network connectivity
+    const isOnline = navigator.onLine;
+    if (!isOnline) {
+      setError('No internet connection. Please check your network.');
+      setFetchStatus('error');
+      return;
+    }
+
+    try {
+      setFetchStatus('loading');
+      setError(null);
+      console.log('[LOAD] Loading orders with filters:', { page, status: status || 'all' });
+      
+      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+      const token = authData.access || localStorage.getItem('access_token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const apiUrl = `http://127.0.0.1:8001/api/admin/orders/?page=${page}${status ? `&status=${status}` : ''}`;
+      console.log('📡 Making API request to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        method: 'GET',
+      });
+      
+      console.log('📥 Response received:', response.status, response.statusText);
+      
+      // Handle 500 Internal Server Error specifically
+      if (response.status === 500) {
+        await diagnose500Error(response, apiUrl);
+        
+        // Provide specific guidance based on common issues
+        setError(`
+          🚨 Server Error (500): The backend encountered an internal error.
+          
+          Common fixes:
+          1. Check if the Django server is running on port 8001
+          2. Verify the database migrations are applied: python manage.py migrate
+          3. Check if the Order model and serializer are properly configured
+          4. Look at the Django server logs for detailed error information
+          
+          Technical details have been logged to the console.
+        `);
+        setFetchStatus('error');
+        return;
+      }
+      
+      // Handle other error status codes
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please log in again.');
+      }
+      
+      if (response.status === 403) {
+        throw new Error('Access denied. You do not have permission to view orders.');
+      }
+      
+      if (response.status === 404) {
+        throw new Error('Orders endpoint not found. Check backend URL configuration.');
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📊 Orders data received:', data);
+      
+      // Validate response structure
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response format from server');
+      }
+      
+      // Handle different response structures
+      const ordersData = data.results || data.orders || data.items || (Array.isArray(data) ? data : []);
+      
+      // Ensure we have valid data before setting
+      if (Array.isArray(ordersData)) {
+        setRows(ordersData);
+        setHasNext(!!data.next); 
+        setHasPrev(!!data.previous);
+        setFetchStatus('success');
+        console.log('[LOAD] Orders loaded successfully:', ordersData.length, 'orders');
+      } else {
+        console.warn('[LOAD] Invalid orders data format:', ordersData);
+        setRows([]);
+        setHasNext(false); 
+        setHasPrev(false);
+        setFetchStatus('success'); // Still success, just no data
+      }
+    } catch (error) {
+      console.error('[LOAD] Failed to load orders:', error);
+      
       let errorMessage = 'Unknown error';
-      if (error.response?.status === 401) {
+      if (error.message.includes('Authentication failed')) {
         errorMessage = 'Authentication failed. Please log in again.';
-      } else if (error.response?.status === 403) {
+        // Redirect to login after short delay
+        setTimeout(() => {
+          window.location.href = '/admin/sign-in';
+        }, 2000);
+      } else if (error.message.includes('Access denied')) {
         errorMessage = 'Access denied. You may not have admin permissions.';
-      } else if (error.response?.status >= 500) {
-        errorMessage = 'Server error. Please try again later.';
+      } else if (error.message.includes('Server Error')) {
+        errorMessage = error.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
       
-      alert(`Failed to load orders: ${errorMessage}`);
-    } finally {
-      setIsLoading(false);
+      setError(errorMessage);
+      setFetchStatus('error');
+      setRows([]);
+      setHasNext(false); 
+      setHasPrev(false);
     }
   };
-  useEffect(()=>{ load(); }, [page, status]);
+
+  // Enhanced load function with retry mechanism
+  const loadWithRetry = async () => {
+    if (retryCount >= MAX_RETRIES) {
+      setError('Maximum retry attempts reached. Please check the backend server.');
+      setFetchStatus('error');
+      return;
+    }
+    
+    await load();
+    
+    // If we're still in error state after a brief delay, increment retry count
+    setTimeout(() => {
+      if (fetchStatus === 'error') {
+        setRetryCount(prev => prev + 1);
+      }
+    }, 2000);
+  };
+
+  // Backend diagnostics component
+  const BackendDiagnostics = () => {
+    const [diagnostics, setDiagnostics] = useState({});
+    
+    const runDiagnostics = async () => {
+      const diag = {
+        backendReachable: await checkBackendHealth(),
+        currentTime: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        authState: authState,
+        fetchStatus: fetchStatus,
+        retryCount: retryCount,
+        apiEndpoint: 'http://127.0.0.1:8001/api/admin/orders/'
+      };
+      setDiagnostics(diag);
+    };
+    
+    return (
+      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+        <button 
+          onClick={runDiagnostics}
+          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+        >
+          Run Backend Diagnostics
+        </button>
+        {diagnostics.backendReachable !== undefined && (
+          <pre className="mt-2 text-xs bg-white dark:bg-slate-800 p-2 rounded overflow-auto max-h-40">
+            {JSON.stringify(diagnostics, null, 2)}
+          </pre>
+        )}
+      </div>
+    );
+  };
+
+  // Check authentication on component mount
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  // Load orders when authentication state changes or filters change
+  useEffect(() => {
+    if (authState === 'authenticated') {
+      loadWithRetry();
+    }
+  }, [authState, page, status, retryCount]);
 
   const update = async (id, s) => { 
     try {
@@ -80,6 +398,12 @@ export default function OrdersPage() {
       await updateOrder(id, { status: s }); 
       console.log('✅ Order updated successfully:', id, s); 
       await load(); 
+      
+      // Trigger dashboard refresh by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('ordersUpdated', { 
+        detail: { orderId: id, newStatus: s } 
+      }));
+      console.log('📊 Dashboard refresh triggered');
     } catch (error) {
       console.error('❌ Failed to update order:', error);
       // You could add a toast notification here for user feedback
@@ -126,6 +450,12 @@ export default function OrdersPage() {
       await load();
       console.log('✅ Orders list refreshed, order removed from UI');
       
+      // Trigger dashboard refresh by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('ordersUpdated', { 
+        detail: { orderId: orderToDelete.id, action: 'deleted' } 
+      }));
+      console.log('📊 Dashboard refresh triggered after order deletion');
+      
       // Show success message briefly
       setDeleteSuccess(true);
       setTimeout(() => {
@@ -157,30 +487,134 @@ export default function OrdersPage() {
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Orders Management</h2>
           </div>
           
-          <div className="mb-6">
-            <ThemeSelect
-              label="Filter by Status"
-              value={status} 
-              onChange={e=>setStatus(e.target.value)}
-              options={[
-                { value: '', label: 'All order statuses' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'processing', label: 'Processing' },
-                { value: 'shipped', label: 'Shipped' },
-                { value: 'delivered', label: 'Delivered' },
-                { value: 'cancelled', label: 'Cancelled' }
-              ]}
-            />
-          </div>
+          {/* Status Filter - only show when authenticated */}
+          {authState === 'authenticated' && (
+            <div className="mb-6">
+              <ThemeSelect
+                label="Filter by Status"
+                value={status} 
+                onChange={e=>setStatus(e.target.value)}
+                options={[
+                  { value: '', label: 'All order statuses' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'processing', label: 'Processing' },
+                  { value: 'shipped', label: 'Shipped' },
+                  { value: 'delivered', label: 'Delivered' },
+                  { value: 'cancelled', label: 'Cancelled' }
+                ]}
+              />
+            </div>
+          )}
           <div className="overflow-auto">
-            {isLoading ? (
+            {/* Authentication State Debug */}
+            <div className="mb-4 p-2 bg-blue-100 dark:bg-blue-900/20 rounded text-xs">
+              <strong>Auth State:</strong> {authState} | <strong>Fetch Status:</strong> {fetchStatus} | <strong>Orders:</strong> {rows.length}
+            </div>
+            
+            {/* Authentication Checking */}
+            {authState === 'checking' && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-200 to-blue-300 dark:from-blue-600 dark:to-blue-700 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">🔐</span>
+                </div>
+                <div className="text-slate-600 dark:text-slate-400 font-medium">Checking authentication...</div>
+              </div>
+            )}
+
+            {/* Unauthenticated State */}
+            {authState === 'unauthenticated' && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  <p className="text-red-800 dark:text-red-200 font-medium">Authentication Required</p>
+                </div>
+                <p className="text-red-700 dark:text-red-300 mb-3">You must be logged in to view orders. Redirecting to login...</p>
+                <button 
+                  onClick={() => window.location.href = '/admin/sign-in'}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                >
+                  Go to Login
+                </button>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {(authState === 'authenticated' && fetchStatus === 'loading') && (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">⏳</span>
                 </div>
                 <div className="text-slate-600 dark:text-slate-400 font-medium">Loading orders...</div>
               </div>
-            ) : (
+            )}
+
+            {/* Error State */}
+            {fetchStatus === 'error' && (
+              <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg max-w-4xl mx-auto mt-8">
+                <div className="flex items-center mb-4">
+                  <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400 mr-3" />
+                  <h2 className="text-xl font-semibold text-red-800 dark:text-red-200">Unable to Load Orders</h2>
+                </div>
+                
+                <div className="bg-white dark:bg-slate-800 p-4 rounded border">
+                  <p className="text-red-700 dark:text-red-300 mb-4 whitespace-pre-line">{error}</p>
+                  
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded border border-yellow-200 dark:border-yellow-800 mb-4">
+                    <h3 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Troubleshooting Steps:</h3>
+                    <ul className="list-disc list-inside text-yellow-700 dark:text-yellow-300 space-y-1">
+                      <li>Check if the backend server is running on port 8001</li>
+                      <li>Verify the database is properly migrated</li>
+                      <li>Check browser console for detailed error information</li>
+                      <li>Try refreshing the page or logging in again</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={load}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Retry Loading Orders
+                    </button>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                    >
+                      Refresh Page
+                    </button>
+                    <button
+                      onClick={() => window.open('http://127.0.0.1:8001/admin/', '_blank')}
+                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                    >
+                      Check Backend Admin
+                    </button>
+                    <button
+                      onClick={() => setRetryCount(0)}
+                      className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                    >
+                      Reset Retry Count
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Debug information for developers */}
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-sm text-gray-600 dark:text-gray-400">Developer Debug Info</summary>
+                  <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">
+                    <p>Auth State: {authState}</p>
+                    <p>Fetch Status: {fetchStatus}</p>
+                    <p>Retry Count: {retryCount}/{MAX_RETRIES}</p>
+                    <p>API Endpoint: http://127.0.0.1:8001/api/admin/orders/</p>
+                    <p>Check browser console for detailed error logs</p>
+                  </div>
+                  <BackendDiagnostics />
+                </details>
+              </div>
+            )}
+
+            {/* Success State with Orders */}
+            {(authState === 'authenticated' && fetchStatus === 'success' && rows.length > 0) && (
               <div className="space-y-4">
                 {rows.map(o=>(
                 <div key={o.id} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600">
@@ -314,20 +748,31 @@ export default function OrdersPage() {
                   )}
                 </div>
               ))}
-                {rows.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                      <span className="text-2xl">📋</span>
-                    </div>
-                    <div className="text-slate-600 dark:text-slate-400 font-medium">No orders found</div>
+            </div>
+            )}
+
+            {/* Success State with No Orders */}
+            {(authState === 'authenticated' && fetchStatus === 'success' && rows.length === 0) && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md">
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">📋</span>
                   </div>
-                )}
+                  <p className="text-slate-600 dark:text-slate-400 font-medium">No orders found</p>
+                  <p className="text-slate-500 dark:text-slate-500 text-sm mt-1">
+                    {status ? `No orders with status "${status}"` : 'No orders in the system'}
+                  </p>
+                </div>
               </div>
             )}
           </div>
-          <div className="mt-6">
-            <Pager page={page} setPage={setPage} hasNext={hasNext} hasPrev={hasPrev}/>
-          </div>
+          
+          {/* Pagination - only show when authenticated and have orders */}
+          {authState === 'authenticated' && fetchStatus === 'success' && rows.length > 0 && (
+            <div className="mt-6">
+              <Pager page={page} setPage={setPage} hasNext={hasNext} hasPrev={hasPrev}/>
+            </div>
+          )}
         </ThemeCard>
 
         {/* Delete Confirmation Dialog */}

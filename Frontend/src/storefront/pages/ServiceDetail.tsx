@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Star, Clock, CheckCircle, ArrowLeft, Calendar, User, Mail, Phone, MessageSquare, Quote } from 'lucide-react';
+import { Star, Clock, CheckCircle, ArrowLeft, Calendar, User, Mail, Phone, MessageSquare } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
 import ServiceReviewForm from '../components/services/ServiceReviewForm';
 import ServiceReviewList from '../components/services/ServiceReviewList';
-import { getService, getServiceReviews, createServiceReview, calculateServiceStats, submitServiceQuery, incrementServiceView, Service, ServiceReview } from '../../lib/servicesApi';
+import { getService, getServiceReviews, createServiceReview, submitServiceQuery, incrementServiceView, Service, ServiceReview } from '../lib/servicesApi';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import { formatPrice } from '../lib/format';
 
@@ -25,220 +25,10 @@ const transformServiceData = (apiService: Service) => ({
   detailedDescription: apiService.overview || apiService.description,
   whatIncluded: apiService.included_features || [],
   process: apiService.process_steps || [],
+  contactInfo: apiService.contact_info || {},
+  availability: apiService.availability || '',
   testimonials: [] // We'll add testimonials from reviews if needed
 });
-
-// Service-specific mock review data
-const serviceReviewsData: { [key: number]: any[] } = {
-  1: [ // Website Development
-    {
-      id: '1',
-      author: 'Sarah Johnson',
-      rating: 5,
-      comment: 'Excellent website development service! The team was professional, communication was clear throughout the project, and they delivered exactly what we needed. Highly recommend!',
-      date: '2024-01-15',
-      verified: true,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 4,
-      valueForMoney: 5
-    },
-    {
-      id: '2',
-      author: 'Mike Chen',
-      rating: 4,
-      comment: 'Great website development experience. The final product exceeded our expectations and the team was very responsive to feedback.',
-      date: '2024-01-10',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 3,
-      valueForMoney: 4
-    }
-  ],
-  2: [ // Mobile App Development
-    {
-      id: '3',
-      author: 'Alex Rodriguez',
-      rating: 5,
-      comment: 'Outstanding mobile app development! The app works flawlessly on both iOS and Android. The UI/UX design is intuitive and the performance is excellent.',
-      date: '2024-01-12',
-      verified: true,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 5,
-      valueForMoney: 5
-    },
-    {
-      id: '4',
-      author: 'Lisa Wang',
-      rating: 4,
-      comment: 'Great mobile app development service. The team delivered a high-quality app that our users love. Minor delays but overall very satisfied.',
-      date: '2024-01-08',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 3,
-      valueForMoney: 4
-    }
-  ],
-  3: [ // E-commerce Solutions
-    {
-      id: '5',
-      author: 'Emily Rodriguez',
-      rating: 5,
-      comment: 'Outstanding e-commerce solution! The platform is robust, user-friendly, and has significantly increased our online sales. The team provided excellent support throughout.',
-      date: '2024-01-08',
-      verified: false,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 5,
-      valueForMoney: 5
-    },
-    {
-      id: '6',
-      author: 'James Wilson',
-      rating: 4,
-      comment: 'Excellent e-commerce platform development. The payment integration works seamlessly and the inventory management system is very efficient.',
-      date: '2024-01-05',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 4,
-      valueForMoney: 4
-    }
-  ],
-  4: [ // Digital Marketing
-    {
-      id: '7',
-      author: 'David Kim',
-      rating: 4,
-      comment: 'Good digital marketing service. Our website traffic increased by 150% in just 3 months. The team was responsive and provided detailed reports.',
-      date: '2024-01-05',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 4,
-      valueForMoney: 4
-    },
-    {
-      id: '8',
-      author: 'Maria Garcia',
-      rating: 5,
-      comment: 'Fantastic digital marketing results! Our conversion rates improved dramatically and the ROI on our ad spend increased significantly.',
-      date: '2024-01-03',
-      verified: true,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 5,
-      valueForMoney: 5
-    }
-  ],
-  5: [ // UI/UX Design
-    {
-      id: '9',
-      author: 'Tom Anderson',
-      rating: 5,
-      comment: 'Exceptional UI/UX design work! The designs are modern, intuitive, and perfectly aligned with our brand. The team really understands user experience.',
-      date: '2024-01-14',
-      verified: true,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 4,
-      valueForMoney: 5
-    },
-    {
-      id: '10',
-      author: 'Jennifer Lee',
-      rating: 4,
-      comment: 'Great design work! The wireframes and prototypes helped us visualize the final product perfectly. Very professional and creative team.',
-      date: '2024-01-11',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 4,
-      valueForMoney: 4
-    }
-  ],
-  6: [ // Cloud Migration
-    {
-      id: '11',
-      author: 'Robert Smith',
-      rating: 5,
-      comment: 'Seamless cloud migration! Zero downtime during the transition and our applications are now running faster than ever. Excellent technical expertise.',
-      date: '2024-01-13',
-      verified: true,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 5,
-      valueForMoney: 5
-    },
-    {
-      id: '12',
-      author: 'Amanda Brown',
-      rating: 4,
-      comment: 'Professional cloud migration service. The team handled everything smoothly and provided excellent documentation throughout the process.',
-      date: '2024-01-09',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 4,
-      valueForMoney: 4
-    }
-  ],
-  7: [ // Data Analytics
-    {
-      id: '13',
-      author: 'Kevin Taylor',
-      rating: 5,
-      comment: 'Outstanding data analytics solution! The insights provided have transformed our decision-making process. The dashboards are intuitive and the reports are comprehensive.',
-      date: '2024-01-16',
-      verified: true,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 4,
-      valueForMoney: 5
-    },
-    {
-      id: '14',
-      author: 'Rachel Green',
-      rating: 4,
-      comment: 'Great data analytics service. The team helped us understand our data better and provided actionable insights that improved our business performance.',
-      date: '2024-01-12',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 4,
-      valueForMoney: 4
-    }
-  ],
-  8: [ // Technical Consulting
-    {
-      id: '15',
-      author: 'Michael Johnson',
-      rating: 5,
-      comment: 'Excellent technical consulting! The team provided valuable insights and helped us make informed technology decisions. Very knowledgeable and professional.',
-      date: '2024-01-17',
-      verified: true,
-      serviceQuality: 5,
-      communication: 5,
-      timeliness: 5,
-      valueForMoney: 5
-    },
-    {
-      id: '16',
-      author: 'Sarah Davis',
-      rating: 4,
-      comment: 'Great technical consultation. The team helped us optimize our technology stack and provided clear recommendations for future improvements.',
-      date: '2024-01-14',
-      verified: true,
-      serviceQuality: 4,
-      communication: 4,
-      timeliness: 4,
-      valueForMoney: 4
-    }
-  ]
-};
 
 const ServiceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -249,6 +39,16 @@ const ServiceDetail: React.FC = () => {
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Local helper to compute review stats from fetched reviews
+  const computeReviewStats = (sourceReviews: ServiceReview[]) => {
+    if (!Array.isArray(sourceReviews) || sourceReviews.length === 0) {
+      return { averageRating: 0, reviewCount: 0 };
+    }
+    const total = sourceReviews.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0);
+    const average = total / sourceReviews.length;
+    return { averageRating: Math.round(average * 10) / 10, reviewCount: sourceReviews.length };
+  };
   
   // Get store settings for currency
   const { settings } = useStoreSettings();
@@ -263,8 +63,6 @@ const ServiceDetail: React.FC = () => {
     name: '',
     email: '',
     phone: '',
-    projectType: '',
-    timeline: '',
     requirements: ''
   });
 
@@ -285,7 +83,10 @@ const ServiceDetail: React.FC = () => {
         
         const transformedService = transformServiceData(apiService);
         setService(transformedService);
-        setReviews(serviceReviews);
+        
+        // Ensure serviceReviews is an array
+        const safeReviews = Array.isArray(serviceReviews) ? serviceReviews : [];
+        setReviews(safeReviews);
         
         // Track view
         try {
@@ -367,7 +168,7 @@ const ServiceDetail: React.FC = () => {
         preferred_date: bookingForm.preferredDate
       };
 
-      const response = await submitServiceQuery(queryData);
+      const response = await submitServiceQuery(parseInt(id), queryData);
       alert(response.message || 'Your service request has been submitted! We will contact you within 24 hours.');
       setIsBookingModalOpen(false);
       setBookingForm({
@@ -414,20 +215,16 @@ const ServiceDetail: React.FC = () => {
         name: quoteForm.name,
         email: quoteForm.email,
         phone: quoteForm.phone,
-        project_type: quoteForm.projectType,
-        timeline: quoteForm.timeline,
         requirements: quoteForm.requirements
       };
 
-      const response = await submitServiceQuery(queryData);
+      const response = await submitServiceQuery(parseInt(id), queryData);
       alert(response.message || 'Your quote request has been submitted! We will provide a detailed quote within 24 hours.');
       setIsQuoteModalOpen(false);
       setQuoteForm({
         name: '',
         email: '',
         phone: '',
-        projectType: '',
-        timeline: '',
         requirements: ''
       });
     } catch (error) {
@@ -447,19 +244,21 @@ const ServiceDetail: React.FC = () => {
   }) => {
     try {
       // Create the review via API
-      const newReview = await createServiceReview({
+      const newReview = await createServiceReview(parseInt(id!), {
         service: parseInt(id!),
-        author_name: reviewData.author,
+        author: reviewData.author,
         rating: reviewData.rating,
         comment: reviewData.comment,
         service_quality: reviewData.serviceQuality,
         communication: reviewData.communication,
         timeliness: reviewData.timeliness,
         value_for_money: reviewData.valueForMoney,
-      });
+      } as any);
       
       // Add the new review to the local state
-      setReviews(prev => [newReview, ...prev]);
+      if (newReview && typeof newReview === 'object') {
+        setReviews(prev => [newReview, ...prev]);
+      }
       
     } catch (error) {
       console.error('Failed to submit review:', error);
@@ -467,7 +266,7 @@ const ServiceDetail: React.FC = () => {
     }
   };
 
-  const serviceStats = calculateServiceStats(reviews);
+  const serviceStats = computeReviewStats(reviews as any);
   
   // Use service's own rating and review count as fallback when no reviews are available
   const displayRating = serviceStats.reviewCount > 0 ? serviceStats.averageRating : service.rating;
@@ -520,22 +319,24 @@ const ServiceDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Service Image */}
-              <div className="w-full h-64 bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
-                {service.image ? (
-                  <img 
-                    src={service.image} 
-                    alt={service.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Placeholder size="lg">
-                      <div className="text-gray-400 dark:text-gray-500"></div>
-                    </Placeholder>
-                  </div>
-                )}
-              </div>
+               {/* Service Image */}
+               <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
+                 {service.image ? (
+                   <img 
+                     src={service.image} 
+                     alt={service.title}
+                     className="w-full h-auto object-cover"
+                     style={{ width: '750px', height: '590px' }}
+                   />
+                 ) : (
+                   <div className="w-full flex items-center justify-center" style={{ width: '750px', height: '590px' }}>
+                     <div className="text-gray-400 dark:text-gray-500 text-center">
+                       <div className="text-6xl mb-2">🖼️</div>
+                       <div className="text-lg">No image available</div>
+                     </div>
+                   </div>
+                 )}
+               </div>
             </div>
 
             {/* Tabs Navigation */}
@@ -567,49 +368,53 @@ const ServiceDetail: React.FC = () => {
               {activeTab === 'overview' && (
                 <>
                   {/* Detailed Description */}
-                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
-                    <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">About This Service</h2>
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                      {service.detailedDescription}
-                    </p>
-                  </div>
+                  {service.detailedDescription && (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">About This Service</h2>
+                      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                        {service.detailedDescription}
+                      </p>
+                    </div>
+                  )}
 
                   {/* What's Included */}
-                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
-                    <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">What's Included</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {service.whatIncluded.map((item, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                          <span className="text-gray-700 dark:text-gray-300">{item}</span>
-                        </div>
-                      ))}
+                  {service.whatIncluded && service.whatIncluded.length > 0 && (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">What's Included</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {service.whatIncluded.map((item: string, index: number) => (
+                          <div key={index} className="flex items-center gap-3">
+                            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                            <span className="text-gray-700 dark:text-gray-300">{item}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Process */}
                   {service.process && service.process.length > 0 && (
-                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
-                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Our Process</h2>
-                      <div className="space-y-6">
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 sm:p-6">
+                      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">Our Process</h2>
+                      <div className="space-y-6 sm:space-y-8">
                         {service.process.map((step: any, index: number) => (
-                          <div key={index} className="flex gap-4">
-                            <div className="flex-shrink-0">
-                              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center font-semibold">
+                          <div key={index} className="flex items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0 w-39 sm:w-41 flex justify-start">
+                              <div className="bg-blue-500 text-white rounded-lg px-6 py-3 flex items-center justify-center font-bold text-sm sm:text-base w-39 sm:w-41 shadow-sm">
                                 {step.step || index + 1}
                               </div>
                             </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                            <div className="flex-1 pt-1">
+                              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2 break-words">
                                 {step.title || step.name || `Step ${index + 1}`}
                               </h3>
-                              <p className="text-gray-600 dark:text-gray-300 mb-2">
+                              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3 break-words">
                                 {step.description || step.details || ''}
                               </p>
                               {(step.duration || step.timeframe) && (
-                                <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                                   <Clock className="w-4 h-4" />
-                                  {step.duration || step.timeframe}
+                                  <span className="break-words font-medium">{step.duration || step.timeframe}</span>
                                 </div>
                               )}
                             </div>
@@ -619,12 +424,59 @@ const ServiceDetail: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Key Features */}
+                  {service.features && service.features.length > 0 && (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Key Features</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {service.features.map((feature: string, index: number) => (
+                          <div key={index} className="flex items-center gap-3">
+                            <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                            <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Contact Information */}
+                  {(service.contactInfo?.phone || service.contactInfo?.email) && (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Contact Information</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {service.contactInfo?.phone && (
+                          <div className="flex items-center gap-3">
+                            <Phone className="w-5 h-5 text-gray-400" />
+                            <span className="text-gray-700 dark:text-gray-300">{service.contactInfo.phone}</span>
+                          </div>
+                        )}
+                        {service.contactInfo?.email && (
+                          <div className="flex items-center gap-3">
+                            <Mail className="w-5 h-5 text-gray-400" />
+                            <span className="text-gray-700 dark:text-gray-300">{service.contactInfo.email}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Availability */}
+                  {service.availability && (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Availability</h2>
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-gray-400" />
+                        <span className="text-gray-700 dark:text-gray-300">{service.availability}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Testimonials */}
                   {service.testimonials && service.testimonials.length > 0 && (
                     <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
                       <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">What Our Clients Say</h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {service.testimonials.map((testimonial, index) => (
+                        {service.testimonials.map((testimonial: any, index: number) => (
                           <div key={index} className="border border-gray-200 dark:border-slate-600 rounded-lg p-4">
                             <div className="flex items-center gap-1 mb-3">
                               {[...Array(testimonial.rating)].map((_, i) => (
@@ -689,6 +541,18 @@ const ServiceDetail: React.FC = () => {
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <span className="text-gray-700 dark:text-gray-300">Free consultation included</span>
                 </div>
+                {service.contactInfo?.phone && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5 text-gray-400" />
+                    <span className="text-gray-700 dark:text-gray-300">{service.contactInfo.phone}</span>
+                  </div>
+                )}
+                {service.contactInfo?.email && (
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-5 h-5 text-gray-400" />
+                    <span className="text-gray-700 dark:text-gray-300">{service.contactInfo.email}</span>
+                  </div>
+                )}
               </div>
 
               <button
@@ -710,7 +574,7 @@ const ServiceDetail: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Key Features</h3>
               <div className="space-y-3">
-                {service.features.map((feature, index) => (
+                {service.features.map((feature: string, index: number) => (
                   <div key={index} className="flex items-center gap-3">
                     <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                     <span className="text-gray-700 dark:text-gray-300">{feature}</span>
@@ -726,13 +590,13 @@ const ServiceDetail: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-700 dark:text-gray-300">
-                    {service.contact_info?.phone || '+1 (555) 123-4567'}
+                    {service.contactInfo?.phone}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Mail className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-700 dark:text-gray-300">
-                    {service.contact_info?.email || 'support@example.com'}
+                    {service.contactInfo?.email}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -914,42 +778,7 @@ const ServiceDetail: React.FC = () => {
                   </div>
 
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Project Type
-                    </label>
-                    <select
-                      name="projectType"
-                      value={quoteForm.projectType}
-                      onChange={handleQuoteInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select project type</option>
-                      <option value="website">Website Development</option>
-                      <option value="mobile">Mobile App</option>
-                      <option value="ecommerce">E-commerce</option>
-                      <option value="marketing">Digital Marketing</option>
-                      <option value="design">UI/UX Design</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Timeline
-                    </label>
-                    <select
-                      name="timeline"
-                      value={quoteForm.timeline}
-                      onChange={handleQuoteInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select timeline</option>
-                      <option value="urgent">Urgent (1-2 weeks)</option>
-                      <option value="standard">Standard (1-2 months)</option>
-                      <option value="flexible">Flexible (3+ months)</option>
-                    </select>
-                  </div>
 
 
                   <div>

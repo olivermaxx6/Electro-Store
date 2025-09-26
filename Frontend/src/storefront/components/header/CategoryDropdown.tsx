@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { ChevronRight, Sparkles, Zap, ArrowLeft } from 'lucide-react';
 import { useDropdown } from '../../contexts/DropdownContext';
+import { createPortal } from 'react-dom';
 
 interface Category {
   id: number;
@@ -47,14 +48,55 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [selectedSubcategory, setSelectedSubcategory] = useState<Category | null>(null);
   const [showHoverStyle, setShowHoverStyle] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 'auto' });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
+
+  // Calculate dropdown position with overflow handling
+  const calculatePosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const dropdownMinWidth = 320; // Minimum width for dropdown
+      const dropdownMaxWidth = 1200; // Maximum width for dropdown
+      
+      // Calculate available space on the right
+      const availableSpaceRight = viewportWidth - rect.left;
+      const availableSpaceLeft = rect.right;
+      
+      let left = rect.left + window.scrollX;
+      let width = 'auto';
+      
+      // If there's not enough space on the right, adjust position and width
+      if (availableSpaceRight < dropdownMinWidth) {
+        // Try to fit by reducing width first
+        if (availableSpaceRight >= 280) {
+          width = `${Math.max(280, availableSpaceRight - 20)}px`;
+        } else {
+          // If still not enough space, position to the left of trigger
+          left = Math.max(20, rect.right - dropdownMinWidth) + window.scrollX;
+          width = `${Math.min(dropdownMaxWidth, availableSpaceLeft - 20)}px`;
+        }
+      } else {
+        // Normal positioning with dynamic width based on content
+        width = `${Math.min(dropdownMaxWidth, Math.max(dropdownMinWidth, availableSpaceRight - 20))}px`;
+      }
+      
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left,
+        width
+      });
+    }
+  };
 
   // Handle mouse enter/leave with delay to prevent flickering
   const handleMouseEnter = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+    calculatePosition();
     setActiveDropdown(dropdownId);
   };
 
@@ -103,8 +145,15 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
       }
     };
 
+    const handleResize = () => {
+      if (isOpen) {
+        calculatePosition();
+      }
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('resize', handleResize);
     }
 
     return () => {
@@ -112,6 +161,7 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
         clearTimeout(timeoutRef.current);
       }
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', handleResize);
     };
   }, [isOpen, setActiveDropdown]);
 
@@ -163,7 +213,7 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
       className="relative group"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      ref={dropdownRef}
+      ref={triggerRef}
     >
       {/* Main Category Link */}
       <Link
@@ -207,11 +257,20 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
         </div>
       </Link>
 
-      {/* Enhanced Dropdown Menu with Mobile Support */}
-      <div className={clsx(
-        'absolute top-full left-0 w-screen max-w-sm sm:max-w-md lg:max-w-6xl bg-white dark:bg-slate-800 shadow-2xl border-t-2 border-red-600 dark:border-blue-600 transition-all duration-500 ease-out z-50 rounded-b-xl overflow-hidden',
-        isOpen ? 'opacity-100 visible translate-y-0 scale-100' : 'opacity-0 invisible -translate-y-4 scale-95'
-      )}>
+      {/* Enhanced Dropdown Menu with Mobile Support - Portal */}
+      {isOpen && createPortal(
+        <div 
+          className={clsx(
+            'absolute bg-white dark:bg-slate-800 shadow-2xl border-t-2 border-red-600 dark:border-blue-600 transition-all duration-500 ease-out z-50 rounded-b-xl overflow-hidden',
+            isOpen ? 'opacity-100 visible translate-y-0 scale-100' : 'opacity-0 invisible -translate-y-4 scale-95'
+          )}
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: dropdownPosition.width
+          }}
+          ref={dropdownRef}
+        >
         {/* Enhanced Gradient Overlay for Visual Appeal */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent dark:from-blue-400/8 dark:via-blue-300/3 dark:to-transparent pointer-events-none" />
         
@@ -256,7 +315,7 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
           </div>
 
           {/* Mobile-First Layout */}
-          <div className="max-h-80 sm:max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-slate-500">
+          <div className="max-h-80 sm:max-h-96 overflow-y-auto scrollbar-hide pb-4">
             {showSubcategories && selectedSubcategory ? (
               /* Mobile Subcategory View - Matching Image Layout */
               <div className="space-y-0">
@@ -372,7 +431,9 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
             
             {/* Desktop Grid View */}
             <div className="hidden lg:block">
-              <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 pr-2">
+              <div className="grid gap-6 pr-2 pb-4" style={{
+                gridTemplateColumns: `repeat(auto-fit, minmax(280px, 1fr))`
+              }}>
                 {category.children.map((subcategory) => (
                   <div
                     key={subcategory.id}
@@ -431,7 +492,9 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
             </div>
           </div>
         </div>
-      </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

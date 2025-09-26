@@ -188,7 +188,8 @@ class ProductImage(models.Model):
 class Order(models.Model):
     # Order fulfillment status (for shipping/delivery)
     ORDER_STATUS_CHOICES = [
-        ("pending", "Pending"),
+        ("pending", "Pending Payment"),
+        ("paid", "Paid"),
         ("processing", "Processing"),
         ("shipped", "Shipped"),
         ("delivered", "Delivered"),
@@ -204,29 +205,70 @@ class Order(models.Model):
     ]
     
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
-    tracking_id = models.CharField(max_length=100, unique=True)
-    payment_id = models.CharField(max_length=200, blank=True)
+    
+    # Enhanced order identification
+    order_number = models.CharField(max_length=20, null=True, blank=True)
+    tracking_id = models.CharField(max_length=100, unique=True, blank=True)
     
     # Customer Information
-    customer_email = models.EmailField(blank=True)
+    customer_email = models.EmailField()
+    customer_name = models.CharField(max_length=100, default='Unknown Customer')
     customer_phone = models.CharField(max_length=20, blank=True)
-    shipping_address = models.JSONField(default=dict)  # Store complete address info
+    
+    # Address Information
+    shipping_address = models.JSONField()  # Store complete address
+    billing_address = models.JSONField(blank=True, null=True)
+    
+    # Order Items (stored as JSON for immediate order creation)
+    items = models.JSONField(default=list)  # Store cart items with prices
     
     # Pricing Information
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)
     
     # Order Details
     status = models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default="pending")
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default="unpaid")
     payment_method = models.CharField(max_length=50, default="credit_card")
     shipping_name = models.CharField(max_length=200, blank=True)
+    shipping_method = models.CharField(max_length=50, blank=True, help_text="Selected shipping method (standard, express, etc.)")
+    
+    # Stripe Integration
+    stripe_session_id = models.CharField(max_length=255, blank=True)
+    payment_intent_id = models.CharField(max_length=255, blank=True)
+    payment_id = models.CharField(max_length=200, blank=True)
+    
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self): return f"Order #{self.pk} - {self.tracking_id}"
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['order_number']),
+            models.Index(fields=['customer_email']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def generate_order_number(self):
+        """Generate unique order number"""
+        from django.utils import timezone
+        return f"ORD-{timezone.now().strftime('%Y%m%d')}-{str(self.id).zfill(6)}"
+
+    def save(self, *args, **kwargs):
+        if not self.order_number:
+            # We'll set this after the object is saved and has an ID
+            super().save(*args, **kwargs)
+            self.order_number = self.generate_order_number()
+            super().save(update_fields=['order_number'])
+        else:
+            super().save(*args, **kwargs)
+
+    def __str__(self): 
+        return f"Order #{self.order_number} - {self.customer_name}"
 
 class Payment(models.Model):
     """Model to track Stripe payment details"""
@@ -254,7 +296,7 @@ class Payment(models.Model):
         return f"Payment {self.id} - {self.status}"
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, related_name="order_items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -266,6 +308,7 @@ class ServiceCategory(models.Model):
     description = models.TextField(blank=True)
     ordering = models.PositiveIntegerField(default=0, help_text="Order in which categories appear")
     is_active = models.BooleanField(default=True)
+    image = models.ImageField(upload_to="service_categories/", null=True, blank=True, help_text="Category image")
     
     # self-referential FK for subcategories
     parent = models.ForeignKey(

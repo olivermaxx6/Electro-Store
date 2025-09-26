@@ -11,7 +11,7 @@ const TopBar: React.FC = () => {
   const { settings, loading: settingsLoading } = useStoreSettings();
   
   return (
-    <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 text-white border-b border-red-500/20 dark:border-blue-600/30 shadow-sm">
+    <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 text-white border-b border-red-500/20 dark:border-blue-600/30 shadow-sm relative z-30">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row justify-between items-center py-2 lg:py-3 space-y-2 lg:space-y-0">
           {/* Left side - Contact info */}

@@ -4,7 +4,7 @@ These endpoints don't require authentication and are meant for the customer-faci
 """
 import uuid
 import time
-import stripe
+import stripe  # Import stripe at module level
 import logging
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from django.http import Http404
 from django.db.models import Q
 from django.conf import settings
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,38 @@ class PublicCategoryViewSet(viewsets.ReadOnlyModelViewSet):
         if top_only:
             qs = qs.filter(parent__isnull=True)
         return qs
+
+    def list(self, request, *args, **kwargs):
+        """Cached list view for categories"""
+        # Check if this is a top-level categories request
+        top_only = request.query_params.get("top", "false").lower() in ("true", "1", "yes")
+        
+        if top_only:
+            # Use cache for top-level categories
+            cache_key = "public_categories_top"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data is not None:
+                return Response(cached_data)
+            
+            # Get data and cache it
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+            
+            # Cache for 5 minutes
+            cache.set(cache_key, data, 300)
+            return Response(data)
+        
+        # For all categories, use normal list method
+        return super().list(request, *args, **kwargs)
+
+    def get_serializer_class(self):
+        """Use lightweight serializer for list views"""
+        if self.action == 'list':
+            from .serializers import CategoryListSerializer
+            return CategoryListSerializer
+        return super().get_serializer_class()
     
     @action(detail=False, methods=["get"], url_path="with-hierarchy")
     def with_hierarchy(self, request):
@@ -337,6 +370,7 @@ class PublicOrderCreateViewSet(viewsets.ModelViewSet):
                 total_price=total_price,
                 payment_method=order_data.get('payment_method', 'credit_card'),
                 shipping_name=order_data.get('shipping_name', 'Standard Shipping'),
+                shipping_method=order_data.get('shipping_method', 'standard'),
                 status='pending',  # Order status for fulfillment
                 payment_status=payment_status  # Payment status separate
             )
@@ -365,167 +399,428 @@ class PublicOrderCreateViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CreateOrderAndCheckoutViewSet(viewsets.ViewSet):
+    """Atomic operation: Create order + Stripe session in single transaction"""
+    permission_classes = [permissions.AllowAny]
+    
+    def create(self, request):
+        """
+        Atomic operation: Create order + Stripe session in single transaction
+        Prevents orphaned orders if Stripe fails
+        """
+        from django.db import transaction
+        from django.utils import timezone
+        import stripe
+        from .models import Order, Product
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            with transaction.atomic():
+                data = request.data
+                cart_items = data.get('cart_items', [])
+                
+                # Validate cart not empty
+                if not cart_items:
+                    return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Check inventory availability with locking
+                inventory_errors = self._check_inventory_availability(cart_items)
+                if inventory_errors:
+                    return Response({'error': 'Insufficient inventory', 'details': inventory_errors}, 
+                                  status=status.HTTP_400_BAD_REQUEST)
+                
+                # Calculate totals
+                subtotal = sum(float(item['price']) * item['quantity'] for item in cart_items)
+                shipping_cost = float(data.get('shipping_cost', 0))
+                tax_amount = float(data.get('tax_amount', 0))
+                total_price = subtotal + shipping_cost + tax_amount
+                
+                # Create order with unique number
+                from .id_generators import generate_unique_tracking_id
+                order = Order.objects.create(
+                    customer_email=data.get('customer_email'),
+                    customer_name=data.get('customer_name'),
+                    customer_phone=data.get('customer_phone', ''),
+                    shipping_address=data.get('shipping_address', {}),
+                    billing_address=data.get('billing_address', {}),
+                    tracking_id=generate_unique_tracking_id(),
+                    subtotal=subtotal,
+                    shipping_cost=shipping_cost,
+                    tax_amount=tax_amount,
+                    total_price=total_price,
+                    shipping_method=data.get('shipping_method', 'standard'),
+                    status='pending'
+                )
+                
+                # Generate unique order number after save
+                order.order_number = order.generate_order_number()
+                order.save()
+                
+                # Create order items
+                from .models import OrderItem
+                for item_data in cart_items:
+                    try:
+                        product = Product.objects.get(id=item_data['product_id'])
+                        OrderItem.objects.create(
+                            order=order,
+                            product=product,
+                            quantity=item_data['quantity'],
+                            unit_price=float(item_data['price'])
+                        )
+                    except Product.DoesNotExist:
+                        logger.warning(f"Product {item_data['product_id']} not found, skipping")
+                        continue
+                
+                # Reserve inventory
+                self._reserve_inventory(cart_items)
+                
+                # Create Stripe checkout session
+                checkout_session = self._create_stripe_checkout_session(order, request)
+                
+                # Update order with Stripe session ID
+                order.stripe_session_id = checkout_session.id
+                order.save()
+                
+                logger.info(f"Order {order.order_number} created successfully with Stripe session {checkout_session.id}")
+                
+                return Response({
+                    'order_number': order.order_number,
+                    'order_id': order.id,
+                    'checkout_url': checkout_session.url,
+                    'stripe_session_id': checkout_session.id
+                })
+                
+        except Exception as e:
+            logger.error(f"Order creation failed: {str(e)}")
+            return Response({'error': 'Order creation failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _create_stripe_checkout_session(self, order, request):
+        """Create Stripe checkout session for the order"""
+        import stripe
+        from .models import Product
+        
+        # Set API key
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        
+        # Build line items from order items
+        from .models import OrderItem
+        line_items = []
+        for order_item in order.order_items.all():
+            product = order_item.product
+            line_items.append({
+                'price_data': {
+                    'currency': 'gbp',
+                    'product_data': {
+                        'name': product.name,
+                    },
+                    'unit_amount': int(float(order_item.unit_price) * 100),  # Convert to cents
+                },
+                'quantity': order_item.quantity,
+            })
+        
+        # Create checkout session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=line_items,
+            mode='payment',
+            customer_email=order.customer_email,
+            success_url=f'{request.build_absolute_uri("/")}order-confirmation/{order.tracking_id}',
+            cancel_url=f'{request.build_absolute_uri("/")}checkout?cancelled=true',
+            metadata={
+                'order_id': str(order.id),
+                'order_number': order.order_number,
+                'customer_email': order.customer_email,
+                'customer_name': order.customer_name,
+            }
+        )
+        
+        return checkout_session
+    
+    def _check_inventory_availability(self, cart_items):
+        """Check if all items in cart have sufficient inventory"""
+        from .models import Product
+        from django.db.models import F
+        
+        errors = []
+        
+        for item in cart_items:
+            product_id = item.get('product_id')
+            quantity = item.get('quantity', 0)
+            
+            if not product_id or quantity <= 0:
+                continue
+                
+            try:
+                # Use select_for_update to lock the product row
+                product = Product.objects.select_for_update().get(id=product_id)
+                
+                if product.stock < quantity:
+                    errors.append({
+                        'product_id': product_id,
+                        'product_name': product.name,
+                        'requested': quantity,
+                        'available': product.stock
+                    })
+                    
+            except Product.DoesNotExist:
+                errors.append({
+                    'product_id': product_id,
+                    'product_name': 'Unknown Product',
+                    'error': 'Product not found'
+                })
+                
+        return errors
+    
+    def _reserve_inventory(self, cart_items):
+        """Reserve inventory for order items"""
+        from .models import Product
+        from django.db.models import F
+        
+        for item in cart_items:
+            product_id = item.get('product_id')
+            quantity = item.get('quantity', 0)
+            
+            if not product_id or quantity <= 0:
+                continue
+                
+            try:
+                # Use select_for_update to lock and update inventory
+                product = Product.objects.select_for_update().get(id=product_id)
+                product.stock = F('stock') - quantity
+                product.save()
+                
+            except Product.DoesNotExist:
+                # This shouldn't happen if _check_inventory_availability passed
+                logger.warning(f"Product {product_id} not found during inventory reservation")
+
+
+class PublicOrderDetailViewSet(viewsets.ViewSet):
+    """Public endpoint for retrieving order details by order number or ID"""
+    permission_classes = [permissions.AllowAny]
+    
+    def retrieve(self, request, order_number=None):
+        """Get order details by order number"""
+        from .models import Order
+        
+        try:
+            order = Order.objects.get(order_number=order_number)
+            
+            return Response({
+                'order_number': order.order_number,
+                'order_id': order.id,
+                'tracking_id': order.tracking_id,
+                'customer_name': order.customer_name,
+                'customer_email': order.customer_email,
+                'customer_phone': order.customer_phone,
+                'shipping_address': order.shipping_address,
+                'billing_address': order.billing_address,
+                'items': order.items,
+                'subtotal': float(order.subtotal),
+                'shipping_cost': float(order.shipping_cost),
+                'tax_amount': float(order.tax_amount),
+                'total_price': float(order.total_price),
+                'status': order.status,
+                'payment_status': order.payment_status,
+                'created_at': order.created_at,
+                'updated_at': order.updated_at,
+            })
+            
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def retrieve_by_id(self, request, order_id=None):
+        """Get order details by order ID (for slug-based URLs)"""
+        from .models import Order
+        
+        try:
+            order = Order.objects.get(id=int(order_id))
+            
+            return Response({
+                'order_number': order.order_number,
+                'order_id': order.id,
+                'tracking_id': order.tracking_id,
+                'customer_name': order.customer_name,
+                'customer_email': order.customer_email,
+                'customer_phone': order.customer_phone,
+                'shipping_address': order.shipping_address,
+                'billing_address': order.billing_address,
+                'items': order.items,
+                'subtotal': float(order.subtotal),
+                'shipping_cost': float(order.shipping_cost),
+                'tax_amount': float(order.tax_amount),
+                'total_price': float(order.total_price),
+                'status': order.status,
+                'payment_status': order.payment_status,
+                'created_at': order.created_at,
+                'updated_at': order.updated_at,
+            })
+            
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({'error': 'Invalid order ID'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def update_payment_status(self, request, order_id=None):
+        """Update payment status for an order"""
+        from .models import Order
+        
+        try:
+            order = Order.objects.get(id=int(order_id))
+            payment_status = request.data.get('payment_status')
+            
+            if payment_status in ['paid', 'unpaid', 'failed', 'refunded']:
+                order.payment_status = payment_status
+                if payment_status == 'paid':
+                    order.status = 'paid'
+                order.save()
+                
+                return Response({
+                    'message': 'Payment status updated successfully',
+                    'order_id': order.id,
+                    'payment_status': order.payment_status,
+                    'status': order.status
+                })
+            else:
+                return Response({'error': 'Invalid payment status'}, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({'error': 'Invalid order ID'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class StripeCheckoutViewSet(viewsets.ViewSet):
     """Public endpoint for creating Stripe Checkout sessions"""
     permission_classes = [permissions.AllowAny]
     
-    def create(self, request):
-        """Create a Stripe Checkout session with pre-created order"""
-        import time
+    def list(self, request):
+        """Test endpoint to verify routing is working"""
         try:
+            print(f"🔍 Testing Stripe import in list method...")
+            print(f"🔍 Stripe module: {stripe}")
+            print(f"🔍 Stripe type: {type(stripe)}")
+            print(f"🔍 Has checkout attribute: {hasattr(stripe, 'checkout')}")
+            if hasattr(stripe, 'checkout'):
+                print(f"🔍 Has Session attribute: {hasattr(stripe.checkout, 'Session')}")
+                print(f"🔍 stripe.checkout: {stripe.checkout}")
+                print(f"🔍 stripe.checkout type: {type(stripe.checkout)}")
+            
+            return Response({
+                'message': 'StripeCheckoutViewSet is working', 
+                'stripe_module': str(stripe),
+                'stripe_type': str(type(stripe)),
+                'has_checkout': hasattr(stripe, 'checkout'),
+                'checkout_value': str(stripe.checkout) if hasattr(stripe, 'checkout') else 'No checkout attribute'
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def create(self, request):
+        """Create a Stripe Checkout session with actual cart data"""
+        from stripe.checkout import Session as StripeSession
+        import stripe
+        from .models import Product
+        
+        try:
+            # Check if STRIPE_SECRET_KEY is None
+            if settings.STRIPE_SECRET_KEY is None:
+                return Response({'error': 'Stripe configuration error: STRIPE_SECRET_KEY is None'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # Set API key
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            
             # Extract checkout data from request
             checkout_data = request.data
-            
-            # Get cart items
             cart_items = checkout_data.get('cart_items', [])
+            customer_email = checkout_data.get('customer_email', '')
+            total_price = checkout_data.get('total_price', 0)
+            
             if not cart_items:
                 return Response({'error': 'No items in cart'}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Get customer and shipping info
-            customer_email = checkout_data.get('customer_email', '')
-            shipping_address = checkout_data.get('shipping_address', {})
-            shipping_name = checkout_data.get('shipping_name', 'Standard Shipping')
-            user_id = checkout_data.get('user_id', 'guest')
-            
-            # Calculate totals
-            subtotal = checkout_data.get('subtotal', 0)
-            shipping_cost = checkout_data.get('shipping_cost', 0)
-            tax_amount = checkout_data.get('tax_amount', 0)
-            total_price = checkout_data.get('total_price', 0)
-            
-            # Create order FIRST (before checkout session)
-            from django.contrib.auth.models import User
-            from .models import Order, OrderItem
-            
-            user = None
-            if user_id and user_id != 'guest':
-                try:
-                    user = User.objects.get(id=user_id)
-                except User.DoesNotExist:
-                    pass
-            
-            # Create order with temporary tracking ID (will be updated with session ID)
-            temp_tracking_id = f"temp_{request.session.session_key}_{int(time.time())}"
-            order = Order.objects.create(
-                user=user,
-                tracking_id=temp_tracking_id,
-                customer_email=customer_email,
-                customer_phone=shipping_address.get('phone', ''),  # Use phone from shipping address if available
-                shipping_address=shipping_address,
-                subtotal=subtotal,
-                shipping_cost=shipping_cost,
-                tax_amount=tax_amount,
-                total_price=total_price,
-                payment_method='card',
-                shipping_name=shipping_name,
-                status='pending',
-                payment_status='unpaid'
-            )
-            
-            # Create order items
-            for item in cart_items:
-                try:
-                    product = Product.objects.get(id=item['product_id'])
-                    OrderItem.objects.create(
-                        order=order,
-                        product=product,
-                        quantity=item['quantity'],
-                        unit_price=item['unit_price']
-                    )
-                except Product.DoesNotExist:
-                    continue
-            
-            # Prepare line items for Stripe
+            # Build line items from cart data
             line_items = []
             for item in cart_items:
+                product_id = item.get('product_id')
+                quantity = item.get('quantity', 1)
+                unit_price = item.get('unit_price', 0)
+                
+                # Get product details
                 try:
-                    product = Product.objects.get(id=item['product_id'])
-                    line_items.append({
-                        'price_data': {
-                            'currency': 'gbp',
-                            'product_data': {
-                                'name': product.name,
-                                'description': product.description[:500] if product.description else None,
-                                'metadata': {
-                                    'product_id': str(product.id),
-                                    'order_id': str(order.id)
-                                }
-                            },
-                            'unit_amount': int(float(item['unit_price']) * 100),  # Convert to pence
-                        },
-                        'quantity': item['quantity'],
-                    })
+                    product = Product.objects.get(id=product_id)
+                    product_name = product.name
+                    product_description = f"{product.name} - {product.description[:100]}" if product.description else product.name
                 except Product.DoesNotExist:
-                    continue
-            
-            if not line_items:
-                # Clean up the order if no valid products
-                order.delete()
-                return Response({'error': 'No valid products found'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Create Stripe Checkout session with comprehensive metadata
-            try:
-                checkout_session = stripe.checkout.Session.create(
-                    payment_method_types=['card'],
-                    line_items=line_items,
-                    mode='payment',
-                    customer_email=customer_email,
-                    shipping_address_collection={
-                        'allowed_countries': ['GB', 'US', 'CA', 'AU', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE'],
+                    product_name = f"Product {product_id}"
+                    product_description = f"Product ID: {product_id}"
+                
+                line_items.append({
+                    'price_data': {
+                        'currency': 'gbp',
+                        'product_data': {
+                            'name': product_name,
+                            'description': product_description,
+                            'metadata': {
+                                'product_id': str(product_id)
+                            }
+                        },
+                        'unit_amount': int(float(unit_price) * 100),  # Convert to cents
                     },
-                    shipping_options=[
-                        {
-                            'shipping_rate_data': {
-                                'type': 'fixed_amount',
-                                'fixed_amount': {
-                                    'amount': int(float(shipping_cost) * 100),
-                                    'currency': 'gbp',
-                                },
-                                'display_name': shipping_name,
-                            },
-                        }
-                    ],
-                    success_url=f'http://127.0.0.1:5173/order-confirmation/{{CHECKOUT_SESSION_ID}}',
-                    cancel_url=f'http://127.0.0.1:5173/checkout?cancelled=true',
-                    metadata={
-                        'order_id': str(order.id),  # Database order ID
-                        'user_id': str(user_id),
-                        'customer_email': customer_email,
-                        'customer_phone': shipping_address.get('phone', ''),  # Include phone from shipping address
-                        'cart_id': f"cart_{order.id}",
-                        'tracking_id': temp_tracking_id,  # Temporary tracking ID
-                        'order_type': 'checkout',
-                        'subtotal': str(subtotal),
-                        'shipping_cost': str(shipping_cost),
-                        'tax_amount': str(tax_amount),
-                        'total_price': str(total_price),
-                    }
-                )
-                
-                # Update order with the actual session ID
-                order.tracking_id = checkout_session.id
-                order.save()
-                
-                print(f"✅ Created order {order.id} with checkout session {checkout_session.id}")
-                
-                return Response({
-                    'checkout_session_id': checkout_session.id,
-                    'checkout_url': checkout_session.url,
-                    'order_id': order.id,
-                    'message': 'Checkout session created successfully'
-                }, status=status.HTTP_201_CREATED)
-                
-            except stripe.error.StripeError as e:
-                # Clean up the order if Stripe fails
-                order.delete()
-                print(f"Stripe error: {e}")
-                return Response(
-                    {'error': f'Stripe error: {str(e)}'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                    'quantity': quantity,
+                })
+            
+            # Add shipping as a separate line item if applicable
+            shipping_cost = checkout_data.get('shipping_cost', 0)
+            if shipping_cost > 0:
+                shipping_name = checkout_data.get('shipping_name', 'Shipping')
+                line_items.append({
+                    'price_data': {
+                        'currency': 'gbp',
+                        'product_data': {
+                            'name': shipping_name,
+                        },
+                        'unit_amount': int(float(shipping_cost) * 100),
+                    },
+                    'quantity': 1,
+                })
+            
+            
+            # Create checkout session with actual data
+            checkout_session = StripeSession.create(
+                payment_method_types=['card'],
+                line_items=line_items,
+                mode='payment',
+                customer_email=customer_email,
+                success_url=f'http://127.0.0.1:5173/order-confirmation/{order.tracking_id}',
+                cancel_url='http://127.0.0.1:5173/checkout?cancelled=true',
+                metadata={
+                    'user_id': checkout_data.get('user_id', 'guest'),
+                    'total_price': str(total_price),
+                    'cart_items_count': str(len(cart_items)),
+                    'order_id': 'pending'  # Will be updated when order is created
+                }
+            )
+            
+            return Response({
+                'checkout_session_id': checkout_session.id,
+                'checkout_url': checkout_session.url,
+                'message': 'Checkout session created successfully'
+            }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
-            print(f"Checkout session creation error: {e}")
+            # Log error for debugging
+            import traceback
+            print(f"❌ Error creating checkout session: {str(e)}")
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -541,11 +836,14 @@ class StripeCheckoutSessionViewSet(viewsets.ViewSet):
             if not session_id:
                 return Response({'error': 'Session ID is required'}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Find order by tracking_id (session ID)
+            # Find order by stripe_session_id first, then fallback to tracking_id
             try:
-                order = Order.objects.get(tracking_id=session_id)
+                order = Order.objects.get(stripe_session_id=session_id)
             except Order.DoesNotExist:
-                return Response({'error': 'Order not found for this checkout session'}, status=status.HTTP_404_NOT_FOUND)
+                try:
+                    order = Order.objects.get(tracking_id=session_id)
+                except Order.DoesNotExist:
+                    return Response({'error': 'Order not found for this checkout session'}, status=status.HTTP_404_NOT_FOUND)
             
             # Update payment status if provided
             payment_status = request.data.get('payment_status')
@@ -675,18 +973,37 @@ class StripeCheckoutSessionViewSet(viewsets.ViewSet):
     def retrieve(self, request, pk=None):
         """Get checkout session details by session ID - Enhanced for confirmation page"""
         try:
+            import stripe
             session_id = pk
             if not session_id:
                 return Response({'error': 'Session ID is required'}, status=status.HTTP_400_BAD_REQUEST)
             
             print(f"🔍 Looking up order for session: {session_id}")
             
-            # Find order by tracking_id (session ID) - this is the primary lookup
+            # Find order by stripe_session_id first, then fallback to tracking_id
             try:
-                order = Order.objects.get(tracking_id=session_id)
-                print(f"✅ Found order {order.id} with tracking_id {session_id}")
+                order = Order.objects.get(stripe_session_id=session_id)
+                print(f"✅ Found order {order.id} with stripe_session_id {session_id}")
+                
+                # Auto-fix: if order has stripe_session_id but is unpaid, mark as paid
+                if order.payment_status == 'unpaid' and session_id.startswith('cs_'):
+                    print(f"🔧 Auto-fixing: Order {order.id} has Stripe session but is marked unpaid, updating to paid")
+                    order.payment_status = 'paid'
+                    order.save()
+                    
             except Order.DoesNotExist:
-                print(f"❌ Order not found for session {session_id}")
+                try:
+                    order = Order.objects.get(tracking_id=session_id)
+                    print(f"✅ Found order {order.id} with tracking_id {session_id}")
+                    
+                    # Auto-fix: if this is a Stripe session ID in tracking_id, mark as paid
+                    if order.payment_status == 'unpaid' and session_id.startswith('cs_'):
+                        print(f"🔧 Auto-fixing: Order {order.id} has Stripe session in tracking_id but is marked unpaid, updating to paid")
+                        order.payment_status = 'paid'
+                        order.save()
+                        
+                except Order.DoesNotExist:
+                    print(f"❌ Order not found for session {session_id}")
                 
                 # Check if this is a test session or if webhook hasn't processed yet
                 if session_id.startswith('cs_test_'):
@@ -711,6 +1028,7 @@ class StripeCheckoutSessionViewSet(viewsets.ViewSet):
             # Prepare response data
             order_data = {
                 'id': order.id,
+                'order_number': order.order_number,
                 'tracking_id': order.tracking_id,
                 'payment_id': order.payment_id,
                 'status': order.status,
@@ -799,22 +1117,25 @@ class PublicOrderTrackingViewSet(viewsets.ViewSet):
             # Prepare response data
             order_data = {
                 'id': order.id,
+                'order_number': order.order_number,
                 'tracking_id': order.tracking_id,
                 'payment_id': order.payment_id,
                 'status': order.status,
                 'status_display': order.get_status_display(),
                 'payment_status': order.payment_status,
                 'payment_status_display': order.get_payment_status_display(),
+                'customer_name': order.customer_name,
                 'customer_email': order.customer_email,
                 'customer_phone': order.customer_phone,
                 'shipping_address': order.shipping_address,
+                'shipping_name': order.shipping_name,
+                'shipping_method': order.shipping_method,
                 'subtotal': float(order.subtotal),
                 'shipping_cost': float(order.shipping_cost),
                 'tax_amount': float(order.tax_amount),
                 'total_price': float(order.total_price),
                 'payment_method': order.payment_method,
-                'shipping_name': order.shipping_name,
-                'created_at': order.created_at,
+                'created_at': order.created_at.isoformat(),
                 'items': [
                     {
                         'id': item.id,
@@ -854,13 +1175,17 @@ class PublicOrderTrackingViewSet(viewsets.ViewSet):
             payment_status = request.data.get('payment_status')
             if payment_status:
                 order.payment_status = payment_status
+                # Set order status to pending when payment is successful
+                if payment_status == 'paid':
+                    order.status = 'pending'
                 order.save()
                 print(f"✅ Updated payment status to {payment_status} for order {order.id}")
             
             return Response({
                 'message': 'Order updated successfully',
                 'order_id': order.id,
-                'payment_status': order.payment_status
+                'payment_status': order.payment_status,
+                'payment_status_display': order.get_payment_status_display()
             })
             
         except Exception as e:
@@ -955,6 +1280,7 @@ class PaymentIntentViewSet(viewsets.ViewSet):
     def create(self, request):
         """Create a payment intent for the checkout amount"""
         try:
+            import stripe
             # Set Stripe API key
             stripe.api_key = settings.STRIPE_SECRET_KEY
             

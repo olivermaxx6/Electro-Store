@@ -48,8 +48,19 @@ const CategoryItem = ({ category, onEdit, onDelete, services, level = 0 }) => {
           </p>
         )}
         
+        {/* Display category image if available */}
+        {category.image && (
+          <div className="mb-3">
+            <img 
+              src={category.image} 
+              alt={`${category.name} category`}
+              className="w-20 h-20 object-cover rounded-lg border border-slate-200 dark:border-slate-600"
+            />
+          </div>
+        )}
+        
         <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-2">
-          <span>Services: {services.filter(s => s.category_id === category.id).length}</span>
+          <span>Services: {services.filter(s => s.category && s.category.id === category.id).length}</span>
           {category.parent_name && (
             <span>Parent: {category.parent_name}</span>
           )}
@@ -93,12 +104,16 @@ export default function ServicesPage() {
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [newCategoryOrdering, setNewCategoryOrdering] = useState('0');
   const [newCategoryParent, setNewCategoryParent] = useState('');
+  const [newCategoryImage, setNewCategoryImage] = useState(null);
+  const [newCategoryIsActive, setNewCategoryIsActive] = useState(true);
   
   // Form states for editing category
   const [eCategoryName, setECategoryName] = useState('');
   const [eCategoryDescription, setECategoryDescription] = useState('');
   const [eCategoryOrdering, setECategoryOrdering] = useState('0');
   const [eCategoryParent, setECategoryParent] = useState('');
+  const [eCategoryImage, setECategoryImage] = useState(null);
+  const [eCategoryIsActive, setECategoryIsActive] = useState(true);
   
   // Form states for creating new service
   const [newName, setNewName] = useState('');
@@ -359,6 +374,7 @@ export default function ServicesPage() {
     setNewCategoryDescription('');
     setNewCategoryOrdering('0');
     setNewCategoryParent('');
+    setNewCategoryImage(null);
   };
 
   const loadCategories = async () => {
@@ -417,14 +433,24 @@ export default function ServicesPage() {
     e.preventDefault();
     clearValidationErrors();
     
-    const formData = {
+    const formData = new FormData();
+    formData.append('name', newCategoryName);
+    formData.append('description', newCategoryDescription);
+    formData.append('ordering', newCategoryOrdering);
+    formData.append('is_active', newCategoryIsActive); // Use state variable for is_active status
+    if (newCategoryParent) {
+      formData.append('parent', newCategoryParent);
+    }
+    if (newCategoryImage) {
+      formData.append('image', newCategoryImage);
+    }
+    
+    const errors = validateCategoryForm({
       name: newCategoryName,
       description: newCategoryDescription,
       ordering: newCategoryOrdering,
       parent: newCategoryParent || null
-    };
-    
-    const errors = validateCategoryForm(formData);
+    });
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       setMsg({ 
@@ -438,13 +464,7 @@ export default function ServicesPage() {
     setMsg(null);
     try {
       console.log('[ServicesPage] Creating category:', newCategoryName.trim());
-      const response = await createServiceCategory({
-        name: newCategoryName.trim(),
-        description: newCategoryDescription.trim(),
-        ordering: parseInt(newCategoryOrdering) || 0,
-        parent: newCategoryParent ? parseInt(newCategoryParent) : null,
-        is_active: true
-      });
+      const response = await createServiceCategory(formData);
       
       console.log('[ServicesPage] Category created response:', response);
       const newCategory = response.data; // Extract data from axios response
@@ -485,6 +505,8 @@ export default function ServicesPage() {
     setECategoryDescription(category.description || '');
     setECategoryOrdering(category.ordering ? category.ordering.toString() : '0');
     setECategoryParent(category.parent ? category.parent.toString() : '');
+    setECategoryImage(null); // Reset image for new upload
+    setECategoryIsActive(category.is_active !== false); // Set is_active state
     setShowCategoryForm(false); // Hide the add form when editing
   };
 
@@ -497,14 +519,24 @@ export default function ServicesPage() {
       return;
     }
     
-    const formData = {
+    const formData = new FormData();
+    formData.append('name', eCategoryName);
+    formData.append('description', eCategoryDescription);
+    formData.append('ordering', eCategoryOrdering);
+    formData.append('is_active', eCategoryIsActive); // Use state variable for is_active status
+    if (eCategoryParent) {
+      formData.append('parent', eCategoryParent);
+    }
+    if (eCategoryImage) {
+      formData.append('image', eCategoryImage);
+    }
+    
+    const errors = validateCategoryForm({
       name: eCategoryName,
       description: eCategoryDescription,
       ordering: eCategoryOrdering,
       parent: eCategoryParent || null
-    };
-    
-    const errors = validateCategoryForm(formData);
+    });
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       setMsg({ 
@@ -518,13 +550,7 @@ export default function ServicesPage() {
     setMsg(null);
     try {
       console.log('[ServicesPage] Updating category:', editingCategory.id, 'to:', eCategoryName.trim());
-      const updatedCategory = await updateServiceCategory(editingCategory.id, {
-        name: eCategoryName.trim(),
-        description: eCategoryDescription.trim(),
-        ordering: parseInt(eCategoryOrdering) || 0,
-        parent: eCategoryParent ? parseInt(eCategoryParent) : null,
-        is_active: editingCategory.is_active !== false
-      });
+      const updatedCategory = await updateServiceCategory(editingCategory.id, formData);
       
       setCategories(prev => prev.map(c => c.id === editingCategory.id ? updatedCategory : c));
       setEditingCategory(null);
@@ -550,6 +576,7 @@ export default function ServicesPage() {
     setECategoryDescription('');
     setECategoryOrdering('0');
     setECategoryParent('');
+    setECategoryImage(null);
   };
 
   const loadServices = async () => {
@@ -644,12 +671,10 @@ export default function ServicesPage() {
       formData.append('description', newDescription.trim());
       formData.append('price', parseFloat(newPrice));
       
-      if (newCategoryId) {
-        formData.append('category_id', parseInt(newCategoryId));
-      }
-      
-      if (newSubcategoryId) {
-        formData.append('subcategory_id', parseInt(newSubcategoryId));
+      // Use subcategory_id if available, otherwise use category_id
+      const categoryToUse = newSubcategoryId || newCategoryId;
+      if (categoryToUse) {
+        formData.append('category_id', parseInt(categoryToUse));
       }
       
       formData.append('rating', parseFloat(newRating));
@@ -736,12 +761,10 @@ export default function ServicesPage() {
       formData.append('description', eDescription.trim());
       formData.append('price', parseFloat(ePrice));
       
-      if (eCategoryId) {
-        formData.append('category_id', parseInt(eCategoryId));
-      }
-      
-      if (eSubcategoryId) {
-        formData.append('subcategory_id', parseInt(eSubcategoryId));
+      // Use subcategory_id if available, otherwise use category_id
+      const categoryToUse = eSubcategoryId || eCategoryId;
+      if (categoryToUse) {
+        formData.append('category_id', parseInt(categoryToUse));
       }
       
       formData.append('rating', parseFloat(eRating));
@@ -817,8 +840,8 @@ export default function ServicesPage() {
     setEPrice(service.price ? service.price.toString() : '');
     setEImage(null);
     setEFiles([]);
-    setECategoryId(service.category_id ? service.category_id.toString() : '');
-    setESubcategoryId(service.subcategory_id ? service.subcategory_id.toString() : '');
+    setECategoryId(service.category ? service.category.id.toString() : '');
+    setESubcategoryId(service.subcategory ? service.subcategory.id.toString() : '');
     setERating(service.rating ? service.rating.toString() : '0.0');
     setEReviewCount(service.review_count ? service.review_count.toString() : '0');
     setEOverview(service.overview || '');
@@ -974,6 +997,54 @@ export default function ServicesPage() {
                   />
                 </div>
                 
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Category Image
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setNewCategoryImage(e.target.files[0])}
+                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                  {newCategoryImage && (
+                    <div className="mt-2">
+                      <img 
+                        src={URL.createObjectURL(newCategoryImage)} 
+                        alt="Preview" 
+                        className="w-24 h-24 object-cover rounded-lg border border-slate-200 dark:border-slate-600"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Preview of selected image
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Upload an image for this category (optional)
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Status
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="newCategoryIsActive"
+                      checked={newCategoryIsActive}
+                      onChange={(e) => setNewCategoryIsActive(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <label htmlFor="newCategoryIsActive" className="text-sm text-slate-700 dark:text-slate-300">
+                      Active (visible on frontend)
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Uncheck to hide this category from the frontend
+                  </p>
+                </div>
+                
                 <div className="flex justify-end">
                   <ThemeButton 
                     type="submit" 
@@ -1048,6 +1119,68 @@ export default function ServicesPage() {
                     placeholder="Enter category description..."
                     rows={2}
                   />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Category Image
+                  </label>
+                  
+                  {/* Show current image if exists */}
+                  {editingCategory.image && !eCategoryImage && (
+                    <div className="mb-2">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Current image:</p>
+                      <img 
+                        src={editingCategory.image} 
+                        alt="Current category image" 
+                        className="w-24 h-24 object-cover rounded-lg border border-slate-200 dark:border-slate-600"
+                      />
+                    </div>
+                  )}
+                  
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setECategoryImage(e.target.files[0])}
+                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                  
+                  {/* Show preview of new image */}
+                  {eCategoryImage && (
+                    <div className="mt-2">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">New image preview:</p>
+                      <img 
+                        src={URL.createObjectURL(eCategoryImage)} 
+                        alt="Preview" 
+                        className="w-24 h-24 object-cover rounded-lg border border-slate-200 dark:border-slate-600"
+                      />
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Upload a new image for this category (optional)
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Status
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="eCategoryIsActive"
+                      checked={eCategoryIsActive}
+                      onChange={(e) => setECategoryIsActive(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <label htmlFor="eCategoryIsActive" className="text-sm text-slate-700 dark:text-slate-300">
+                      Active (visible on frontend)
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Uncheck to hide this category from the frontend
+                  </p>
                 </div>
                 
                 <div className="flex gap-3 justify-end">

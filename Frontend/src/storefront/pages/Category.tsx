@@ -111,23 +111,37 @@ const Category: React.FC = () => {
         setLoading(true);
         setError(null);
         console.log('Loading categories from backend API...');
-        // Load ALL categories from backend API (including subcategories)
-        // Handle pagination to get all categories
+        // Load top-level categories first for better performance
         let allCategories: any[] = [];
-        let nextUrl = 'http://127.0.0.1:8001/api/public/categories/';
         
-        while (nextUrl) {
-          const response = await fetch(nextUrl);
-          console.log('API Response status:', response.status);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('API Response data page:', data);
-            allCategories = [...allCategories, ...(data.results || [])];
-            nextUrl = data.next || null;
+        try {
+          // First, try to get top-level categories only
+          const topResponse = await fetch('http://127.0.0.1:8001/api/public/categories/?top=true');
+          if (topResponse.ok) {
+            const topData = await topResponse.json();
+            allCategories = topData.results || topData;
+            console.log('Loaded top-level categories:', allCategories.length);
           } else {
-            console.error('API request failed with status:', response.status);
-            break;
+            throw new Error('Failed to load top categories');
+          }
+        } catch (error) {
+          console.log('Top categories failed, falling back to all categories...');
+          // Fallback to loading all categories with pagination
+          let nextUrl = 'http://127.0.0.1:8001/api/public/categories/';
+          
+          while (nextUrl) {
+            const response = await fetch(nextUrl);
+            console.log('API Response status:', response.status);
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log('API Response data page:', data);
+              allCategories = [...allCategories, ...(data.results || [])];
+              nextUrl = data.next || null;
+            } else {
+              console.error('API request failed with status:', response.status);
+              break;
+            }
           }
         }
         

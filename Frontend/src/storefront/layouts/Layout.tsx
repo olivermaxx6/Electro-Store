@@ -30,7 +30,7 @@ const Layout: React.FC = () => {
       </main>
       
       {/* Footer */}
-      <footer className="bg-gray-50 dark:bg-slate-800">
+      <footer className="w-full">
         <FooterColumns />
         <BottomBar />
       </footer>

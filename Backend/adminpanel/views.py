@@ -348,7 +348,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().order_by("-created_at")
     serializer_class = OrderSerializer
     permission_classes = [IsAdmin]
-    http_method_names = ["get","patch","put","head","options","trace"]
+    http_method_names = ["get","patch","put","delete","head","options","trace"]
 
     def get_queryset(self):
         qs = super().get_queryset()

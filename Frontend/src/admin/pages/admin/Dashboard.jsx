@@ -112,12 +112,20 @@ export default function Dashboard() {
       loadDashboardData();
     };
 
+    const handleOrdersUpdated = (event) => {
+      console.log('📊 Orders updated event received:', event.detail);
+      console.log('📊 Refreshing dashboard data due to order changes...');
+      loadDashboardData();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('ordersUpdated', handleOrdersUpdated);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('ordersUpdated', handleOrdersUpdated);
     };
   }, []);
 

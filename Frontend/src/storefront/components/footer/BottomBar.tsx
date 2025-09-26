@@ -20,7 +20,7 @@ const BottomBar: React.FC = () => {
   
   return (
     <div className="bg-gray-900 dark:bg-slate-900 text-white">
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
           {/* Copyright */}
           <div className="text-sm text-gray-400 dark:text-gray-300">

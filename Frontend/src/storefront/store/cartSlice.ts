@@ -87,6 +87,31 @@ const cartSlice = createSlice({
       state.userCarts[userId].shippingCost = shippingCost;
     },
     
+    // New action to validate and clean cart items
+    validateCartItems: (state, action: PayloadAction<{ validProducts: string[]; userId?: string }>) => {
+      const { validProducts, userId = 'guest' } = action.payload;
+      
+      if (state.userCarts[userId]) {
+        // Remove items for products that no longer exist or are invalid
+        state.userCarts[userId].items = state.userCarts[userId].items.filter(
+          item => validProducts.includes(item.productId)
+        );
+      }
+    },
+    
+    // New action to update cart with fresh product data
+    refreshCart: (state, action: PayloadAction<{ cartData: any; userId?: string }>) => {
+      const { cartData, userId = 'guest' } = action.payload;
+      
+      if (cartData && cartData.items) {
+        state.userCarts[userId] = {
+          items: cartData.items,
+          shippingCost: cartData.shippingCost || 0,
+          coupon: cartData.coupon
+        };
+      }
+    },
+    
   },
 });
 
@@ -97,6 +122,8 @@ export const {
   clearCart,
   setCoupon,
   setShippingCost,
+  validateCartItems,
+  refreshCart,
 } = cartSlice.actions;
 
 // Selectors
