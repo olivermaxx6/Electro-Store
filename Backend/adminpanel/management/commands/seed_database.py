@@ -21,6 +21,12 @@ class Command(BaseCommand):
             help='Path to anime.jpg image file',
             default='../anime.jpg'
         )
+        parser.add_argument(
+            '--german-image',
+            type=str,
+            help='Path to German.png image file',
+            default='../German.png'
+        )
 
     def copy_anime_image(self, anime_source):
         """Copy anime.jpg to media directory for use in seeding"""
@@ -36,6 +42,19 @@ class Command(BaseCommand):
             return anime_dest
         else:
             self.stdout.write(f"anime.jpg not found at {anime_source}")
+            return None
+
+    def copy_german_image(self, german_source):
+        """Copy German.png to media directory for use in seeding services"""
+        german_dest = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'media', 'German.png')
+        os.makedirs(os.path.dirname(german_dest), exist_ok=True)
+        if os.path.exists(german_source):
+            import shutil
+            shutil.copy2(german_source, german_dest)
+            self.stdout.write(f"Copied German.png to {german_dest}")
+            return german_dest
+        else:
+            self.stdout.write(f"German.png not found at {german_source}")
             return None
 
     def create_brands(self):
@@ -427,9 +446,26 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f" Created service category: {category.name}")
         
+        # Ensure at least one subcategory exists under Consulting Services
+        consulting_parent = next((c for c in service_categories if c.name == "Consulting Services"), None)
+        if consulting_parent:
+            subcat_name = "Data & Analytics"
+            subcat, created = ServiceCategory.objects.get_or_create(
+                name=subcat_name,
+                parent=consulting_parent,
+                defaults={
+                    "description": "Consulting for data, BI and analytics",
+                    "ordering": consulting_parent.ordering + 1
+                }
+            )
+            if created:
+                self.stdout.write(f" Created service subcategory: {consulting_parent.name} / {subcat.name}")
+            # Include subcategory in the returned list so services can attach to it
+            service_categories.append(subcat)
+        
         return service_categories
 
-    def create_services(self, service_categories, anime_path):
+    def create_services(self, service_categories, anime_path, german_path):
         """Create services with detailed information"""
         services_data = [
             {
@@ -612,6 +648,56 @@ class Command(BaseCommand):
         
         services = []
         
+        # Duplicate a specific subcategory with variants to ensure at least 10 services in one subcategory
+        # Place all consulting variants under a real subcategory under Consulting Services
+        base_subcategory = "Data & Analytics"
+        consulting_variants = [
+            {"name": "Data Analytics Consulting", "price": Decimal("500.00")},
+            {"name": "Cloud Migration Consulting", "price": Decimal("650.00")},
+            {"name": "Cybersecurity Assessment", "price": Decimal("700.00")},
+            {"name": "DevOps Transformation", "price": Decimal("600.00")},
+            {"name": "AI/ML Strategy", "price": Decimal("900.00")},
+            {"name": "ERP Implementation Advisory", "price": Decimal("1200.00")},
+            {"name": "CRM Optimization", "price": Decimal("800.00")},
+            {"name": "Data Governance Setup", "price": Decimal("750.00")},
+            {"name": "IT Compliance & Audit", "price": Decimal("650.00")},
+            {"name": "Business Intelligence Dashboards", "price": Decimal("550.00")},
+        ]
+
+        standard_overview = "Detailed service overview and description..."
+        standard_description = "Describe your service in detail..."
+        standard_included = [
+            "Data collection and integration setup",
+            "Custom dashboard development",
+            "Predictive analytics models",
+        ]
+        standard_process = [
+            {"step": "Data Discovery", "duration": "3-5 days", "description": "Identify data sources and business requirements"},
+            {"step": "Data Integration", "duration": "1 week", "description": "Set up data pipelines and integration systems"},
+        ]
+        standard_keys = [
+            "Data Visualization",
+            "Predictive Analytics",
+            "Custom Dashboards",
+            "Real-time Reports",
+        ]
+
+        for variant in consulting_variants:
+            services_data.append({
+                "name": variant["name"],
+                "description": standard_description,
+                "price": variant["price"],
+                "category": base_subcategory,
+                "rating": Decimal("4.7"),
+                "review_count": 0,
+                "overview": standard_overview,
+                "included_features": standard_included,
+                "process_steps": standard_process,
+                "key_features": standard_keys,
+                "contact_info": {"phone": "+1 (555) 123-4567", "email": "support@example.com"},
+                "availability": "Available 24/7, Monday to Friday, etc."
+            })
+
         for service_data in services_data:
             # Find service category
             category = next((c for c in service_categories if c.name == service_data["category"]), None)
@@ -641,8 +727,13 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f" Created service: {service.name}")
                 
-                # Add service image using anime.jpg
-                if anime_path and os.path.exists(anime_path):
+                # Add service image using German.png if available, else fallback to anime.jpg
+                if german_path and os.path.exists(german_path):
+                    with open(german_path, 'rb') as f:
+                        service_image = ServiceImage.objects.create(service=service)
+                        service_image.image.save('German.png', File(f), save=True)
+                        self.stdout.write(f"   Added German.png image to {service.name}")
+                elif anime_path and os.path.exists(anime_path):
                     with open(anime_path, 'rb') as f:
                         service_image = ServiceImage.objects.create(service=service)
                         service_image.image.save('anime.jpg', File(f), save=True)
@@ -785,6 +876,7 @@ class Command(BaseCommand):
         self.stdout.write("Starting database seeding...")
         
         anime_path = self.copy_anime_image(options['anime_image'])
+        german_path = self.copy_german_image(options['german_image'])
         
         try:
             # Create brands
@@ -805,7 +897,7 @@ class Command(BaseCommand):
             
             # Create services
             self.stdout.write("\nCreating services...")
-            services = self.create_services(service_categories, anime_path)
+            services = self.create_services(service_categories, anime_path, german_path)
             
             # Create reviews
             self.stdout.write("\nCreating reviews...")

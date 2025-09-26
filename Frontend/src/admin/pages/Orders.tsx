@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../storefront/lib/format';
 import { Package, Truck, CheckCircle, XCircle, Clock, Eye, Edit } from 'lucide-react';
+import { getOrders, updateOrder } from '../lib/api';
+import { useAuth } from '../store/authStore';
 
 interface Order {
   id: number;
@@ -17,6 +19,7 @@ interface Order {
   payment_status: 'unpaid' | 'paid' | 'failed' | 'refunded';
   payment_method: string;
   shipping_name: string;
+  shipping_method: string;
   created_at: string;
   updated_at: string;
   items: Array<{
@@ -45,6 +48,7 @@ const Orders: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const { isAuthed, init } = useAuth();
   
   const statusOptions = [
     { value: 'pending', label: 'Pending', color: 'yellow' },
@@ -55,7 +59,17 @@ const Orders: React.FC = () => {
   ];
   
   useEffect(() => {
-    fetchOrders();
+    // Initialize auth first, then fetch orders
+    const initializeAndFetch = async () => {
+      try {
+        await init();
+        await fetchOrders();
+      } catch (error) {
+        console.error('Failed to initialize and fetch orders:', error);
+      }
+    };
+    
+    initializeAndFetch();
     
     // Auto-refresh every 30 seconds to check for payment status updates
     const interval = setInterval(() => {
@@ -63,30 +77,87 @@ const Orders: React.FC = () => {
     }, 30000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [init]);
   
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // Fetch orders from the API
-      const response = await fetch('http://127.0.0.1:8001/api/admin/orders/', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add authentication headers if needed
-        },
+      
+      // Initialize auth store first to ensure token is loaded
+      await init();
+      
+      // Check authentication after initialization
+      if (!isAuthed()) {
+        console.error('❌ User not authenticated after init');
+        console.log('🔍 Debugging authentication state...');
+        
+        // Debug localStorage
+        const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+        const token = authData.access || localStorage.getItem('access_token');
+        console.log('🔐 Auth data from localStorage:', authData);
+        console.log('🔐 Token present:', !!token);
+        
+        // Try to refresh token if refresh token exists
+        if (authData.refresh) {
+          console.log('🔄 Attempting token refresh...');
+          try {
+            const response = await fetch('http://127.0.0.1:8001/api/auth/refresh/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh: authData.refresh })
+            });
+            
+            if (response.ok) {
+              const refreshData = await response.json();
+              const newAuthData = { ...authData, access: refreshData.access };
+              localStorage.setItem('auth', JSON.stringify(newAuthData));
+              localStorage.setItem('access_token', refreshData.access);
+              console.log('✅ Token refreshed successfully');
+              
+              // Re-initialize auth store with new token
+              await init();
+              
+              // Check authentication again
+              if (!isAuthed()) {
+                throw new Error('Authentication still failed after token refresh');
+              }
+            } else {
+              throw new Error('Token refresh failed');
+            }
+          } catch (refreshError) {
+            console.error('❌ Token refresh failed:', refreshError);
+            setOrders([]);
+            return;
+          }
+        } else {
+          setOrders([]);
+          return;
+        }
+      }
+      
+      console.log('🔄 Fetching orders...');
+      const response = await getOrders();
+      console.log('✅ Orders fetched successfully:', response.data);
+      
+      // Handle both paginated and non-paginated responses
+      const ordersData = response.data.results || response.data;
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
+      
+    } catch (error) {
+      console.error('❌ Failed to fetch orders:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        setOrders(data.results || data);
-      } else {
-        console.error('Failed to fetch orders:', response.statusText);
-        // Fallback to empty array if API fails
-        setOrders([]);
+      // Check if it's an authentication error
+      if (error.response?.status === 401) {
+        console.error('Authentication failed - redirecting to login');
+        // The auth interceptor should handle redirect
       }
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
+      
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -95,10 +166,12 @@ const Orders: React.FC = () => {
   const updateOrderStatus = async (orderId: number, newStatus: string) => {
     try {
       setUpdatingStatus(true);
+      console.log(`🔄 Updating order ${orderId} status to ${newStatus}`);
       
-      // In a real app, you'd make an API call here
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await updateOrder(orderId, { status: newStatus });
+      console.log('✅ Order status updated successfully:', response.data);
       
+      // Update the order in the local state
       setOrders(prev => prev.map(order => 
         order.id === orderId 
           ? { ...order, status: newStatus as any, updated_at: new Date().toISOString() }
@@ -109,8 +182,19 @@ const Orders: React.FC = () => {
         setSelectedOrder(prev => prev ? { ...prev, status: newStatus as any, updated_at: new Date().toISOString() } : null);
       }
       
+      // Trigger dashboard refresh by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('ordersUpdated', { 
+        detail: { orderId, newStatus } 
+      }));
+      console.log('📊 Dashboard refresh triggered');
+      
     } catch (error) {
-      console.error('Failed to update order status:', error);
+      console.error('❌ Failed to update order status:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
     } finally {
       setUpdatingStatus(false);
     }
@@ -363,11 +447,28 @@ const Orders: React.FC = () => {
                     </div>
                     
                     <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-3">Shipping Address</h4>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">
-                        <p>{selectedOrder.shipping_address.firstName} {selectedOrder.shipping_address.lastName}</p>
-                        <p>{selectedOrder.shipping_address.address1}</p>
-                        <p>{selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state} {selectedOrder.shipping_address.postcode}</p>
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-3">Shipping Information</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Method:</span>
+                          <span className="text-gray-900 dark:text-white capitalize">
+                            {selectedOrder.shipping_method === 'standard' ? 'Standard Shipping (5-7 business days)' : 
+                             selectedOrder.shipping_method === 'express' ? 'Express Shipping (2-3 business days)' : 
+                             selectedOrder.shipping_method || 'Standard Shipping'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Cost:</span>
+                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedOrder.shipping_cost, 'GBP')}</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-600">
+                        <h5 className="font-medium text-gray-900 dark:text-white mb-2">Address</h5>
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                          <p>{selectedOrder.shipping_address.firstName} {selectedOrder.shipping_address.lastName}</p>
+                          <p>{selectedOrder.shipping_address.address1}</p>
+                          <p>{selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state} {selectedOrder.shipping_address.postcode}</p>
+                        </div>
                       </div>
                     </div>
                   </div>

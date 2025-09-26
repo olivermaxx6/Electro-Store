@@ -5,11 +5,11 @@ import { selectCartItems, selectCartTotal, clearCart } from '../store/cartSlice'
 import { selectProducts, setProducts } from '../store/productsSlice';
 import { selectCurrentUser } from '../store/userSlice';
 import { addToast } from '../store/uiSlice';
-import { formatCurrency } from '../lib/format';
+import { formatCurrency, currencyOptions } from '../lib/format';
 import { Currency } from '../lib/types';
 import { useStoreSettings } from '../hooks/useStoreSettings';
-import { productRepo } from '../lib/repo';
-import { getStripe } from '../../lib/stripe';
+import { getProducts } from '../../lib/productsApi';
+import { getStripe, testStripeConnection, isStripeConfigured, getStripeConfig } from '../../lib/stripe';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import Placeholder from '../components/common/Placeholder';
 import TitleUpdater from '../components/common/TitleUpdater';
@@ -59,6 +59,11 @@ const Checkout: React.FC = () => {
   const cartTotal = useSelector(selectCartTotal(userId));
   const { settings, loading: settingsLoading } = useStoreSettings();
 
+  // Helper function to get currency object from string
+  const getCurrencyObject = (currencyCode: string) => {
+    return currencyOptions.find(curr => curr.code === currencyCode) || currencyOptions[0];
+  };
+
   // Handle cancelled payment redirect
   useEffect(() => {
     const cancelled = searchParams.get('cancelled');
@@ -83,11 +88,52 @@ const Checkout: React.FC = () => {
         try {
           setIsLoadingProducts(true);
           console.log('Loading products for checkout...');
-          const productsData = await productRepo.getAll();
-          console.log('Products loaded:', productsData);
-          dispatch(setProducts(productsData));
+          const apiProducts = await getProducts();
+          console.log('API products loaded:', apiProducts);
+          
+          // Transform API products to match expected format
+          const transformedProducts = apiProducts.map((backendProduct: any) => {
+            // Find main image or use first image
+            const mainImage = backendProduct.images.find((img: any) => img.is_main) || backendProduct.images[0];
+            
+            // Calculate old price if discount exists
+            const oldPrice = backendProduct.discount_rate && backendProduct.discount_rate > 0 
+              ? backendProduct.price / (1 - backendProduct.discount_rate / 100)
+              : undefined;
+            
+            return {
+              id: backendProduct.id.toString(),
+              slug: backendProduct.name.toLowerCase().replace(/\s+/g, '-'),
+              title: backendProduct.name,
+              category: backendProduct.category_data?.name || 'Uncategorized',
+              brand: backendProduct.brand_data?.name || 'Unknown',
+              price: backendProduct.price,
+              oldPrice: oldPrice,
+              rating: backendProduct.rating,
+              ratingCount: backendProduct.review_count,
+              isNew: backendProduct.isNew || false,
+              discountPct: backendProduct.discount_rate || 0,
+              discount_rate: backendProduct.discount_rate || 0,
+              is_top_selling: backendProduct.is_top_selling || false,
+              description: backendProduct.description,
+              images: backendProduct.images.map((img: any) => img.image),
+              stock: backendProduct.stock || 0,
+              inStock: (backendProduct.stock || 0) > 0,
+              sku: `SKU-${backendProduct.id}`,
+              specs: backendProduct.technical_specs || {},
+              viewCount: backendProduct.view_count,
+              image: mainImage ? mainImage.image : undefined,
+            };
+          });
+          
+          console.log('Transformed products:', transformedProducts);
+          dispatch(setProducts(transformedProducts));
         } catch (error) {
           console.error('Failed to load products for checkout:', error);
+          dispatch(addToast({
+            message: 'Failed to load product information. Please refresh the page.',
+            type: 'error'
+          }));
         } finally {
           setIsLoadingProducts(false);
         }
@@ -123,7 +169,7 @@ const Checkout: React.FC = () => {
   const [privacyConsent, setPrivacyConsent] = useState<boolean>(false);
   const [autoFillEnabled, setAutoFillEnabled] = useState<boolean>(true);
 
-  // Auto-fill payment information from localStorage
+  // Auto-fill payment information from localStorage (only on initial load)
   useEffect(() => {
     const loadSavedPaymentInfo = () => {
       if (!autoFillEnabled) return;
@@ -134,44 +180,48 @@ const Checkout: React.FC = () => {
         
         if (savedPaymentInfo) {
           const parsedPayment = JSON.parse(savedPaymentInfo);
-          // Only auto-fill if the current payment form is empty
-          if (!payment.cardNumber && !payment.cardholderName && !payment.expiryDate) {
-            setPayment({
-              cardNumber: parsedPayment.cardNumber || '',
-              cardholderName: parsedPayment.cardholderName || '',
-              expiryDate: parsedPayment.expiryDate || '',
-              cvv: '' // Never save CVV for security reasons
-            });
-            // Show success message
-            dispatch(addToast({ 
-              message: 'Payment information auto-filled from saved data', 
-              type: 'success' 
-            }));
-          }
+          setPayment(prev => {
+            // Only auto-fill if the current payment form is empty
+            if (!prev.cardNumber && !prev.cardholderName && !prev.expiryDate) {
+              dispatch(addToast({ 
+                message: 'Payment information auto-filled from saved data', 
+                type: 'success' 
+              }));
+              return {
+                cardNumber: parsedPayment.cardNumber || '',
+                cardholderName: parsedPayment.cardholderName || '',
+                expiryDate: parsedPayment.expiryDate || '',
+                cvv: '' // Never save CVV for security reasons
+              };
+            }
+            return prev;
+          });
         }
         
         if (savedAddressInfo && currentUser) {
           const parsedAddress = JSON.parse(savedAddressInfo);
-          // Only auto-fill if the current address form is empty
-          if (!address.firstName && !address.lastName && !address.email) {
-            setAddress(prev => ({
-              ...prev,
-              firstName: parsedAddress.firstName || currentUser?.name?.split(' ')[0] || '',
-              lastName: parsedAddress.lastName || currentUser?.name?.split(' ').slice(1).join(' ') || '',
-              email: parsedAddress.email || currentUser?.email || '',
-              phone: parsedAddress.phone || '',
-              address1: parsedAddress.address1 || '',
-              address2: parsedAddress.address2 || '',
-              city: parsedAddress.city || '',
-              state: parsedAddress.state || '',
-              postcode: parsedAddress.postcode || ''
-            }));
-            // Show success message
-            dispatch(addToast({ 
-              message: 'Address information auto-filled from saved data', 
-              type: 'success' 
-            }));
-          }
+          setAddress(prev => {
+            // Only auto-fill if the current address form is empty
+            if (!prev.firstName && !prev.lastName && !prev.email) {
+              dispatch(addToast({ 
+                message: 'Address information auto-filled from saved data', 
+                type: 'success' 
+              }));
+              return {
+                ...prev,
+                firstName: parsedAddress.firstName || currentUser?.name?.split(' ')[0] || '',
+                lastName: parsedAddress.lastName || currentUser?.name?.split(' ').slice(1).join(' ') || '',
+                email: parsedAddress.email || currentUser?.email || '',
+                phone: parsedAddress.phone || '',
+                address1: parsedAddress.address1 || '',
+                address2: parsedAddress.address2 || '',
+                city: parsedAddress.city || '',
+                state: parsedAddress.state || '',
+                postcode: parsedAddress.postcode || ''
+              };
+            }
+            return prev;
+          });
         }
       } catch (error) {
         console.error('Failed to load saved payment/address info:', error);
@@ -182,6 +232,7 @@ const Checkout: React.FC = () => {
       }
     };
 
+    // Only run on initial load
     loadSavedPaymentInfo();
   }, [autoFillEnabled, currentUser, dispatch]);
 
@@ -199,6 +250,27 @@ const Checkout: React.FC = () => {
       privacyConsent: privacyConsent,
       autoFillEnabled: autoFillEnabled
     });
+    
+    console.log('🔘 Button State Debug:', {
+      currentStep: currentStep,
+      showPlaceOrderButton: currentStep === 4,
+      processingPayment: processingPayment,
+      buttonDisabled: processingPayment
+    });
+    
+    // Debug cart total calculation
+    if (cartItems.length > 0) {
+      console.log('🔍 Cart Total Debug:', {
+        cartItems: cartItems,
+        products: products.map(p => ({ id: p.id, title: p.title, price: p.price })),
+        calculatedTotal: cartItems.reduce((total, cartItem) => {
+          const product = products.find(p => p.id === cartItem.productId);
+          const itemTotal = product ? product.price * cartItem.qty : 0;
+          console.log(`Item ${cartItem.productId}: qty=${cartItem.qty}, price=${product?.price || 'N/A'}, total=${itemTotal}`);
+          return total + itemTotal;
+        }, 0)
+      });
+    }
   }, [cartItems, products, cartTotal, isLoadingProducts, currentStep, address, payment, selectedShipping, privacyConsent, autoFillEnabled]);
   // Dynamic shipping options based on admin settings
   const shippingOptions: ShippingOption[] = [
@@ -231,13 +303,32 @@ const Checkout: React.FC = () => {
   const selectedShippingOption = shippingOptions.find(option => option.id === selectedShipping);
   const shippingCost = selectedShippingOption?.cost || 0;
   
+  // Calculate cart total manually to ensure accuracy
+  const calculatedCartTotal = cartItems.reduce((total, cartItem) => {
+    const product = products.find(p => p.id === cartItem.productId);
+    return total + (product ? product.price * cartItem.qty : 0);
+  }, 0);
+  
+  // Use calculated total if Redux total is 0 but we have items
+  const effectiveCartTotal = cartTotal > 0 ? cartTotal : calculatedCartTotal;
   
   const taxRate = parseFloat(settings?.tax_rate?.toString() || '0') || 0;
-  const taxAmount = (cartTotal * taxRate) / 100;
-  const finalTotal = cartTotal + shippingCost + taxAmount;
+  const taxAmount = (effectiveCartTotal * taxRate) / 100;
+  const finalTotal = effectiveCartTotal + shippingCost + taxAmount;
   
   const handleAddressChange = (field: keyof AddressForm, value: string) => {
+    console.log(`🔧 Address Change - ${field}:`, {
+      oldValue: address[field],
+      newValue: value,
+      fieldType: typeof value
+    });
+    
     setAddress(prev => ({ ...prev, [field]: value }));
+    
+    // Clear validation errors for this field
+    if (validationErrors.includes(field)) {
+      setValidationErrors(prev => prev.filter(error => error !== field));
+    }
     
     // Auto-save address information
     if (autoFillEnabled) {
@@ -309,24 +400,41 @@ const Checkout: React.FC = () => {
   const validateAllFields = (): { isValid: boolean; missingFields: string[] } => {
     const missingFields: string[] = [];
     
-    // Address validation
+    // Debug logging for address state
+    console.log('🔍 Validation Debug - Address state:', {
+      state: address.state,
+      stateType: typeof address.state,
+      stateTrimmed: address.state?.trim(),
+      stateLength: address.state?.length,
+      isEmpty: !address.state?.trim(),
+      fullAddress: address
+    });
+    
+    // Address validation - more robust checking
     if (!address.firstName?.trim()) missingFields.push('firstName');
     if (!address.lastName?.trim()) missingFields.push('lastName');
     if (!address.email?.trim()) missingFields.push('email');
     if (!address.phone?.trim()) missingFields.push('phone');
     if (!address.address1?.trim()) missingFields.push('address1');
     if (!address.city?.trim()) missingFields.push('city');
-    if (!address.state?.trim()) missingFields.push('state');
+    
+    // More robust state validation
+    const stateValue = address.state?.trim();
+    if (!stateValue || stateValue.length === 0) {
+      missingFields.push('state');
+    }
+    
     if (!address.postcode?.trim()) missingFields.push('postcode');
     
     // Shipping validation
     if (!selectedShipping) missingFields.push('shipping');
     
-    // Payment validation
-    if (!payment.cardNumber?.trim()) missingFields.push('cardNumber');
-    if (!payment.expiryDate?.trim()) missingFields.push('expiryDate');
-    if (!payment.cvv?.trim()) missingFields.push('cvv');
-    if (!payment.cardholderName?.trim()) missingFields.push('cardholderName');
+    // Payment validation - SKIPPED for Stripe checkout
+    // Stripe handles payment collection, so we don't need to validate payment fields here
+    // if (!payment.cardNumber?.trim()) missingFields.push('cardNumber');
+    // if (!payment.expiryDate?.trim()) missingFields.push('expiryDate');
+    // if (!payment.cvv?.trim()) missingFields.push('cvv');
+    // if (!payment.cardholderName?.trim()) missingFields.push('cardholderName');
     
     // Privacy consent validation
     if (!privacyConsent) missingFields.push('privacyConsent');
@@ -353,167 +461,230 @@ const Checkout: React.FC = () => {
   const formatExpiryDate = (value: string) => {
     return value.replace(/\D/g, '').replace(/(\d{2})(\d{2})/, '$1/$2');
   };
+
+  // Add Stripe connectivity test functions
+  const testStripeConnectionLocal = async () => {
+    console.log('🧪 Testing Stripe connection...');
+    
+    try {
+      // Check if Stripe is configured
+      if (!isStripeConfigured()) {
+        console.error('❌ Stripe is not properly configured');
+        return false;
+      }
+      
+      const config = getStripeConfig();
+      console.log('🔧 Stripe config:', config);
+      
+      // Test Stripe connection
+      const isConnected = await testStripeConnection();
+      
+      if (isConnected) {
+        console.log('✅ Stripe connection test passed');
+        return true;
+      } else {
+        console.error('❌ Stripe connection test failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Stripe connection test failed:', error);
+      return false;
+    }
+  };
+
+  // Add network connectivity check
+  const checkBackendConnectivity = async () => {
+    try {
+      console.log('🌐 Testing backend connectivity...');
+      const response = await fetch('http://127.0.0.1:8001/api/public/health/', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        console.log('✅ Backend is reachable');
+        return true;
+      } else {
+        console.error('❌ Backend returned error:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Cannot reach backend:', error);
+      return false;
+    }
+  };
+
+  // Test connectivity on component mount
+  useEffect(() => {
+    const runConnectivityTests = async () => {
+      console.log('🔍 Running connectivity tests...');
+      
+      const stripeTest = await testStripeConnectionLocal();
+      const backendTest = await checkBackendConnectivity();
+      
+      if (!stripeTest) {
+        console.warn('⚠️ Stripe connection test failed - checkout may not work');
+      }
+      
+      if (!backendTest) {
+        console.warn('⚠️ Backend connectivity test failed - checkout will not work');
+      }
+      
+      if (stripeTest && backendTest) {
+        console.log('✅ All connectivity tests passed');
+      }
+    };
+    
+    runConnectivityTests();
+  }, []);
   
   
   const handlePlaceOrder = async () => {
-    console.log('🚀 Starting Stripe Checkout process...');
-    console.log('📋 Current form data:', { address, selectedShipping, privacyConsent });
+    console.log('🔄 Place Order button clicked');
     
-    // Validate required fields (excluding payment fields since Stripe handles those)
+    // Force a small delay to ensure state updates are complete
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Step 1: Validate all required fields
     const validation = validateAllFields();
-    console.log('✅ Validation result:', validation);
     
     if (!validation.isValid) {
-      console.log('❌ Validation failed:', validation.missingFields);
-      // Set validation errors for red border styling
+      console.error('❌ Validation failed:', validation.missingFields);
       setValidationErrors(validation.missingFields);
       
-      // Show alert with missing fields
-      const fieldLabels: Record<string, string> = {
-        firstName: 'First Name',
-        lastName: 'Last Name',
-        email: 'Email',
-        phone: 'Phone',
-        address1: 'Address',
-        city: 'City',
-        state: 'State',
-        postcode: 'Post Code',
-        shipping: 'Shipping Option',
-        privacyConsent: 'Privacy Policy Consent'
-      };
-      
-      const missingFieldLabels = validation.missingFields
-        .filter(field => !['cardNumber', 'expiryDate', 'cvv', 'cardholderName'].includes(field))
-        .map(field => fieldLabels[field] || field);
-      
-      if (missingFieldLabels.length > 0) {
+      // Show specific error messages
+      if (validation.missingFields.includes('firstName') || validation.missingFields.includes('lastName')) {
         dispatch(addToast({
-          message: `Please complete the following required fields: ${missingFieldLabels.join(', ')}`,
+          message: 'Please fill in your name',
           type: 'error'
         }));
-        return;
+      } else if (validation.missingFields.includes('email')) {
+        dispatch(addToast({
+          message: 'Please enter your email address',
+          type: 'error'
+        }));
+      } else if (validation.missingFields.includes('phone')) {
+        dispatch(addToast({
+          message: 'Please enter your phone number',
+          type: 'error'
+        }));
+      } else if (validation.missingFields.includes('address1') || validation.missingFields.includes('city') || validation.missingFields.includes('state') || validation.missingFields.includes('postcode')) {
+        const missingAddressFields = validation.missingFields.filter(field => 
+          ['address1', 'city', 'state', 'postcode'].includes(field)
+        );
+        const fieldNames = {
+          'address1': 'Address',
+          'city': 'City', 
+          'state': 'State',
+          'postcode': 'Post Code'
+        };
+        const missingFieldNames = missingAddressFields.map(field => fieldNames[field as keyof typeof fieldNames]).join(', ');
+        
+        dispatch(addToast({
+          message: `Please fill in: ${missingFieldNames}`,
+          type: 'error'
+        }));
+      } else if (validation.missingFields.includes('shipping')) {
+        dispatch(addToast({
+          message: 'Please select a shipping method',
+          type: 'error'
+        }));
+      } else if (validation.missingFields.includes('privacyConsent')) {
+        dispatch(addToast({
+          message: 'Please agree to the privacy policy',
+          type: 'error'
+        }));
       }
+      return;
     }
     
-    // Clear validation errors if validation passes
+    // Clear any previous validation errors
     setValidationErrors([]);
-    
-    setProcessingPayment(true);
-    console.log('💳 Starting Stripe Checkout process...');
-    
+
     try {
-      // Calculate final total
-      const finalTotal = cartTotal + shippingCost + taxAmount;
-      console.log('💰 Final total calculated:', finalTotal);
-      
-      // Prepare order data for local storage (before checkout)
+      setProcessingPayment(true);
+      console.log('🔄 Starting atomic order creation...');
+
+      // Step 2: Prepare order data for atomic creation
+      const finalTotal = effectiveCartTotal + shippingCost + taxAmount;
       const orderData = {
-        id: Date.now(), // Temporary ID
-        tracking_id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        payment_id: '', // Will be updated after Stripe checkout
-        customer_email: address.email,
-        customer_phone: address.phone,
-        shipping_address: address,
-        subtotal: cartTotal,
-        shipping_cost: shippingCost,
-        tax_amount: taxAmount,
-        total_price: finalTotal,
-        status: 'pending',
-        payment_status: 'pending',
-        payment_method: 'Credit/Debit Card via Stripe',
-        shipping_name: selectedShippingOption?.name || 'Standard Shipping',
-        created_at: new Date().toISOString(),
-        items: cartItems.map(item => {
+        cart_items: cartItems.map(item => {
           const product = products.find(p => p.id === item.productId);
           return {
-            id: item.productId,
-            product: {
-              id: item.productId,
-              title: product?.title || `Product ID: ${item.productId}`,
-              price: product?.price || 0
-            },
+            product_id: item.productId,
+            name: product?.name || 'Unknown Product',
+            price: product?.price || 0,
             quantity: item.qty,
-            unit_price: product?.price || 0
+            image: product?.image || ''
           };
-        })
-      };
-      
-      // Store order data in localStorage for immediate display
-      console.log('💾 Storing order data locally:', orderData);
-      localStorage.setItem('pendingOrder', JSON.stringify(orderData));
-      localStorage.setItem('orderCheckoutTimestamp', Date.now().toString());
-      
-      // Prepare checkout session data
-      const checkoutData = {
-        cart_items: cartItems.map(item => ({
-          product_id: item.productId,
-          quantity: item.qty,
-          unit_price: products.find(p => p.id === item.productId)?.price || 0
-        })),
-        subtotal: cartTotal,
+        }),
+        customer_email: address.email,
+        customer_name: `${address.firstName} ${address.lastName}`,
+        customer_phone: address.phone,
+        shipping_address: {
+          firstName: address.firstName,
+          lastName: address.lastName,
+          address: address.address1,
+          address2: address.address2,
+          city: address.city,
+          state: address.state,
+          zipCode: address.postcode,
+          country: address.country
+        },
+        billing_address: {
+          firstName: address.firstName,
+          lastName: address.lastName,
+          address: address.address1,
+          address2: address.address2,
+          city: address.city,
+          state: address.state,
+          zipCode: address.postcode,
+          country: address.country
+        },
+        subtotal: effectiveCartTotal,
         shipping_cost: shippingCost,
         tax_amount: taxAmount,
         total_price: finalTotal,
-        customer_email: address.email,
-        customer_phone: address.phone,
-        shipping_address: address,
-        shipping_name: selectedShippingOption?.name || 'Standard Shipping',
-        user_id: userId
+        shipping_method: selectedShipping
       };
-      
-      console.log('📤 Creating Stripe Checkout session...');
-      
-      // Create Stripe Checkout session
-      const response = await fetch('http://127.0.0.1:8001/api/public/create-checkout-session/', {
+
+      console.log('📦 Order data prepared:', orderData);
+
+      // Step 3: Create order and get checkout session atomically
+      const response = await fetch('/api/public/create-order-checkout/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify(checkoutData)
+        body: JSON.stringify(orderData)
       });
-      
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Checkout session creation failed:', errorText);
-        throw new Error(`Failed to create checkout session: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Order creation failed');
       }
 
-      const checkoutResult = await response.json();
-      console.log('✅ Checkout session created:', checkoutResult);
+      const result = await response.json();
+      console.log('✅ Order created successfully:', result);
 
-      // Update the stored order data with the Stripe session ID
-      if (checkoutResult.checkout_session_id) {
-        const updatedOrderData = {
-          ...orderData,
-          payment_id: checkoutResult.checkout_session_id,
-          tracking_id: checkoutResult.checkout_session_id // Use Stripe session ID as tracking ID
-        };
-        localStorage.setItem('pendingOrder', JSON.stringify(updatedOrderData));
-        console.log('💾 Updated order data with Stripe session ID:', updatedOrderData);
-      }
+      // Step 4: Store order info for confirmation page
+      localStorage.setItem('currentOrder', JSON.stringify({
+        orderNumber: result.order_number,
+        orderId: result.order_id
+      }));
 
-      // Clear cart after successful checkout session creation
-      dispatch(clearCart({ userId }));
-      
-      // Redirect to Stripe Checkout
-      if (checkoutResult.checkout_url) {
-        console.log('🔄 Redirecting to Stripe Checkout...');
-        window.location.href = checkoutResult.checkout_url;
-      } else {
-        throw new Error('No checkout URL received from server');
-      }
-      
+      // Step 5: Redirect to Stripe Checkout
+      window.location.href = result.checkout_url;
+
     } catch (error) {
-      console.error('❌ Stripe Checkout error:', error);
-      // Clear stored order data on error
-      localStorage.removeItem('pendingOrder');
-      localStorage.removeItem('orderCheckoutTimestamp');
-      
+      console.error('💥 Checkout process failed:', error);
       dispatch(addToast({
-        message: error instanceof Error ? error.message : 'Failed to start checkout. Please try again.',
+        message: `Checkout failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         type: 'error'
       }));
+    } finally {
       setProcessingPayment(false);
     }
   };
@@ -566,6 +737,67 @@ const Checkout: React.FC = () => {
         <Breadcrumbs className="mb-6" />
         
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-6 sm:mb-8">Checkout</h1>
+        
+        {/* Debug Info */}
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Debug:</strong> Current Step: {currentStep}/4 | 
+            Place Order Button: {currentStep === 4 ? 'Visible' : 'Hidden'} | 
+            Processing: {processingPayment ? 'Yes' : 'No'}
+          </p>
+          {currentStep < 4 && (
+            <button
+              onClick={() => setCurrentStep(4)}
+              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 mr-2"
+            >
+              Go to Step 4 (Order Review)
+            </button>
+          )}
+          {currentStep === 4 && (
+            <button
+              onClick={() => {
+                console.log('🧪 Test button clicked - filling state field');
+                // Fill in required fields for testing
+                setAddress(prev => ({
+                  ...prev,
+                  firstName: 'Test',
+                  lastName: 'User',
+                  email: 'test@example.com',
+                  phone: '1234567890',
+                  address1: '123 Test St',
+                  city: 'Test City',
+                  state: 'TS',
+                  postcode: '12345'
+                }));
+                setPrivacyConsent(true);
+                console.log('🧪 State field filled with "TS"');
+                setTimeout(() => {
+                  console.log('🧪 Calling handlePlaceOrder after filling test data');
+                  handlePlaceOrder();
+                }, 100);
+              }}
+              className="mt-2 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+            >
+              Test Place Order (Fill & Submit)
+            </button>
+          )}
+          
+          {/* Debug button to check current state */}
+          <button
+            onClick={() => {
+              console.log('🔍 Current Address State:', address);
+              console.log('🔍 State field specifically:', {
+                value: address.state,
+                type: typeof address.state,
+                trimmed: address.state?.trim(),
+                length: address.state?.length
+              });
+            }}
+            className="mt-2 px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
+          >
+            Debug State Field
+          </button>
+        </div>
         
         {/* Progress Steps */}
         <div className="mb-8">
@@ -663,13 +895,18 @@ const Checkout: React.FC = () => {
                         onChange={(e) => handleAddressChange('city', e.target.value)}
                         className={getInputClassName('city', "px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
                       />
-                      <input
-                        type="text"
-                        placeholder="State *"
-                        value={address.state}
-                        onChange={(e) => handleAddressChange('state', e.target.value)}
-                        className={getInputClassName('state', "px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
-                      />
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="State *"
+                          value={address.state}
+                          onChange={(e) => handleAddressChange('state', e.target.value)}
+                          className={getInputClassName('state', "w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
+                        />
+                        {hasValidationError('state') && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">State is required</p>
+                        )}
+                      </div>
                       <input
                         type="text"
                         placeholder="Post Code *"
@@ -709,7 +946,7 @@ const Checkout: React.FC = () => {
                             </div>
                           </div>
                           <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {formatCurrency(option.cost, settings?.currency as Currency || 'USD')}
+                            {formatCurrency(option.cost, getCurrencyObject(settings?.currency || 'GBP'))}
                           </div>
                         </div>
                       </div>
@@ -800,7 +1037,7 @@ const Checkout: React.FC = () => {
                     <div className="bg-gray-50 dark:bg-slate-700 rounded-md p-4">
                       <h3 className="font-medium text-gray-900 dark:text-white mb-2">Shipping & Tax</h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Shipping: {formatCurrency(shippingCost, settings?.currency as Currency || 'USD')} | 
+                        Shipping: {selectedShippingOption?.name || 'Standard Shipping'} - {formatCurrency(shippingCost, getCurrencyObject(settings?.currency || 'GBP'))} | 
                         Tax Rate: {settings?.tax_rate || 0}%
                       </p>
                     </div>
@@ -823,7 +1060,13 @@ const Checkout: React.FC = () => {
                           type="checkbox"
                           id="privacyConsent"
                           checked={privacyConsent}
-                          onChange={(e) => setPrivacyConsent(e.target.checked)}
+                          onChange={(e) => {
+                            setPrivacyConsent(e.target.checked);
+                            // Clear validation error when user checks the box
+                            if (e.target.checked && validationErrors.includes('privacyConsent')) {
+                              setValidationErrors(prev => prev.filter(error => error !== 'privacyConsent'));
+                            }
+                          }}
                           className={`mt-1 h-4 w-4 text-red-600 dark:text-blue-600 focus:ring-red-500 dark:focus:ring-blue-500 border-gray-300 dark:border-slate-600 rounded ${
                             validationErrors.includes('privacyConsent') ? 'border-red-500' : ''
                           }`}
@@ -929,13 +1172,16 @@ const Checkout: React.FC = () => {
                         </p>
                         <p className="text-gray-600 dark:text-gray-300">Qty: {item.qty}</p>
                         {!product && (
-                          <p className="text-xs text-red-500 dark:text-red-400">
-                            Product not found in database
-                          </p>
+                          <div className="text-xs text-red-500 dark:text-red-400">
+                            <p>Product not found in database</p>
+                            <p className="text-gray-500 dark:text-gray-400">
+                              ID: {item.productId} | Loading: {isLoadingProducts ? 'Yes' : 'No'} | Products: {products.length}
+                            </p>
+                          </div>
                         )}
                       </div>
                       <div className="text-gray-900 dark:text-white">
-                        {formatCurrency(itemTotal, settings?.currency as Currency || 'USD')}
+                        {formatCurrency(itemTotal, getCurrencyObject(settings?.currency || 'GBP'))}
                       </div>
                     </div>
                   );
@@ -946,23 +1192,25 @@ const Checkout: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Subtotal</span>
-                  <span className="font-medium text-sm sm:text-base">{formatCurrency(cartTotal, settings?.currency as Currency || 'USD')}</span>
+                  <span className="font-medium text-sm sm:text-base">{formatCurrency(effectiveCartTotal, getCurrencyObject(settings?.currency || 'GBP'))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Shipping</span>
-                  <span className="font-medium text-sm sm:text-base">{formatCurrency(shippingCost, settings?.currency as Currency || 'USD')}</span>
+                  <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
+                    Shipping ({selectedShippingOption?.name || 'Standard'})
+                  </span>
+                  <span className="font-medium text-sm sm:text-base">{formatCurrency(shippingCost, getCurrencyObject(settings?.currency || 'GBP'))}</span>
                 </div>
                 {taxAmount > 0 && (
                   <div className="flex justify-between">
                     <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Tax ({taxRate}%)</span>
-                    <span className="font-medium text-sm sm:text-base">{formatCurrency(taxAmount, settings?.currency as Currency || 'USD')}</span>
+                    <span className="font-medium text-sm sm:text-base">{formatCurrency(taxAmount, getCurrencyObject(settings?.currency || 'GBP'))}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 dark:border-slate-600 pt-3">
                   <div className="flex justify-between">
                     <span className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Total</span>
                     <span className="text-base sm:text-lg font-semibold text-red-600 dark:text-blue-400">
-                      {formatCurrency(finalTotal, settings?.currency as Currency || 'USD')}
+                      {formatCurrency(finalTotal, getCurrencyObject(settings?.currency || 'GBP'))}
                     </span>
                   </div>
                 </div>

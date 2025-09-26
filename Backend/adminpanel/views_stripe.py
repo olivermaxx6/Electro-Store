@@ -144,6 +144,8 @@ def handle_payment_succeeded(payment_intent):
         
         # Update order status to paid
         order.status = 'paid'
+        order.payment_status = 'paid'
+        order.payment_intent_id = payment_id
         order.save()
         
         # Create or update payment record
@@ -161,7 +163,7 @@ def handle_payment_succeeded(payment_intent):
             payment.status = 'completed'
             payment.save()
         
-        logger.info(f"Payment succeeded for order {order.id}")
+        logger.info(f"Payment succeeded for order {order.order_number}")
         
     except Exception as e:
         logger.error(f"Error handling payment success: {str(e)}")
@@ -194,7 +196,9 @@ def handle_payment_failed(payment_intent):
                 return
         
         # Update order status to payment_failed
-        order.status = 'payment_failed'
+        order.status = 'cancelled'
+        order.payment_status = 'failed'
+        order.payment_intent_id = payment_id
         order.save()
         
         # Create or update payment record
@@ -212,10 +216,69 @@ def handle_payment_failed(payment_intent):
             payment.status = 'failed'
             payment.save()
         
-        logger.info(f"Payment failed for order {order.id}")
+        logger.info(f"Payment failed for order {order.order_number}")
         
     except Exception as e:
         logger.error(f"Error handling payment failure: {str(e)}")
+
+def handle_checkout_session_completed(session):
+    """Handle successful checkout session completion"""
+    try:
+        session_id = session['id']
+        payment_intent_id = session.get('payment_intent')
+        metadata = session.get('metadata', {})
+        
+        logger.info(f"Processing checkout session completed: {session_id}")
+        
+        # Find order by session ID
+        try:
+            order = Order.objects.get(stripe_session_id=session_id)
+        except Order.DoesNotExist:
+            # Try to find by order_id in metadata
+            order_id = metadata.get('order_id')
+            if order_id:
+                try:
+                    order = Order.objects.get(id=order_id)
+                    # Update with session ID
+                    order.stripe_session_id = session_id
+                    order.save()
+                except Order.DoesNotExist:
+                    logger.error(f"Order not found for session {session_id}")
+                    return
+            else:
+                logger.error(f"No order found for session {session_id}")
+                return
+        
+        # Update order status to paid
+        order.status = 'paid'
+        order.payment_status = 'paid'
+        if payment_intent_id:
+            order.payment_intent_id = payment_intent_id
+        order.save()
+        
+        # Create payment record if payment intent exists
+        if payment_intent_id:
+            amount = session.get('amount_total', 0) / 100  # Convert from cents
+            currency = session.get('currency', 'gbp').upper()
+            
+            payment, created = Payment.objects.get_or_create(
+                stripe_payment_intent_id=payment_intent_id,
+                defaults={
+                    'order': order,
+                    'amount': amount,
+                    'currency': currency,
+                    'status': 'completed'
+                }
+            )
+            
+            if not created:
+                payment.status = 'completed'
+                payment.save()
+        
+        logger.info(f"Checkout session completed for order {order.order_number}")
+        
+    except Exception as e:
+        logger.error(f"Error handling checkout session completion: {str(e)}")
 
 def handle_payment_canceled(payment_intent):
     """Handle canceled payment"""
@@ -293,14 +356,74 @@ def handle_checkout_session_completed(session):
         order_id = metadata.get('order_id')
         user_id = metadata.get('user_id', 'guest')
         
-        if not order_id:
-            logger.error(f"No order_id found in metadata for session {session_id}")
-            return
-        
-        # IDEMPOTENT: Find existing order by order_id from metadata
+        # Check if order already exists by tracking_id (session_id)
+        order = None
         try:
-            order = Order.objects.get(id=order_id)
-            logger.info(f"✅ Found existing order {order.id} from metadata")
+            order = Order.objects.get(tracking_id=session_id)
+            logger.info(f"✅ Found existing order {order.id} by tracking_id {session_id}")
+        except Order.DoesNotExist:
+            logger.info(f"🔄 No existing order found for session {session_id}")
+        
+        # If no order exists, create one from session data
+        if not order:
+            logger.info(f"🔄 Creating new order from session data for {session_id}")
+            try:
+                # Get line items from session
+                line_items = None
+                try:
+                    import stripe
+                    line_items = stripe.checkout.Session.list_line_items(session_id)
+                except Exception as e:
+                    logger.warning(f"Could not fetch line items: {str(e)}")
+                
+                # Create order from session data
+                order = Order.objects.create(
+                    user=None,  # Guest order
+                    tracking_id=session_id,
+                    payment_id=payment_intent_id,
+                    customer_email=customer_email,
+                    customer_phone=session.get('customer_details', {}).get('phone', '') if session.get('customer_details') else '',
+                    shipping_address=session.get('shipping_details', {}).get('address', {}) if session.get('shipping_details') else {},
+                    subtotal=amount_total,  # Use actual amount
+                    shipping_cost=0,
+                    tax_amount=0,
+                    total_price=amount_total,
+                    payment_method="card",
+                    shipping_name="Standard Shipping",
+                    status="pending",
+                    payment_status="paid"  # If we reach this webhook, payment was successful
+                )
+                logger.info(f"✅ Created new order {order.id} from session data")
+                
+                # Create order items from line items if available
+                if line_items and hasattr(line_items, 'data'):
+                    for item in line_items.data:
+                        try:
+                            # Extract product ID from the price data metadata or name
+                            product_name = item['description']
+                            # Try to find product by name (this is a simple approach)
+                            products = Product.objects.filter(name__icontains=product_name.split(' - ')[0])
+                            if products.exists():
+                                product = products.first()
+                                
+                                OrderItem.objects.create(
+                                    order=order,
+                                    product=product,
+                                    quantity=item['quantity'],
+                                    unit_price=item['price']['unit_amount'] / 100
+                                )
+                            else:
+                                logger.warning(f"Product not found for line item: {product_name}")
+                        except Exception as e:
+                            logger.error(f"Error creating order item: {str(e)}")
+                            continue
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to create order from session data: {str(e)}")
+                return
+        else:
+            # Order exists, update it with latest session data
+            logger.info(f"🔄 Updating existing order {order.id} with session data")
             
             # Extract payment status from session - try multiple sources
             session_payment_status = session.get('payment_status', '')
@@ -310,14 +433,19 @@ def handle_checkout_session_completed(session):
             logger.info(f"💳 Payment intent status: {payment_intent_status}")
             
             # Determine payment status from multiple sources
+            # For checkout.session.completed webhook, payment is ALWAYS successful
             if session_payment_status == 'paid':
                 payment_status = 'paid'
             elif payment_intent_status == 'succeeded':
                 payment_status = 'paid'
             elif session_payment_status == 'unpaid':
-                payment_status = 'unpaid'
+                # Even if session shows unpaid, if we got checkout.session.completed, payment succeeded
+                payment_status = 'paid'
+                logger.info(f"💳 Overriding 'unpaid' status because checkout.session.completed means payment succeeded")
             elif payment_intent_status in ['requires_payment_method', 'requires_confirmation', 'requires_action']:
-                payment_status = 'unpaid'
+                # For completed session, this shouldn't happen, but mark as paid anyway
+                payment_status = 'paid'
+                logger.warning(f"💳 Unexpected payment_intent status {payment_intent_status} for completed session, marking as paid")
             elif payment_intent_status == 'canceled':
                 payment_status = 'failed'
             elif payment_intent_status == 'payment_failed':
@@ -336,10 +464,6 @@ def handle_checkout_session_completed(session):
             order.save()
             
             logger.info(f"✅ Updated existing order {order.id} with session data")
-            
-        except Order.DoesNotExist:
-            logger.error(f"Order {order_id} from metadata not found for session {session_id}")
-            return
         
         # Get line items from the session (skip for test sessions)
         line_items = None

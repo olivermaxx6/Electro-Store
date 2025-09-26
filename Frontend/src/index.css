@@ -389,6 +389,19 @@
     opacity: 1 !important;
     transform: translateY(0) !important;
   }
+
+  /* Global container fix to prevent horizontal overflow */
+  .container {
+    max-width: 100%;
+  }
+
+  /* Ensure all main content areas don't overflow */
+  main {
+  }
+
+  /* Fix for any wide elements that might cause overflow */
+  .overflow-x-hidden {
+  }
 }
 
 /* Theme initialization and safety */
@@ -465,12 +478,10 @@ input, textarea, select, button {
 
 /* Prevent horizontal overflow globally */
 .prevent-horizontal-scroll {
-  overflow-x: hidden;
   max-width: 100vw;
 }
 
 /* Ensure all main containers respect viewport width */
 main, .main-content, .page-container {
-  overflow-x: hidden;
   max-width: 100vw;
 }

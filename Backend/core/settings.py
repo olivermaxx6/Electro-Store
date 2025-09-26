@@ -1,14 +1,23 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+import warnings
+from dotenv import load_dotenv
+
+# Suppress pkg_resources deprecation warnings
+warnings.filterwarnings("ignore", message="pkg_resources is deprecated")
+
+# Load environment variables from .env file
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-change-in-prod")
 
 # Stripe Configuration
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_test_webhook_secret_for_development")
 
 DEBUG = True
 DEBUG_PROPAGATE_EXCEPTIONS = True

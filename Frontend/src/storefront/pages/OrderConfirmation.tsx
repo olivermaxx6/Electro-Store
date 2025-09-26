@@ -2,47 +2,54 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToast } from '../store/uiSlice';
-import { selectIsAuthenticated } from '../store/userSlice';
+import { selectIsAuthenticated, selectCurrentUser } from '../store/userSlice';
+import { clearCart } from '../store/cartSlice';
 import { formatCurrency } from '../lib/format';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { CheckCircle, Package, Truck, CreditCard } from 'lucide-react';
 
-type Currency = 'USD' | 'GBP' | 'EUR' | 'CAD' | 'AUD';
+// Remove unused Currency type
 
 interface OrderData {
   id: number;
+  order_number: string;
   tracking_id: string;
   payment_id: string;
+  customer_name: string;
   customer_email: string;
   customer_phone: string;
+  shipping_name: string;
   shipping_address: any;
+  shipping_method: string;
+  billing_address?: any;
+  items: Array<{
+    id: number;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+  }>;
   subtotal: number;
   shipping_cost: number;
   tax_amount: number;
   total_price: number;
   status: string;
-  payment_status?: string;
+  status_display: string;
+  payment_status: string;
+  payment_status_display: string;
   payment_method: string;
-  shipping_name: string;
   created_at: string;
-  items: Array<{
-    id: number;
-    product: {
-      id: number;
-      title: string;
-      price: number;
-    };
-    quantity: number;
-    unit_price: number;
-  }>;
+  updated_at?: string;
 }
 
 const OrderConfirmation: React.FC = () => {
-  const { trackingId } = useParams<{ trackingId: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const dispatch = useDispatch();
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const currentUser = useSelector(selectCurrentUser);
+  const userId = currentUser?.id || 'guest';
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const { settings } = useStoreSettings();
@@ -52,126 +59,159 @@ const OrderConfirmation: React.FC = () => {
     if (id.length <= maxLength) return id;
     return `${id.substring(0, maxLength)}...`;
   };
+
+  // Helper function to get proper currency object
+  const getCurrencyObject = () => {
+    if (settings?.currency && typeof settings.currency === 'object') {
+      return settings.currency;
+    }
+    return { code: 'USD', symbol: '$', name: 'US Dollar' };
+  };
   
 
   
   useEffect(() => {
+    console.log('🔍 useEffect triggered with slug:', slug);
     const fetchOrder = async () => {
       try {
-        if (!trackingId) {
-          // No tracking ID provided - show a helpful message
-          setLoading(false);
-          return;
-        }
-
-        console.log('🔄 Fetching order data from backend API...');
+        console.log('🔍 Starting fetchOrder with slug:', slug);
+        console.log('🔍 Current order state:', order);
+        console.log('🔍 Current loading state:', loading);
         
-        // Use the new checkout session API endpoint
-        const orderData = await fetchOrderFromCheckoutSession(trackingId);
-        if (orderData) {
-          setOrder(orderData);
-          setLoading(false);
-          return;
+        // Priority: Use tracking ID from URL if available, otherwise check localStorage
+        if (slug) {
+          // Extract tracking ID from slug
+          const trackingId = slug;
+          console.log('🔄 Fetching order details for tracking ID:', trackingId);
+          
+          // Use the order tracking API with the tracking ID
+          const apiUrl = `/api/public/track-order/${trackingId}?t=${Date.now()}`;
+          console.log('🔍 Fetching from URL:', apiUrl);
+          const response = await fetch(apiUrl);
+          console.log('🔍 Response status:', response.status);
+          console.log('🔍 Response headers:', response.headers);
+          
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log('🔍 Response data received:', responseData);
+            
+            // Handle response data
+            const orderData = responseData;
+            if (orderData) {
+              console.log('🔍 Setting order data:', orderData);
+              console.log('🔍 Order data keys:', Object.keys(orderData));
+              // Set order data from backend response
+              setOrder(orderData);
+              console.log('🔍 Order state set, will re-render');
+              
+              // Clear cart after successful order confirmation
+              dispatch(clearCart({ userId }));
+              
+              // Update payment status in backend if user reached confirmation page successfully
+              // Since user reached confirmation page, payment was successful
+              if (orderData.payment_status === 'unpaid') {
+                try {
+                  console.log('🔄 Updating payment status to paid for tracking ID:', trackingId);
+                  const updateResponse = await fetch(`/api/public/track-order/${trackingId}/?t=${Date.now()}`, {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      payment_status: 'paid'
+                    })
+                  });
+                  
+                  console.log('🔍 Payment update response status:', updateResponse.status);
+                  
+                  if (updateResponse.ok) {
+                    const updateResult = await updateResponse.json();
+                    console.log('✅ Payment status updated successfully:', updateResult);
+                    // Update local state with the new payment status
+                    setOrder(prev => prev ? {...prev, payment_status: 'paid', status: 'pending', payment_status_display: 'Paid'} : null);
+                    console.log('✅ Local state updated to paid');
+                  } else {
+                    console.error('❌ Payment update failed:', updateResponse.status, await updateResponse.text());
+                  }
+                } catch (error) {
+                  // Payment status update failed, but order is still valid
+                  console.error('❌ Failed to update payment status:', error);
+                }
+              } else {
+                console.log('📝 Payment status is already:', orderData.payment_status);
+              }
+            } else {
+              throw new Error('Order not found in response data');
+            }
+          } else {
+            console.error('❌ API request failed:', response.status, response.statusText);
+            const errorText = await response.text();
+            console.error('❌ Error response:', errorText);
+            throw new Error(`Order not found: ${response.status} - ${errorText}`);
+          }
+        } else {
+          // Fallback: Check localStorage for order info
+          const storedOrder = localStorage.getItem('currentOrder');
+          const orderInfo = storedOrder ? JSON.parse(storedOrder) : null;
+          
+          console.log('🔍 Stored order info:', orderInfo);
+          
+          if (orderInfo?.orderNumber) {
+            console.log('🔄 Fetching order details for orderNumber:', orderInfo.orderNumber);
+            
+            const response = await fetch(`/api/public/orders/${orderInfo.orderNumber}/?t=${Date.now()}`);
+            console.log('🔍 Response status:', response.status);
+            
+            if (response.ok) {
+              const orderData = await response.json();
+              console.log('🔍 Order data received:', orderData);
+              setOrder(orderData);
+              
+              // Clear cart after successful order confirmation
+              dispatch(clearCart({ userId }));
+              
+              // Clear order info from localStorage
+              localStorage.removeItem('currentOrder');
+            } else {
+              throw new Error('Order not found');
+            }
+          } else {
+            throw new Error('No order information available');
+          }
         }
-        
-        // If order not found, show processing message
-        console.log('⚠️ Order not found - webhook may still be processing');
-        setLoading(false);
         
       } catch (error) {
-        console.error('Failed to fetch order:', error);
+        console.error('❌ Failed to fetch order:', error);
+        console.error('❌ Error details:', error);
         dispatch(addToast({
           message: error instanceof Error ? error.message : 'Failed to load order details',
           type: 'error'
         }));
+      } finally {
+        console.log('🔍 Setting loading to false');
         setLoading(false);
+        console.log('🔍 Loading set to false, order state:', order);
       }
     };
 
-    const fetchOrderFromCheckoutSession = async (sessionId: string): Promise<OrderData | null> => {
-      console.log(`🔍 Fetching order from checkout session API: ${sessionId}`);
-      
-      try {
-        const response = await fetch(`http://127.0.0.1:8001/api/public/checkout-session/${sessionId}/`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Order data received from checkout session API:', data);
-          
-          if (data.order) {
-            // Transform the API response to match our interface
-            const transformedOrder: OrderData = {
-              id: data.order.id,
-              tracking_id: data.order.tracking_id,
-              payment_id: data.order.payment_id,
-              customer_email: data.order.customer_email,
-              customer_phone: data.order.customer_phone,
-              shipping_address: data.order.shipping_address,
-              subtotal: data.order.subtotal,
-              shipping_cost: data.order.shipping_cost,
-              tax_amount: data.order.tax_amount,
-              total_price: data.order.total_price,
-              status: data.order.status,
-              // If user reached confirmation page, payment was successful
-              payment_status: 'paid',
-              payment_method: data.order.payment_method,
-              shipping_name: data.order.shipping_name,
-              created_at: data.order.created_at,
-              items: data.order.items.map((item: any) => ({
-                id: item.id,
-                product: {
-                  id: item.id,
-                  title: item.product_name,
-                  price: item.unit_price
-                },
-                quantity: item.quantity,
-                unit_price: item.unit_price
-              }))
-            };
-            
-            console.log('✅ Order transformed successfully:', transformedOrder);
-            return transformedOrder;
-          } else {
-            console.log('⚠️ No order data in response');
-            return null;
-          }
-        } else if (response.status === 404) {
-          const errorData = await response.json();
-          console.log('⚠️ Order not found (404):', errorData);
-          
-          if (errorData.processing) {
-            console.log('🔄 Order is still processing, will show processing message');
-            return null;
-          }
-          
-          throw new Error('Order not found');
-        } else {
-          const errorData = await response.json();
-          console.error('❌ API error:', errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
-      } catch (error) {
-        console.error('❌ Error fetching from checkout session API:', error);
-        throw error;
-      }
-    };
-
-    
-    if (trackingId) {
-      fetchOrder();
-    }
-  }, [trackingId, dispatch]);
+    fetchOrder();
+  }, [slug, dispatch]);
   
   if (loading) {
     return <LoadingScreen message="Loading order details..." />;
   }
   
   if (!order) {
+    console.log('🚨 No order data, showing fallback UI');
+    console.log('🚨 Order state:', order);
+    console.log('🚨 Loading state:', loading);
+    console.log('🚨 Slug:', slug);
+    
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-16">
-            {!trackingId ? (
+            {!slug ? (
               <>
                 <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full mb-6">
                   <Package className="w-12 h-12 text-blue-600 dark:text-blue-400" />
@@ -205,47 +245,23 @@ const OrderConfirmation: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 dark:bg-green-900 rounded-full mb-6">
-                  <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 dark:bg-red-900 rounded-full mb-6">
+                  <Package className="w-12 h-12 text-red-600 dark:text-red-400" />
                 </div>
-                <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                  🎉 Your Order Has Been Placed Successfully!
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Order Not Found
                 </h1>
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
-                  Thank you for your purchase! We've received your payment and your order is now being processed.
+                  Unable to load order details for tracking ID: <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{slug}</span>
                 </p>
                 
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-6 border border-gray-200 dark:border-slate-700 max-w-md mx-auto mb-8">
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Processing your order, please wait...</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Order Number:</span>
-                      <span className="text-gray-400">Processing...</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Payment Status:</span>
-                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                        Paid ✅
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Tracking ID:</span>
-                      <span className="font-mono text-xs text-gray-900 dark:text-white">
-                        {trackingId.length > 20 ? `${trackingId.substring(0, 20)}...` : trackingId}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {trackingId && trackingId.startsWith('cs_') && (
-                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        <strong>Status:</strong> Webhook processing...
-                      </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        We're fetching your order details from the payment system...
-                      </p>
-                    </div>
-                  )}
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Possible reasons:</h3>
+                  <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                    <li>• The tracking ID may be incorrect</li>
+                    <li>• The order may not exist in our system</li>
+                    <li>• There may be a temporary server issue</li>
+                  </ul>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -253,7 +269,7 @@ const OrderConfirmation: React.FC = () => {
                     onClick={() => window.location.reload()}
                     className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 dark:bg-blue-600 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors"
                   >
-                    🔄 Refresh Page
+                    🔄 Try Again
                   </button>
                   <Link
                     to="/"
@@ -288,18 +304,19 @@ const OrderConfirmation: React.FC = () => {
             You'll receive a confirmation email shortly with all the details.
           </p>
           
-          {/* Order ID Display */}
+          {/* Order Number and Tracking Display */}
           <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700 max-w-md mx-auto">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Your Order Number:</p>
-            <p className="text-2xl font-bold text-red-600 dark:text-blue-400">
-              #{order.id}
-            </p>
-            <p 
-              className="text-sm text-gray-500 dark:text-gray-500 mt-1 cursor-help" 
-              title={order.tracking_id}
-            >
-              Tracking ID: {formatLongId(order.tracking_id)}
-            </p>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-red-600 dark:text-blue-400 mb-2">
+                Order #{order?.id || 'Loading...'}
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Tracking:</span>
+                <span className="text-sm font-mono bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-2 py-1 rounded border">
+                  {order?.tracking_id || 'Loading...'}
+                </span>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -315,57 +332,56 @@ const OrderConfirmation: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Order Number</p>
-                  <p className="font-semibold text-lg text-gray-900 dark:text-white">#{order.id}</p>
-                </div>
-                <div className="md:col-span-1 lg:col-span-1">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Tracking ID</p>
-                  <p 
-                    className="font-medium text-gray-900 dark:text-white font-mono text-xs cursor-help" 
-                    title={order.tracking_id}
-                  >
-                    {formatLongId(order.tracking_id)}
-                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Order</p>
+                  <div>
+                    <p className="font-semibold text-lg text-gray-900 dark:text-white">#{order?.id || 'Loading...'}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Tracking:</span>
+                      <span className="text-xs font-mono bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-1 py-0.5 rounded">
+                        {order?.tracking_id ? formatLongId(order.tracking_id) : 'Loading...'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Order Date</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {new Date(order.created_at).toLocaleDateString('en-US', { 
+                    {order?.created_at ? new Date(order.created_at).toLocaleDateString('en-US', { 
                       year: 'numeric', 
                       month: 'long', 
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit'
-                    })}
+                    }) : 'Loading...'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Order Status</p>
                   <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                    order.status === 'processing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                    order.status === 'shipped' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    order?.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                    order?.status === 'processing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    order?.status === 'shipped' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                     'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                   }`}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    {order?.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Loading...'}
                   </span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Payment Status</p>
                   <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                    order.payment_status === 'paid' 
+                    order?.payment_status === 'paid' 
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : order.payment_status === 'unpaid'
+                      : order?.payment_status === 'unpaid'
                       ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                      : order.payment_status === 'failed'
+                      : order?.payment_status === 'failed'
                       ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
                   }`}>
-                    {order.payment_status === 'paid' ? 'Paid' : 
-                     order.payment_status === 'unpaid' ? 'Unpaid' :
-                     order.payment_status === 'failed' ? 'Failed' :
-                     order.payment_status === 'refunded' ? 'Refunded' : 
-                     order.payment_status ? order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1) : 'Unpaid'}
+                    {order?.payment_status === 'paid' ? 'Paid' : 
+                     order?.payment_status === 'unpaid' ? 'Unpaid' :
+                     order?.payment_status === 'failed' ? 'Failed' :
+                     order?.payment_status === 'refunded' ? 'Refunded' : 
+                     order?.payment_status ? order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1) : 'Loading...'}
                   </span>
                 </div>
               </div>
@@ -379,31 +395,57 @@ const OrderConfirmation: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Customer Name</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{order?.shipping_name || order?.customer_name || 'Loading...'}</p>
+                </div>
+                <div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Email Address</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{order.customer_email}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{order?.customer_email || 'Loading...'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Phone Number</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{order.customer_phone || 'Not provided'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Shipping Method</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{order.shipping_name}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{order?.customer_phone || 'Not provided'}</p>
                 </div>
               </div>
             </div>
             
-            {/* Shipping Address */}
+            {/* Shipping Information */}
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Truck className="w-5 h-5 mr-2" />
-                Shipping Address
+                Shipping Information
               </h2>
-              <div className="text-gray-600 dark:text-gray-300">
-                <p>{order.shipping_address.firstName} {order.shipping_address.lastName}</p>
-                <p>{order.shipping_address.address1}</p>
-                {order.shipping_address.address2 && <p>{order.shipping_address.address2}</p>}
-                <p>{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postcode}</p>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Shipping Method</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {order?.shipping_method === 'standard' ? 'Standard Shipping (5-7 business days)' : 
+                     order?.shipping_method === 'express' ? 'Express Shipping (2-3 business days)' : 
+                     order?.shipping_method || 'Standard Shipping'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Shipping Cost</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {formatCurrency(order?.shipping_cost || 0, getCurrencyObject())}
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-gray-200 dark:border-slate-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Shipping Address</p>
+                  <div className="text-gray-600 dark:text-gray-300">
+                    {typeof order?.shipping_address === 'string' ? (
+                      <p>{order.shipping_address}</p>
+                    ) : (
+                      <>
+                        <p>{order?.shipping_address?.firstName} {order?.shipping_address?.lastName}</p>
+                        <p>{order?.shipping_address?.address}</p>
+                        {order?.shipping_address?.address2 && <p>{order.shipping_address.address2}</p>}
+                        <p>{order?.shipping_address?.city}, {order?.shipping_address?.state} {order?.shipping_address?.zipCode}</p>
+                        <p>{order?.shipping_address?.country}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -414,15 +456,18 @@ const OrderConfirmation: React.FC = () => {
                 Order Items
               </h2>
               <div className="space-y-4">
-                {order.items.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center py-3 border-b border-gray-200 dark:border-slate-600 last:border-b-0">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900 dark:text-white">{item.product.title}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">Quantity: {item.quantity}</p>
+                {order?.items?.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center py-3 border-b border-gray-200 dark:border-slate-600 last:border-b-0">
+                    <div className="flex items-center space-x-4 flex-1">
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white">{item.product_name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">Quantity: {item.quantity}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Price: {formatCurrency(item.unit_price, getCurrencyObject())}</p>
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(item.unit_price * item.quantity, settings?.currency as Currency || 'USD')}
+                        {formatCurrency(item.total_price, getCurrencyObject())}
                       </p>
                     </div>
                   </div>
@@ -442,23 +487,23 @@ const OrderConfirmation: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Subtotal</span>
-                  <span className="font-medium">{formatCurrency(order.subtotal, settings?.currency as Currency || 'USD')}</span>
+                  <span className="font-medium">{formatCurrency(order?.subtotal || 0, getCurrencyObject())}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Shipping</span>
-                  <span className="font-medium">{formatCurrency(order.shipping_cost, settings?.currency as Currency || 'USD')}</span>
+                  <span className="font-medium">{formatCurrency(order?.shipping_cost || 0, getCurrencyObject())}</span>
                 </div>
-                {order.tax_amount > 0 && (
+                {(order?.tax_amount || 0) > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-300">Tax</span>
-                    <span className="font-medium">{formatCurrency(order.tax_amount, settings?.currency as Currency || 'USD')}</span>
+                    <span className="font-medium">{formatCurrency(order?.tax_amount || 0, getCurrencyObject())}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 dark:border-slate-600 pt-3">
                   <div className="flex justify-between">
                     <span className="text-lg font-semibold text-gray-900 dark:text-white">Total</span>
                     <span className="text-lg font-semibold text-red-600 dark:text-blue-400">
-                      {formatCurrency(order.total_price, settings?.currency as Currency || 'USD')}
+                      {formatCurrency(order?.total_price || 0, getCurrencyObject())}
                     </span>
                   </div>
                 </div>

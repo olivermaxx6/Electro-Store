@@ -22,7 +22,7 @@ const TrackOrder: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`http://127.0.0.1:8001/api/public/track-order/${orderNumber}/`);
+      const response = await fetch(`http://127.0.0.1:8000/api/public/track-order/${orderNumber}/`);
       
       if (response.ok) {
         const data = await response.json();
@@ -118,18 +118,33 @@ const TrackOrder: React.FC = () => {
                   <p className="text-gray-600 dark:text-gray-300 transition-colors duration-300">Tracking: {trackingInfo.tracking_id}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
-                    trackingInfo.status === 'delivered' 
-                      ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                      : trackingInfo.status === 'shipped'
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-                      : trackingInfo.status === 'processing'
-                      ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                      : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-                  } transition-colors duration-300`}>
-                    {trackingInfo.status_display}
-                  </span>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 transition-colors duration-300">
+                  <div className="space-y-2">
+                    <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
+                      trackingInfo.status === 'delivered' 
+                        ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                        : trackingInfo.status === 'shipped'
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                        : trackingInfo.status === 'processing'
+                        ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                        : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                    } transition-colors duration-300`}>
+                      {trackingInfo.status_display}
+                    </span>
+                    <div>
+                      <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
+                        trackingInfo.payment_status === 'paid' 
+                          ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                          : trackingInfo.payment_status === 'unpaid'
+                          ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                          : trackingInfo.payment_status === 'failed'
+                          ? 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
+                      } transition-colors duration-300`}>
+                        Payment: {trackingInfo.payment_status_display || trackingInfo.payment_status}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 transition-colors duration-300">
                     Created: {new Date(trackingInfo.created_at).toLocaleDateString()}
                   </p>
                 </div>

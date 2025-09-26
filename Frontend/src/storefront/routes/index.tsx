@@ -11,6 +11,7 @@ import Orders from '../pages/Orders';
 import Search from '../pages/Search';
 import Services from '../pages/Services';
 import ServiceDetail from '../pages/ServiceDetail';
+import ServiceCategoryPage from '../pages/ServiceCategoryPage';
 import About from '../pages/static/About';
 import Contact from '../pages/static/Contact';
 import Privacy from '../pages/static/Privacy';
@@ -51,6 +52,10 @@ export const router = createBrowserRouter([
         element: <Category />,
       },
       {
+        path: 'category',
+        element: <Categories />,
+      },
+      {
         path: 'category/:slug',
         element: <Category />,
       },
@@ -75,7 +80,7 @@ export const router = createBrowserRouter([
         element: <OrderConfirmation />,
       },
       {
-        path: 'order-confirmation/:trackingId',
+        path: 'order-confirmation/:slug',
         element: <OrderConfirmation />,
       },
       {
@@ -97,6 +102,10 @@ export const router = createBrowserRouter([
       {
         path: 'service/:id',
         element: <ServiceDetail />,
+      },
+      {
+        path: 'services/:categoryName',
+        element: <ServiceCategoryPage />,
       },
       {
         path: 'about',

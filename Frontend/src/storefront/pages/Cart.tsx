@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Trash2, Minus, Plus, ArrowLeft } from 'lucide-react';
-import { removeFromCart, updateQuantity, selectCartItems, selectCartTotal, setShippingCost, clearCart } from '../store/cartSlice';
+import { removeFromCart, updateQuantity, selectCartItems, selectCartTotal, selectCartItemCount, setShippingCost, clearCart, validateCartItems } from '../store/cartSlice';
 import { selectProducts, setProducts } from '../store/productsSlice';
 import { selectCurrentUser } from '../store/userSlice';
 import { productRepo } from '../lib/repo';
@@ -18,34 +18,72 @@ const Cart: React.FC = () => {
   const currentUser = useSelector(selectCurrentUser);
   const userId = currentUser?.id || 'guest';
   const cartItems = useSelector(selectCartItems(userId));
+  const cartItemCount = useSelector(selectCartItemCount(userId));
   const products = useSelector(selectProducts);
   const cartTotal = useSelector(selectCartTotal(userId));
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [cartValidationErrors, setCartValidationErrors] = useState<string[]>([]);
   const { settings, loading: settingsLoading } = useStoreSettings();
 
-  // Load products if they're not already loaded
+  // Load products and validate cart items
   useEffect(() => {
-    const loadProductsIfNeeded = async () => {
-      if (products.length === 0) {
-        try {
-          setIsLoadingProducts(true);
-          const productsData = await productRepo.getAll();
-          dispatch(setProducts(productsData));
-        } catch (error) {
-          console.error('Failed to load products for cart:', error);
-        } finally {
-          setIsLoadingProducts(false);
+    const loadProductsAndValidateCart = async () => {
+      try {
+        setIsLoadingProducts(true);
+        
+        // Always fetch fresh product data to ensure we have current prices and stock
+        const productsData = await productRepo.getAll();
+        dispatch(setProducts(productsData));
+        
+        // Validate cart items against current product data
+        if (cartItemCount > 0) {
+          const validProductIds = productsData.map(p => p.id);
+          const invalidItems = cartItems.filter(item => !validProductIds.includes(item.productId));
+          const errors: string[] = [];
+          
+          if (invalidItems.length > 0) {
+            console.log('Removing invalid cart items:', invalidItems);
+            dispatch(validateCartItems({ validProducts: validProductIds, userId }));
+            errors.push(`${invalidItems.length} item(s) were removed because they are no longer available.`);
+          }
+          
+          // Check for stock issues
+          cartItems.forEach(cartItem => {
+            const product = productsData.find(p => p.id === cartItem.productId);
+            if (product && product.stock && cartItem.qty > product.stock) {
+              errors.push(`${product.title}: Quantity reduced from ${cartItem.qty} to ${product.stock} due to limited stock.`);
+            }
+          });
+          
+          setCartValidationErrors(errors);
         }
+        
+      } catch (error) {
+        console.error('Failed to load products for cart:', error);
+      } finally {
+        setIsLoadingProducts(false);
       }
     };
 
-    loadProductsIfNeeded();
-  }, [dispatch, products.length]);
+    loadProductsAndValidateCart();
+  }, [dispatch, cartItemCount, userId]);
   
-  // Simple product matching like wishlist
+  // Enhanced product matching with stock validation
   const cartProducts = cartItems.map(cartItem => {
     const product = products.find(p => p.id === cartItem.productId);
-    return product ? { ...product, qty: cartItem.qty } : null;
+    if (!product) return null;
+    
+    // Ensure quantity doesn't exceed available stock
+    const maxQty = product.stock || cartItem.qty;
+    const adjustedQty = Math.min(cartItem.qty, maxQty);
+    
+    // If quantity was adjusted due to stock constraints, update the cart
+    if (adjustedQty !== cartItem.qty) {
+      console.log(`Adjusting quantity for ${product.title} from ${cartItem.qty} to ${adjustedQty} due to stock constraints`);
+      dispatch(updateQuantity({ productId: cartItem.productId, qty: adjustedQty, userId }));
+    }
+    
+    return { ...product, qty: adjustedQty };
   }).filter(Boolean);
   
   const handleRemoveItem = (productId: string) => {
@@ -54,6 +92,15 @@ const Cart: React.FC = () => {
 
   
   const handleUpdateQuantity = (productId: string, qty: number) => {
+    // Find the product to check stock availability
+    const product = products.find(p => p.id === productId);
+    
+    if (product && product.stock && qty > product.stock) {
+      // Don't allow quantity to exceed available stock
+      console.warn(`Cannot add ${qty} items. Only ${product.stock} available.`);
+      return;
+    }
+    
     dispatch(updateQuantity({ productId, qty, userId }));
   };
   
@@ -83,12 +130,12 @@ const Cart: React.FC = () => {
   }, [settings, shippingCost, dispatch, userId]);
   
   // Show loading state if we have cart items but products are still loading
-  if (cartProducts.length === 0 && isLoadingProducts && cartItems.length > 0) {
+  if (cartProducts.length === 0 && isLoadingProducts && cartItemCount > 0) {
     return <LoadingScreen message="Loading your cart..." />;
   }
 
   // Show empty cart message
-  if (cartItems.length === 0) {
+  if (cartItemCount === 0) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
         <TitleUpdater pageTitle="Cart" />
@@ -132,12 +179,37 @@ const Cart: React.FC = () => {
         
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-6 sm:mb-8">Shopping Cart</h1>
         
+        {/* Cart Validation Messages */}
+        {cartValidationErrors.length > 0 && (
+          <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  Cart Updated
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                  <ul className="list-disc list-inside space-y-1">
+                    {cartValidationErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2">
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
               <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Cart Items ({cartItems.length})</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Cart Items ({cartItemCount})</h2>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => dispatch(clearCart({ userId }))}

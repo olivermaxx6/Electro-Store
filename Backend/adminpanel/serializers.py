@@ -68,6 +68,60 @@ class CategorySerializer(SafeModelSerializer):
         ]
         read_only_fields = ["id", "slug", "created_at", "depth", "level", "level_name", "full_path", "can_have_children", "children_count", "children"]
 
+    def get_depth(self, obj):
+        return obj.get_depth()
+
+    def get_level(self, obj):
+        return obj.get_level()
+
+    def get_level_name(self, obj):
+        return obj.get_level_name()
+
+    def get_full_path(self, obj):
+        return obj.get_full_path()
+
+    def get_can_have_children(self, obj):
+        return obj.can_have_children()
+
+    def get_children_count(self, obj):
+        return obj.children.count()
+
+    def get_children(self, obj):
+        # Return children as a nested serializer
+        children = obj.children.all()
+        return CategoryListSerializer(children, many=True, context=self.context).data
+
+class CategoryListSerializer(SafeModelSerializer):
+    """Lightweight serializer for category lists - no nested children"""
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+    name = serializers.CharField(max_length=120)
+    
+    # Only essential hierarchical fields
+    depth = serializers.SerializerMethodField()
+    level = serializers.SerializerMethodField()
+    children_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = [
+            "id", "name", "slug", "parent", "image", "created_at",
+            "depth", "level", "children_count"
+        ]
+        read_only_fields = ["id", "slug", "created_at", "depth", "level", "children_count"]
+
+    def get_depth(self, obj):
+        return obj.get_depth()
+
+    def get_level(self, obj):
+        return obj.get_level()
+
+    def get_children_count(self, obj):
+        return obj.children.count()
+
     def validate_name(self, v):
         v = (v or "").strip()
         if not v:
@@ -236,14 +290,14 @@ class OrderItemSerializer(serializers.ModelSerializer):
             return "Deleted Product"
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
+    items = OrderItemSerializer(source='order_items', many=True, read_only=True)
 
     class Meta:
         model = Order
         fields = [
             "id", "user", "tracking_id", "payment_id", "customer_email", "customer_phone",
             "shipping_address", "subtotal", "shipping_cost", "tax_amount", "total_price",
-            "status", "payment_status", "payment_method", "shipping_name", "created_at", "updated_at", "items"
+            "status", "payment_status", "payment_method", "shipping_name", "shipping_method", "created_at", "updated_at", "items"
         ]
         read_only_fields = ["id", "tracking_id", "payment_id", "customer_email", "customer_phone",
                            "shipping_address", "subtotal", "shipping_cost", "tax_amount", "total_price",
@@ -272,9 +326,9 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ServiceCategory
-        fields = ["id", "name", "slug", "description", "ordering", "is_active", "parent", "parent_name", "children", "depth", "services_count", "created_at"]
+        fields = ["id", "name", "slug", "description", "ordering", "is_active", "image", "parent", "parent_name", "children", "depth", "services_count", "created_at"]
         extra_kwargs = {
-            'parent': {'write_only': True},
+            'parent': {'read_only': True},
         }
     
     def get_children(self, obj):

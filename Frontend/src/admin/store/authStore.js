@@ -65,8 +65,20 @@ export const useAuth = create((set, get) => ({
 
   // Initialize auth header if token exists
   init: () => {
-    const token = get().token;
+    // Re-read from localStorage to get the latest token
+    const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+    const token = authData.access || localStorage.getItem('access_token');
+    
     console.log('[AUTH] Initializing auth store with token:', token ? 'present' : 'missing');
+    console.log('[AUTH] Auth data from localStorage:', authData);
+    console.log('[AUTH] Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+    
+    // Update the store state with current token
+    set({ 
+      token: token,
+      user: authData.user || null
+    });
+    
     if (token) {
       authApi.defaults.headers.common.Authorization = `Bearer ${token}`;
       // Initialize proactive token refresh

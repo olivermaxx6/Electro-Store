@@ -13,7 +13,7 @@ export default function TopBar({ collapsed, title = 'Dashboard' }) {
 
   return (
     <>
-      <header className={`fixed top-0 z-40 border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-lg transition-all duration-300 ${collapsed ? 'left-[72px] right-0' : 'left-72 right-0'}`}>
+      <header className={`fixed top-0 z-40 border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-lg transition-all duration-300 overflow-x-hidden ${collapsed ? 'left-[72px] right-0' : 'left-72 right-0'}`}>
         <div className="mx-auto max-w-[1400px] flex items-center justify-between px-6 py-4">
 
           {/* Center Section - Page Title */}

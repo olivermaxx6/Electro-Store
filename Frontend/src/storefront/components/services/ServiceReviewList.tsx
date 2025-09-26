@@ -4,17 +4,20 @@ import { useTheme } from '../../../hooks/useTheme';
 import { ServiceReview } from '../../../lib/servicesApi';
 
 interface ServiceReviewListProps {
-  reviews: ServiceReview[];
+  reviews?: ServiceReview[];
   averageRating?: number;
   totalReviews?: number;
 }
 
 const ServiceReviewList: React.FC<ServiceReviewListProps> = ({ 
-  reviews, 
+  reviews = [], 
   averageRating = 0, 
   totalReviews = 0 
 }) => {
   const { isDark } = useTheme();
+
+  // Ensure reviews is always an array
+  const safeReviews = Array.isArray(reviews) ? reviews : [];
 
   const StarRating: React.FC<{ rating: number; size?: 'sm' | 'md' | 'lg' }> = ({ 
     rating, 
@@ -50,16 +53,16 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
 
   const getRatingDistribution = () => {
     const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    reviews.forEach(review => {
+    safeReviews.forEach(review => {
       distribution[review.rating as keyof typeof distribution]++;
     });
     return distribution;
   };
 
   const getCategoryAverages = () => {
-    if (reviews.length === 0) return { serviceQuality: 0, communication: 0, timeliness: 0, valueForMoney: 0 };
+    if (safeReviews.length === 0) return { serviceQuality: 0, communication: 0, timeliness: 0, valueForMoney: 0 };
     
-    const totals = reviews.reduce((acc, review) => ({
+    const totals = safeReviews.reduce((acc, review) => ({
       serviceQuality: acc.serviceQuality + review.service_quality,
       communication: acc.communication + review.communication,
       timeliness: acc.timeliness + review.timeliness,
@@ -67,10 +70,10 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
     }), { serviceQuality: 0, communication: 0, timeliness: 0, valueForMoney: 0 });
 
     return {
-      serviceQuality: totals.serviceQuality / reviews.length,
-      communication: totals.communication / reviews.length,
-      timeliness: totals.timeliness / reviews.length,
-      valueForMoney: totals.valueForMoney / reviews.length,
+      serviceQuality: totals.serviceQuality / safeReviews.length,
+      communication: totals.communication / safeReviews.length,
+      timeliness: totals.timeliness / safeReviews.length,
+      valueForMoney: totals.valueForMoney / safeReviews.length,
     };
   };
 
@@ -238,7 +241,7 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
           Customer Reviews
         </h3>
         
-        {reviews.length === 0 ? (
+        {safeReviews.length === 0 ? (
           <div className={`p-6 rounded-lg border text-center ${
             isDark 
               ? 'bg-slate-800 border-slate-700 text-slate-400' 
@@ -248,7 +251,7 @@ const ServiceReviewList: React.FC<ServiceReviewListProps> = ({
             <p>No reviews yet. Be the first to review this service!</p>
           </div>
         ) : (
-          reviews.map((review) => (
+          safeReviews.map((review) => (
             <div
               key={review.id}
               className={`p-4 rounded-lg border ${

@@ -195,9 +195,9 @@ const Contact: React.FC = () => {
                         <p className="text-gray-400 dark:text-gray-500">Business hours not available</p>
                       ) : (
                         <p className="text-gray-600 dark:text-gray-300">
-                          {contactInfo.businessHours.mondayFriday}<br />
-                          {contactInfo.businessHours.saturday}<br />
-                          {contactInfo.businessHours.sunday}
+                          {contactInfo.businessHours?.mondayFriday || 'Monday - Friday: 9:00 AM - 6:00 PM'}<br />
+                          {contactInfo.businessHours?.saturday || 'Saturday: 10:00 AM - 4:00 PM'}<br />
+                          {contactInfo.businessHours?.sunday || 'Sunday: Closed'}
                         </p>
                       )}
                     </div>

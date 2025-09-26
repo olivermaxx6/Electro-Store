@@ -11,9 +11,6 @@ const NavBar: React.FC = () => {
   const location = useLocation();
   const { categories, loading: categoriesLoading } = useCategoriesWithHierarchy();
   
-  // Categories that should show dropdown menus
-  const dropdownCategories = ['Electrical & Lights', 'Tools & Equipment'];
-  
   // Create navigation items with dynamic categories
   const navItems: Array<{ label: string; href: string; hasDropdown: boolean }> = [
     { label: 'Home', href: '/', hasDropdown: false },
@@ -21,7 +18,8 @@ const NavBar: React.FC = () => {
     ...categories.map(category => ({
       label: category.name,
       href: `/allsubcategories?category=${category.id}&name=${encodeURIComponent(category.name)}`,
-      hasDropdown: dropdownCategories.includes(category.name)
+      // Show dropdown for any parent category that has children
+      hasDropdown: Array.isArray(category.children) && category.children.length > 0
     }))
   ];
   
@@ -35,7 +33,7 @@ const NavBar: React.FC = () => {
   return (
     <DropdownProvider>
       <nav className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 sticky top-0 z-40 shadow-lg backdrop-blur-sm border-b border-red-500/20 dark:border-blue-600/30">
-        <div className="container mx-auto px-4 lg:px-6">
+        <div className="container mx-auto px-4 lg:px-6 relative">
           <div className="flex items-center justify-between">
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center space-x-1">
@@ -156,7 +154,7 @@ const NavBar: React.FC = () => {
         
         {/* Mobile Navigation */}
         <div className={clsx(
-          'lg:hidden overflow-hidden transition-all duration-500 ease-in-out',
+          'lg:hidden transition-all duration-500 ease-in-out',
           isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         )}>
           <div className="py-4 sm:py-6 space-y-1 sm:space-y-2 border-t border-white/20">
