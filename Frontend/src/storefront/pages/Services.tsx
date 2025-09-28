@@ -67,7 +67,7 @@ const SubcategoryCard: React.FC<{
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer flex-shrink-0 min-w-[300px] max-w-[300px] subcategory-card transform hover:-translate-y-1 mx-2">
       <Link 
-        to={`/services/${encodeURIComponent(subcategory.parent_name?.toLowerCase() || 'services')}?category=${encodeURIComponent(subcategory.parent_name || subcategory.name)}`} 
+        to={`/services/${(subcategory.parent_name?.toLowerCase() || 'services').replace(/\s+/g, '-')}?category=${encodeURIComponent(subcategory.parent_name || subcategory.name)}`} 
         onClick={() => handleServiceClick(services[0])}
         className="block h-full flex flex-col"
       >
@@ -238,7 +238,7 @@ const CategorySection: React.FC<{
       {/* Show All Button - Enhanced */}
       <div className="flex justify-center">
         <Link
-          to={`/services/${encodeURIComponent(categoryName.toLowerCase())}?category=${encodeURIComponent(categoryName)}`}
+          to={`/services/${categoryName.toLowerCase().replace(/\s+/g, '-')}?category=${encodeURIComponent(categoryName)}`}
           className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           Show All {categoryName} Services

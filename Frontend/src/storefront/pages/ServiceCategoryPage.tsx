@@ -344,10 +344,12 @@ const ServiceCategoryPage: React.FC = () => {
   // Filter and sort services
   const filteredAndSortedServices = useMemo(() => {
     let filtered = servicesData.filter(service => {
-      // Filter by category
+      // Filter by category - handle both URL slug format and original category names
       const matchesCategory = !categoryParam || 
         service.parentCategory?.toLowerCase() === categoryParam.toLowerCase() ||
-        service.category?.toLowerCase() === categoryParam.toLowerCase();
+        service.category?.toLowerCase() === categoryParam.toLowerCase() ||
+        service.parentCategory?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase() ||
+        service.category?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase();
       
       if (!matchesCategory) return false;
       
@@ -403,7 +405,8 @@ const ServiceCategoryPage: React.FC = () => {
 
   // Get category information
   const currentCategory = categories.find(cat => 
-    cat.name.toLowerCase() === categoryParam?.toLowerCase()
+    cat.name.toLowerCase() === categoryParam?.toLowerCase() ||
+    cat.name.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase()
   );
 
   const handleServiceClick = () => {

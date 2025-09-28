@@ -11,7 +11,7 @@ import { useGlobalLoading } from '../hooks/useGlobalLoading';
 import HotDealBanner from '../components/promo/HotDealBanner';
 import TitleUpdater from '../components/common/TitleUpdater';
 // @ts-ignore
-import { getServiceCategories, ServiceCategory } from '../../lib/servicesApi';
+import { getServiceCategories, getServices, ServiceCategory } from '../../lib/servicesApi';
 
 const Home: React.FC = () => {
   const dispatch = useDispatch();
@@ -150,25 +150,50 @@ const Home: React.FC = () => {
     };
   };
 
-  // Fetch service categories
+  // Fetch service categories and services
   useEffect(() => {
-    const fetchServiceCategories = async () => {
+    const fetchServiceData = async () => {
       try {
         setServiceCategoriesLoading(true);
-        const categories = await getServiceCategories();
+        const [categoriesResponse, servicesResponse] = await Promise.all([
+          getServiceCategories(),
+          getServices()
+        ]);
+        
+        // Extract results from paginated response
+        const categoriesArray = Array.isArray(categoriesResponse) ? categoriesResponse : categoriesResponse.results || [];
+        const services = Array.isArray(servicesResponse) ? servicesResponse : servicesResponse.results || [];
+        
         // Filter only parent categories (parent is null)
-        const categoriesArray = Array.isArray(categories) ? categories : categories.results || [];
         const parentCategories = categoriesArray.filter((category: ServiceCategory) => !category.parent);
-        setServiceCategories(parentCategories);
+        
+        // Filter out parent categories that have no services
+        const categoriesWithServices = parentCategories.filter((category: ServiceCategory) => {
+          // Check if any service belongs to this category or its subcategories
+          return services.some((service: any) => {
+            const serviceCategory = service.category;
+            if (!serviceCategory) return false;
+            
+            // Check if service belongs directly to this parent category
+            if (serviceCategory.id === category.id) return true;
+            
+            // Check if service belongs to a subcategory of this parent category
+            if (serviceCategory.parent === category.id) return true;
+            
+            return false;
+          });
+        });
+        
+        setServiceCategories(categoriesWithServices);
       } catch (error) {
-        console.error('Failed to fetch service categories:', error);
+        console.error('Failed to fetch service data:', error);
         setServiceCategories([]);
       } finally {
         setServiceCategoriesLoading(false);
       }
     };
 
-    fetchServiceCategories();
+    fetchServiceData();
   }, []);
   
   useEffect(() => {
@@ -429,7 +454,7 @@ const Home: React.FC = () => {
                   const style = getServiceCategoryStyle(index);
                   return (
                     <div key={category.id} className="flex-shrink-0 w-64 sm:w-72">
-                      <Link to={`/services?category=${encodeURIComponent(category.name)}`}>
+                      <Link to={`/services/${category.name.toLowerCase().replace(/\s+/g, '-')}?category=${encodeURIComponent(category.name)}`}>
                         <div className="bg-white dark:bg-slate-700 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer">
                           <div className={`h-48 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
                             <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
