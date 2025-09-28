@@ -1,5 +1,5 @@
 {
-  "name": "electro-ecommerce",
+  "name": "sppix-ecommerce",
   "version": "1.0.0",
   "description": "A modern full-stack ecommerce platform with Django REST API and React frontend",
   "scripts": {
@@ -26,7 +26,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/electro-ecommerce.git"
+    "url": "https://github.com/yourusername/sppix-ecommerce.git"
   },
   "engines": {
     "node": ">=16.0.0",

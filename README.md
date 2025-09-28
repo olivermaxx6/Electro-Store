@@ -1,4 +1,4 @@
-# 🛒 Electro Ecommerce Platform
+# 🛒 SPPIX Ecommerce Platform
 
 A modern, full-stack ecommerce platform built with Django REST API and React frontend.
 
@@ -14,7 +14,7 @@ A modern, full-stack ecommerce platform built with Django REST API and React fro
 ```powershell
 # Clone the repository
 git clone <your-repo-url>
-cd Ecommerce
+cd sppix-ecommerce
 
 # Run the setup script
 .\setup-project.ps1
@@ -102,7 +102,7 @@ npm run dev:admin
 ## 📁 Project Structure
 
 ```
-Ecommerce/
+sppix-ecommerce/
 ├── Backend/                 # Django REST API
 │   ├── core/               # Django settings
 │   ├── adminpanel/         # Main app models & views

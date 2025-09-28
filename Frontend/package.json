@@ -1,9 +1,9 @@
 {
-  "name": "electro-ecommerce",
+  "name": "sppix-ecommerce",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Electro E-commerce Platform - Complete storefront and admin panel",
+  "description": "SPPIX E-commerce Platform - Complete storefront and admin panel",
   "scripts": {
     "dev": "vite --config vite.storefront.config.js",
     "dev:storefront": "vite --config vite.storefront.config.js",
