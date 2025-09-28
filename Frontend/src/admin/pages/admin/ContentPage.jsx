@@ -25,6 +25,11 @@ export default function ContentPage() {
     city: '',
     postcode: '',
     country: '',
+    home_hero_subtitle: '',
+    home_services_description: '',
+    home_categories_description: '',
+    services_page_title: '',
+    services_page_description: '',
   });
   
   const [brands, setBrands] = useState([]);
@@ -82,6 +87,10 @@ export default function ContentPage() {
         city: contentData.city || '',
         postcode: contentData.postcode || '',
         country: contentData.country || '',
+        home_hero_subtitle: contentData.home_hero_subtitle || '',
+        home_services_description: contentData.home_services_description || '',
+        services_page_title: contentData.services_page_title || '',
+        services_page_description: contentData.services_page_description || '',
       }));
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -130,6 +139,11 @@ export default function ContentPage() {
       formData.append('city', content.city);
       formData.append('postcode', content.postcode);
       formData.append('country', content.country);
+      formData.append('home_hero_subtitle', content.home_hero_subtitle);
+      formData.append('home_services_description', content.home_services_description);
+      formData.append('home_categories_description', content.home_categories_description);
+      formData.append('services_page_title', content.services_page_title);
+      formData.append('services_page_description', content.services_page_description);
       
       // Add files if selected
       if (banner1File) {
@@ -286,6 +300,153 @@ export default function ContentPage() {
               onClose={() => setMsg(null)}
             />
           )}
+
+          {/* Home Page Content Section */}
+          <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-teal-600 rounded-xl flex items-center justify-center">
+                <span className="text-white text-lg">🏠</span>
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Home Page Content</h2>
+            </div>
+            
+            <form onSubmit={saveContent} className="space-y-6">
+              {/* Hero Section Subtitle */}
+              <div className="p-6 bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-3xl border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm">🎯</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Hero Section Subtitle</h3>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Subtitle Text (appears below the welcome message)
+                  </label>
+                  <ThemeTextarea
+                    value={content.home_hero_subtitle}
+                    onChange={(e) => setContent(prev => ({ ...prev, home_hero_subtitle: e.target.value }))}
+                    placeholder="Enter the hero section subtitle text..."
+                    rows={3}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    This text appears below "Welcome to [Store Name]" on the home page
+                  </p>
+                </div>
+              </div>
+
+              {/* Product Categories Section Description */}
+              <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm">📦</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Product Categories Section Description</h3>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Categories Description Text
+                  </label>
+                  <ThemeTextarea
+                    value={content.home_categories_description}
+                    onChange={(e) => setContent(prev => ({ ...prev, home_categories_description: e.target.value }))}
+                    placeholder="Enter the product categories section description text..."
+                    rows={3}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    This text appears in the product categories section on the home page
+                  </p>
+                </div>
+              </div>
+
+              {/* Services Section Description */}
+              <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-3xl border border-purple-200 dark:border-purple-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm">⚙️</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Services Section Description</h3>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Services Description Text
+                  </label>
+                  <ThemeTextarea
+                    value={content.home_services_description}
+                    onChange={(e) => setContent(prev => ({ ...prev, home_services_description: e.target.value }))}
+                    placeholder="Enter the services section description text..."
+                    rows={3}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    This text appears in the services section on the home page
+                  </p>
+                </div>
+              </div>
+
+              {/* Services Page Content */}
+              <div className="p-6 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-3xl border border-indigo-200 dark:border-indigo-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-sm">🔧</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">All Services Page Content</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Services Page Title
+                    </label>
+                    <ThemeInput
+                      value={content.services_page_title}
+                      onChange={(e) => setContent(prev => ({ ...prev, services_page_title: e.target.value }))}
+                      placeholder="Enter the services page title (e.g., 'Professional Electrical Services')"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      This title appears in the hero section of the services page
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Services Page Description Text
+                    </label>
+                    <ThemeTextarea
+                      value={content.services_page_description}
+                      onChange={(e) => setContent(prev => ({ ...prev, services_page_description: e.target.value }))}
+                      placeholder="Enter the services page description text..."
+                      rows={3}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      This description appears below the title in the hero section of the services page (http://127.0.0.1:5173/services)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex justify-end pt-4">
+                <ThemeButton
+                  type="submit"
+                  disabled={busy}
+                  loading={busy}
+                  variant="primary"
+                  icon="💾"
+                  className="px-8 py-3"
+                >
+                  Save Home Page Content
+                </ThemeButton>
+              </div>
+            </form>
+          </section>
 
           {/* Banners Section */}
           <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">

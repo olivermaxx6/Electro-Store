@@ -59,8 +59,15 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Form submission started');
+    console.log('Current user:', currentUser);
+    console.log('Has reviewed:', hasReviewed);
+    console.log('Rating:', rating);
+    console.log('Comment:', comment);
+    
     // Check if user is authenticated
     if (!currentUser?.isAuthenticated) {
+      console.log('User not authenticated');
       dispatch(addToast({
         message: 'You need to login first to add a review',
         type: 'error',
@@ -71,6 +78,7 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
 
     // Check if user has already reviewed this service
     if (hasReviewed) {
+      console.log('User has already reviewed this service');
       dispatch(addToast({
         message: 'You have already reviewed this service. You can only review each service once.',
         type: 'error',
@@ -80,6 +88,7 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
     }
     
     if (rating === 0 || !comment.trim()) {
+      console.log('Validation failed - rating or comment missing');
       dispatch(addToast({
         message: 'Please fill in all required fields',
         type: 'error',
@@ -88,9 +97,10 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
       return;
     }
 
+    console.log('All validations passed, submitting review...');
     setIsSubmitting(true);
     try {
-      await onSubmit({ 
+      const reviewData = { 
         rating, 
         comment: comment.trim(), 
         author: currentUser.name || currentUser.email || 'Anonymous',
@@ -98,7 +108,12 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
         communication,
         timeliness,
         valueForMoney
-      });
+      };
+      
+      console.log('Calling onSubmit with data:', reviewData);
+      await onSubmit(reviewData);
+      
+      console.log('Review submitted successfully');
       
       // Success toast
       dispatch(addToast({
@@ -134,9 +149,7 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
     label: string;
   }> = ({ rating, setRating, hoveredRating, setHoveredRating, label }) => (
     <div className="space-y-2">
-      <label className={`block text-sm font-medium ${
-        isDark ? 'text-slate-200' : 'text-gray-700'
-      }`}>
+      <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">
         {label}
       </label>
       <div className="flex space-x-1">
@@ -150,17 +163,13 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
             className={`transition-colors duration-150 ${
               star <= (hoveredRating || rating)
                 ? 'text-yellow-400'
-                : isDark
-                ? 'text-gray-600'
-                : 'text-gray-300'
+                : 'text-gray-300 dark:text-gray-600'
             }`}
           >
             <Star className="w-5 h-5 fill-current" />
           </button>
         ))}
-        <span className={`text-sm ml-2 ${
-          isDark ? 'text-slate-400' : 'text-gray-600'
-        }`}>
+        <span className="text-sm ml-2 text-gray-600 dark:text-slate-400">
           {rating > 0 && `${rating} out of 5`}
         </span>
       </div>
@@ -168,52 +177,30 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
   );
 
   return (
-    <div className={`p-6 rounded-lg border ${
-      isDark 
-        ? 'bg-slate-800 border-slate-700' 
-        : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-lg font-semibold mb-4 ${
-        isDark ? 'text-slate-100' : 'text-gray-900'
-      }`}>
+    <div className="p-6 rounded-lg border bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700">
+      <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">
         Share Your Experience
       </h3>
 
       {/* Check if user has already reviewed */}
       {checkingReview ? (
-        <div className={`p-4 rounded-lg border ${
-          isDark 
-            ? 'bg-slate-800 border-slate-700' 
-            : 'bg-gray-50 border-gray-200'
-        }`}>
+        <div className="p-4 rounded-lg border bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700">
           <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className={`text-sm ${
-              isDark ? 'text-slate-300' : 'text-gray-600'
-            }`}>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500 dark:border-blue-500"></div>
+            <span className="text-sm text-gray-600 dark:text-slate-300">
               Checking if you've already reviewed this service...
             </span>
           </div>
         </div>
       ) : hasReviewed ? (
-        <div className={`p-4 rounded-lg border ${
-          isDark 
-            ? 'bg-slate-800 border-slate-700' 
-            : 'bg-yellow-50 border-yellow-200'
-        }`}>
+        <div className="p-4 rounded-lg border bg-yellow-50 dark:bg-slate-800 border-yellow-200 dark:border-slate-700">
           <div className="flex items-center space-x-2">
-            <CheckCircle className={`w-5 h-5 ${
-              isDark ? 'text-yellow-400' : 'text-yellow-600'
-            }`} />
+            <CheckCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
             <div>
-              <div className={`text-sm font-medium ${
-                isDark ? 'text-slate-200' : 'text-gray-900'
-              }`}>
+              <div className="text-sm font-medium text-gray-900 dark:text-slate-200">
                 Already Reviewed
               </div>
-              <div className={`text-xs ${
-                isDark ? 'text-slate-400' : 'text-gray-600'
-              }`}>
+              <div className="text-xs text-gray-600 dark:text-slate-400">
                 You have already reviewed this service. Thank you for your feedback!
               </div>
             </div>
@@ -222,11 +209,7 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
         {/* User Authentication Status */}
-        <div className={`p-4 rounded-lg border ${
-          isDark 
-            ? 'bg-slate-800 border-slate-700' 
-            : 'bg-blue-50 border-blue-200'
-        }`}>
+        <div className="p-4 rounded-lg border bg-red-50 dark:bg-slate-800 border-red-200 dark:border-slate-700">
           <div className="flex items-center space-x-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
               currentUser?.isAuthenticated 
@@ -242,14 +225,10 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
               </span>
             </div>
             <div>
-              <div className={`text-sm font-medium ${
-                isDark ? 'text-slate-200' : 'text-gray-900'
-              }`}>
+              <div className="text-sm font-medium text-gray-900 dark:text-slate-200">
                 {currentUser?.isAuthenticated ? 'Signed in' : 'Not signed in'}
               </div>
-              <div className={`text-xs ${
-                isDark ? 'text-slate-400' : 'text-gray-600'
-              }`}>
+              <div className="text-xs text-gray-600 dark:text-slate-400">
                 {currentUser?.isAuthenticated 
                   ? `Reviewing as: ${currentUser.name || currentUser.email}`
                   : 'You need to login to submit a review'
@@ -305,9 +284,7 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
 
         {/* Comment */}
         <div>
-          <label className={`block text-sm font-medium mb-2 ${
-            isDark ? 'text-slate-200' : 'text-gray-700'
-          }`}>
+          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-200">
             Your Review
           </label>
           <textarea
@@ -316,11 +293,7 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
             placeholder="Share your experience with this service..."
             rows={4}
             required
-            className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-primary focus:border-transparent resize-none ${
-              isDark
-                ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400'
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-            }`}
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400"
           />
         </div>
 
@@ -330,10 +303,8 @@ const ServiceReviewForm: React.FC<ServiceReviewFormProps> = ({ serviceId, onSubm
           disabled={rating === 0 || !comment.trim() || !currentUser?.isAuthenticated || isSubmitting || hasReviewed}
           className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-colors ${
             rating === 0 || !comment.trim() || !currentUser?.isAuthenticated || isSubmitting || hasReviewed
-              ? isDark
-                ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-primary text-white hover:bg-primary-600'
+              ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-slate-400 cursor-not-allowed'
+              : 'bg-red-500 hover:bg-red-600 dark:bg-blue-500 dark:hover:bg-blue-600 text-white'
           }`}
         >
           <Send className="w-4 h-4" />

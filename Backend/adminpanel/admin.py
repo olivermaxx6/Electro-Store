@@ -23,8 +23,9 @@ class BrandAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'created_at')
-    search_fields = ('name',)
+    list_display = ('name', 'slogan', 'created_at')
+    search_fields = ('name', 'slogan')
+    fields = ('name', 'slug', 'slogan', 'parent', 'image')
 
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):

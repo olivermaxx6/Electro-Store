@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 export interface Category {
   id: number;
   name: string;
+  slug: string;
   parent: number | null;
   created_at: string;
   children?: Category[];

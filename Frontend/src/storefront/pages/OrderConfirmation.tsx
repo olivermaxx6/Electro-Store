@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { addToast } from '../store/uiSlice';
 import { selectIsAuthenticated, selectCurrentUser } from '../store/userSlice';
 import { clearCart } from '../store/cartSlice';
-import { formatCurrency } from '../lib/format';
+import { formatCurrency, currencyOptions } from '../lib/format';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -60,12 +60,9 @@ const OrderConfirmation: React.FC = () => {
     return `${id.substring(0, maxLength)}...`;
   };
 
-  // Helper function to get proper currency object
-  const getCurrencyObject = () => {
-    if (settings?.currency && typeof settings.currency === 'object') {
-      return settings.currency;
-    }
-    return { code: 'USD', symbol: '$', name: 'US Dollar' };
+  // Helper function to get currency object from string
+  const getCurrencyObject = (currencyCode: string) => {
+    return currencyOptions.find(curr => curr.code === currencyCode) || currencyOptions[0];
   };
   
 
@@ -427,7 +424,7 @@ const OrderConfirmation: React.FC = () => {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Shipping Cost</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {formatCurrency(order?.shipping_cost || 0, getCurrencyObject())}
+                    {formatCurrency(order?.shipping_cost || 0, getCurrencyObject(settings?.currency || 'GBP'))}
                   </p>
                 </div>
                 <div className="pt-4 border-t border-gray-200 dark:border-slate-600">
@@ -462,12 +459,12 @@ const OrderConfirmation: React.FC = () => {
                       <div>
                         <h3 className="font-medium text-gray-900 dark:text-white">{item.product_name}</h3>
                         <p className="text-sm text-gray-600 dark:text-gray-300">Quantity: {item.quantity}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Price: {formatCurrency(item.unit_price, getCurrencyObject())}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Price: {formatCurrency(item.unit_price, getCurrencyObject(settings?.currency || 'GBP'))}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(item.total_price, getCurrencyObject())}
+                        {formatCurrency(item.total_price, getCurrencyObject(settings?.currency || 'GBP'))}
                       </p>
                     </div>
                   </div>
@@ -487,23 +484,23 @@ const OrderConfirmation: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Subtotal</span>
-                  <span className="font-medium">{formatCurrency(order?.subtotal || 0, getCurrencyObject())}</span>
+                  <span className="font-medium">{formatCurrency(order?.subtotal || 0, getCurrencyObject(settings?.currency || 'GBP'))}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Shipping</span>
-                  <span className="font-medium">{formatCurrency(order?.shipping_cost || 0, getCurrencyObject())}</span>
+                  <span className="font-medium">{formatCurrency(order?.shipping_cost || 0, getCurrencyObject(settings?.currency || 'GBP'))}</span>
                 </div>
                 {(order?.tax_amount || 0) > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-300">Tax</span>
-                    <span className="font-medium">{formatCurrency(order?.tax_amount || 0, getCurrencyObject())}</span>
+                    <span className="font-medium">{formatCurrency(order?.tax_amount || 0, getCurrencyObject(settings?.currency || 'GBP'))}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 dark:border-slate-600 pt-3">
                   <div className="flex justify-between">
                     <span className="text-lg font-semibold text-gray-900 dark:text-white">Total</span>
                     <span className="text-lg font-semibold text-red-600 dark:text-blue-400">
-                      {formatCurrency(order?.total_price || 0, getCurrencyObject())}
+                      {formatCurrency(order?.total_price || 0, getCurrencyObject(settings?.currency || 'GBP'))}
                     </span>
                   </div>
                 </div>

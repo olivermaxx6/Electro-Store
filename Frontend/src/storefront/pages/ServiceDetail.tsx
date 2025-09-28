@@ -81,12 +81,23 @@ const ServiceDetail: React.FC = () => {
           getServiceReviews(id)
         ]);
         
+        console.log('ServiceDetail: Raw serviceReviews response:', serviceReviews);
+        
         const transformedService = transformServiceData(apiService);
         setService(transformedService);
         
-        // Ensure serviceReviews is an array
-        const safeReviews = Array.isArray(serviceReviews) ? serviceReviews : [];
-        setReviews(safeReviews);
+        // Handle paginated response structure
+        let reviewsArray = [];
+        if (serviceReviews && typeof serviceReviews === 'object') {
+          if (Array.isArray(serviceReviews)) {
+            reviewsArray = serviceReviews;
+          } else if (serviceReviews.results && Array.isArray(serviceReviews.results)) {
+            reviewsArray = serviceReviews.results;
+          }
+        }
+        
+        console.log('ServiceDetail: Processed reviews array:', reviewsArray);
+        setReviews(reviewsArray);
         
         // Track view
         try {
@@ -243,10 +254,13 @@ const ServiceDetail: React.FC = () => {
     valueForMoney: number;
   }) => {
     try {
+      console.log('Submitting review with data:', reviewData);
+      console.log('Service ID:', id);
+      
       // Create the review via API
       const newReview = await createServiceReview(parseInt(id!), {
         service: parseInt(id!),
-        author: reviewData.author,
+        author_name: reviewData.author,
         rating: reviewData.rating,
         comment: reviewData.comment,
         service_quality: reviewData.serviceQuality,
@@ -254,6 +268,8 @@ const ServiceDetail: React.FC = () => {
         timeliness: reviewData.timeliness,
         value_for_money: reviewData.valueForMoney,
       } as any);
+      
+      console.log('Review created successfully:', newReview);
       
       // Add the new review to the local state
       if (newReview && typeof newReview === 'object') {
@@ -352,7 +368,7 @@ const ServiceDetail: React.FC = () => {
                       onClick={() => setActiveTab(tab.id)}
                       className={`py-4 px-1 text-sm font-medium border-b-2 transition-colors ${
                         activeTab === tab.id
-                          ? 'border-primary text-primary'
+                          ? 'border-red-500 text-red-500 dark:border-blue-500 dark:text-blue-500'
                           : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 hover:border-gray-300 dark:hover:border-slate-600'
                       }`}
                     >
@@ -500,13 +516,13 @@ const ServiceDetail: React.FC = () => {
               )}
 
               {activeTab === 'reviews' && (
-                <div className="space-y-8">
+                <div className="space-y-8 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6">
                   <ServiceReviewForm 
                     serviceId={service.id.toString()} 
                     onSubmit={handleReviewSubmit}
                   />
                   <ServiceReviewList 
-                    reviews={reviews}
+                    reviews={reviews as any}
                     averageRating={displayRating}
                     totalReviews={displayReviewCount}
                   />
@@ -557,14 +573,14 @@ const ServiceDetail: React.FC = () => {
 
               <button
                 onClick={() => setIsBookingModalOpen(true)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors mb-3"
+                className="w-full bg-red-500 hover:bg-red-600 dark:bg-blue-500 dark:hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold transition-colors mb-3"
               >
                 Avail This Service
               </button>
 
               <button 
                 onClick={() => setIsQuoteModalOpen(true)}
-                className="w-full border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 py-3 px-4 rounded-lg font-semibold transition-colors"
+                className="w-full border border-red-300 dark:border-blue-500 text-red-700 dark:text-blue-300 hover:bg-red-50 dark:hover:bg-blue-900/20 py-3 px-4 rounded-lg font-semibold transition-colors"
               >
                 Get Free Quote
               </button>
@@ -700,13 +716,13 @@ const ServiceDetail: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsBookingModalOpen(false)}
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                      className="flex-1 px-4 py-2 border border-red-300 dark:border-blue-500 text-red-700 dark:text-blue-300 rounded-md hover:bg-red-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                      className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md transition-colors"
                     >
                       Submit Request
                     </button>
@@ -799,13 +815,13 @@ const ServiceDetail: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsQuoteModalOpen(false)}
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                      className="flex-1 px-4 py-2 border border-red-300 dark:border-blue-500 text-red-700 dark:text-blue-300 rounded-md hover:bg-red-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                      className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md transition-colors"
                     >
                       Get Quote
                     </button>

@@ -774,10 +774,12 @@ def create_store_settings():
             "city": "San Francisco",
             "postcode": "94105",
             "country": "United States",
-            "phone": "+1-555-0123",
-            "email": "info@sppix.com"
-        }
-    )
+                "phone": "+1-555-0123",
+                "email": "info@sppix.com",
+                "services_page_title": "Professional Electrical Services",
+                "services_page_description": "Expert electrical solutions for your home and business. From installations to repairs, we deliver quality service you can trust."
+            }
+        )
     
     if created:
         print("✅ Created website content")

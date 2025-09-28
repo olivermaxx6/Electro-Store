@@ -2,7 +2,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db.models import Sum, Count, F
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncDate, Extract
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -64,18 +64,97 @@ class DashboardStatsView(APIView):
         total_products = Product.objects.count()
         low_stock_count = Product.objects.filter(stock__lte=5).count()
         
-        # Get categories with product counts - show category names instead of counts
-        from .models import Category
-        by_category_qs = (
-            Product.objects
-            .values("category__name")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
+        # Get product inventory data for dashboard
+        products_inventory = Product.objects.select_related('category').values(
+            'id', 'name', 'stock', 'price', 'category__name'
+        ).order_by('-stock')[:20]  # Top 20 products by stock
+        
         inventory_by_category = [
-            {"category": b["category__name"] or "Uncategorized", "count": b["count"]} 
-            for b in by_category_qs
+            {
+                "id": p["id"],
+                "name": p["name"], 
+                "stock": p["stock"],
+                "price": float(p["price"]),
+                "category": p["category__name"] or "Uncategorized"
+            } 
+            for p in products_inventory
         ]
+
+        # Weekly sales distribution (last 30 days) - Simple approach
+        weekly_sales = []
+        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        
+        # Get all orders from last 30 days and group by day of week
+        orders_last_30 = Order.objects.filter(created_at__gte=start_30)
+        
+        # Initialize all days with 0 values
+        for i, day_name in enumerate(day_names):
+            weekly_sales.append({
+                "day": day_name,
+                "day_num": i,
+                "revenue": 0.0,
+                "orders": 0
+            })
+        
+        # Calculate sales for each day
+        for order in orders_last_30:
+            day_of_week = order.created_at.weekday()  # 0=Monday, 6=Sunday
+            # Convert to Sunday=0 format
+            day_index = (day_of_week + 1) % 7
+            weekly_sales[day_index]["revenue"] += float(order.total_price)
+            weekly_sales[day_index]["orders"] += 1
+
+        # User registration analytics (last 30 days)
+        user_registrations_qs = (
+            User.objects.filter(date_joined__gte=start_30)
+            .annotate(date=TruncDate('date_joined'))
+            .values("date")
+            .annotate(count=Count("id"))
+            .order_by("date")
+        )
+        
+        user_registrations = [
+            {
+                "date": item["date"].strftime("%Y-%m-%d"),
+                "users": item["count"]
+            }
+            for item in user_registrations_qs
+        ]
+        
+        # Fill in missing dates with 0 values
+        current_date = start_30.date()
+        end_date = timezone.now().date()
+        filled_user_registrations = []
+        while current_date <= end_date:
+            date_str = current_date.strftime("%Y-%m-%d")
+            existing = next((item for item in user_registrations if item["date"] == date_str), None)
+            filled_user_registrations.append({
+                "date": date_str,
+                "users": existing["users"] if existing else 0
+            })
+            current_date += timedelta(days=1)
+        
+        # Weekly user registrations (last 7 days)
+        weekly_user_registrations = []
+        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        
+        # Get all users from last 30 days and group by day of week
+        users_last_30 = User.objects.filter(date_joined__gte=start_30)
+        
+        # Initialize all days with 0 values
+        for i, day_name in enumerate(day_names):
+            weekly_user_registrations.append({
+                "day": day_name,
+                "day_num": i,
+                "users": 0
+            })
+        
+        # Calculate registrations for each day
+        for user in users_last_30:
+            day_of_week = user.date_joined.weekday()  # 0=Monday, 6=Sunday
+            # Convert to Sunday=0 format
+            day_index = (day_of_week + 1) % 7
+            weekly_user_registrations[day_index]["users"] += 1
 
         # Recent orders (10)
         recent = Order.objects.order_by("-created_at")[:10]
@@ -89,6 +168,9 @@ class DashboardStatsView(APIView):
                 "avg_order_value": avg_order_value,
             },
             "sales_by_day": sales_by_day,
+            "weekly_sales": weekly_sales,
+            "user_registrations": filled_user_registrations,
+            "weekly_user_registrations": weekly_user_registrations,
             "top_products": top_products,
             "inventory": {
                 "total_products": total_products,

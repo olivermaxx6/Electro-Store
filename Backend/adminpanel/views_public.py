@@ -441,7 +441,7 @@ class CreateOrderAndCheckoutViewSet(viewsets.ViewSet):
                 from .id_generators import generate_unique_tracking_id
                 order = Order.objects.create(
                     customer_email=data.get('customer_email'),
-                    customer_name=data.get('customer_name'),
+                    customer_name=data.get('customer_name', 'Unknown Customer'),
                     customer_phone=data.get('customer_phone', ''),
                     shipping_address=data.get('shipping_address', {}),
                     billing_address=data.get('billing_address', {}),
@@ -494,49 +494,62 @@ class CreateOrderAndCheckoutViewSet(viewsets.ViewSet):
                 
         except Exception as e:
             logger.error(f"Order creation failed: {str(e)}")
-            return Response({'error': 'Order creation failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return Response({
+                'error': 'Order creation failed', 
+                'details': str(e),
+                'traceback': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def _create_stripe_checkout_session(self, order, request):
         """Create Stripe checkout session for the order"""
         import stripe
         from .models import Product
         
-        # Set API key
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        
-        # Build line items from order items
-        from .models import OrderItem
-        line_items = []
-        for order_item in order.order_items.all():
-            product = order_item.product
-            line_items.append({
-                'price_data': {
-                    'currency': 'gbp',
-                    'product_data': {
-                        'name': product.name,
+        try:
+            # Set API key
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            
+            # Build line items from order items
+            from .models import OrderItem
+            line_items = []
+            for order_item in order.order_items.all():
+                product = order_item.product
+                line_items.append({
+                    'price_data': {
+                        'currency': 'gbp',
+                        'product_data': {
+                            'name': product.name,
+                        },
+                        'unit_amount': int(float(order_item.unit_price) * 100),  # Convert to cents
                     },
-                    'unit_amount': int(float(order_item.unit_price) * 100),  # Convert to cents
-                },
-                'quantity': order_item.quantity,
-            })
-        
-        # Create checkout session
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=line_items,
-            mode='payment',
-            customer_email=order.customer_email,
-            success_url=f'{request.build_absolute_uri("/")}order-confirmation/{order.tracking_id}',
-            cancel_url=f'{request.build_absolute_uri("/")}checkout?cancelled=true',
-            metadata={
-                'order_id': str(order.id),
-                'order_number': order.order_number,
-                'customer_email': order.customer_email,
-                'customer_name': order.customer_name,
-            }
-        )
-        
-        return checkout_session
+                    'quantity': order_item.quantity,
+                })
+            
+            # Create checkout session
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=line_items,
+                mode='payment',
+                customer_email=order.customer_email,
+                success_url=f'{request.build_absolute_uri("/")}order-confirmation/{order.tracking_id}',
+                cancel_url=f'{request.build_absolute_uri("/")}checkout?cancelled=true',
+                metadata={
+                    'order_id': str(order.id),
+                    'order_number': order.order_number,
+                    'customer_email': order.customer_email,
+                    'customer_name': order.customer_name,
+                }
+            )
+            
+            return checkout_session
+            
+        except Exception as e:
+            logger.error(f"Stripe checkout session creation failed: {str(e)}")
+            import traceback
+            logger.error(f"Stripe error traceback: {traceback.format_exc()}")
+            raise e
     
     def _check_inventory_availability(self, cart_items):
         """Check if all items in cart have sufficient inventory"""

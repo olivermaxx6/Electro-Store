@@ -61,7 +61,7 @@ const NotFound: React.FC = () => {
             {categories.map((category) => (
               <Link 
                 key={category.id}
-                to={`/category/${category.slug}`} 
+                to={`/allsubcategories?category=${category.id}&name=${encodeURIComponent(category.name)}`} 
                 className="text-primary hover:text-primary-600 transition-colors"
               >
                 {category.name}

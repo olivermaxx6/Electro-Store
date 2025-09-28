@@ -62,7 +62,7 @@ class CategorySerializer(SafeModelSerializer):
     class Meta:
         model = Category
         fields = [
-            "id", "name", "slug", "parent", "image", "created_at",
+            "id", "name", "slug", "slogan", "parent", "image", "created_at",
             "depth", "level", "level_name", "full_path", 
             "can_have_children", "children_count", "children"
         ]
@@ -87,9 +87,9 @@ class CategorySerializer(SafeModelSerializer):
         return obj.children.count()
 
     def get_children(self, obj):
-        # Return children as a nested serializer
+        # Return children as a nested serializer with grandchildren
         children = obj.children.all()
-        return CategoryListSerializer(children, many=True, context=self.context).data
+        return CategorySerializer(children, many=True, context=self.context).data
 
 class CategoryListSerializer(SafeModelSerializer):
     """Lightweight serializer for category lists - no nested children"""
@@ -108,7 +108,7 @@ class CategoryListSerializer(SafeModelSerializer):
     class Meta:
         model = Category
         fields = [
-            "id", "name", "slug", "parent", "image", "created_at",
+            "id", "name", "slug", "slogan", "parent", "image", "created_at",
             "depth", "level", "children_count"
         ]
         read_only_fields = ["id", "slug", "created_at", "depth", "level", "children_count"]
@@ -443,9 +443,10 @@ class ReviewSerializer(serializers.ModelSerializer):
         """Validate that user hasn't already reviewed this product"""
         product = data.get('product')
         user = data.get('user')
+        author_name = data.get('author_name')
         
         if product and user:
-            # Check if user already reviewed this product
+            # Check if authenticated user already reviewed this product
             existing_review = Review.objects.filter(
                 product=product, 
                 user=user
@@ -454,6 +455,19 @@ class ReviewSerializer(serializers.ModelSerializer):
             if existing_review:
                 raise serializers.ValidationError({
                     'product': 'You have already reviewed this product.'
+                })
+        elif product and author_name:
+            # For unauthenticated users, check by author_name and product
+            # This is a basic check - in production you might want more sophisticated duplicate prevention
+            existing_review = Review.objects.filter(
+                product=product, 
+                author_name=author_name,
+                user__isnull=True
+            ).first()
+            
+            if existing_review:
+                raise serializers.ValidationError({
+                    'author_name': 'A review with this name already exists for this product.'
                 })
         
         return data
@@ -503,7 +517,9 @@ class WebsiteContentSerializer(serializers.ModelSerializer):
             "deal1_title", "deal1_subtitle", "deal1_discount", "deal1_description", "deal1_image", "deal1_end_date",
             "deal2_title", "deal2_subtitle", "deal2_discount", "deal2_description", "deal2_image", "deal2_end_date",
             "street_address", "city", "postcode", "country",
-            "phone", "email"
+            "phone", "email",
+            "home_hero_subtitle", "home_services_description", "home_categories_description",
+            "services_page_title", "services_page_description"
         ]
 
 class StoreSettingsSerializer(serializers.ModelSerializer):
@@ -521,7 +537,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
 class RecentOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
-        fields = ["id","tracking_id","payment_id","total_price","status","created_at","shipping_name","customer_email"]
+        fields = ["id","tracking_id","payment_id","total_price","status","payment_status","created_at","shipping_name","customer_email"]
 
 # --- Chat System ---
 # --- Chat System Serializers - COMMENTED OUT ---

@@ -2,6 +2,7 @@ export type Category = {
   id: string;
   slug: string;
   name: string;
+  slogan?: string;
   parentId?: string;
   children?: Category[];
 };

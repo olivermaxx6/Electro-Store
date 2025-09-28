@@ -77,6 +77,10 @@ class Command(BaseCommand):
             {"name": "Corsair", "slug": "corsair"},
             {"name": "KitchenAid", "slug": "kitchenaid"},
             {"name": "Peloton", "slug": "peloton"},
+            {"name": "Google", "slug": "google"},
+            {"name": "ASUS", "slug": "asus"},
+            {"name": "Ninja", "slug": "ninja"},
+            {"name": "Bowflex", "slug": "bowflex"},
         ]
         
         brands = []
@@ -92,48 +96,238 @@ class Command(BaseCommand):
         return brands
 
     def create_categories(self):
-        """Create product categories and subcategories"""
+        """Create comprehensive product categories with subcategories and grandchild categories"""
         categories_data = [
             {
                 "name": "Electronics",
+                "slogan": "Cutting-edge technology for modern living",
                 "children": [
-                    "Smartphones", "Laptops", "Tablets", "Headphones", "Speakers",
-                    "Cameras", "Gaming Consoles", "Smart Watches", "Accessories"
+                    {
+                        "name": "Smartphones",
+                        "children": ["iPhone", "Samsung Galaxy", "Google Pixel", "OnePlus", "Xiaomi"]
+                    },
+                    {
+                        "name": "Laptops",
+                        "children": ["MacBook", "Windows Laptops", "Gaming Laptops", "Ultrabooks", "Chromebooks"]
+                    },
+                    {
+                        "name": "Tablets",
+                        "children": ["iPad", "Android Tablets", "Windows Tablets", "E-readers"]
+                    },
+                    {
+                        "name": "Headphones",
+                        "children": ["Wireless Headphones", "Wired Headphones", "Gaming Headsets", "Earbuds"]
+                    },
+                    {
+                        "name": "Speakers",
+                        "children": ["Bluetooth Speakers", "Smart Speakers", "Home Theater", "Portable Speakers"]
+                    },
+                    {
+                        "name": "Cameras",
+                        "children": ["DSLR Cameras", "Mirrorless Cameras", "Action Cameras", "Instant Cameras"]
+                    },
+                    {
+                        "name": "Gaming Consoles",
+                        "children": ["PlayStation", "Xbox", "Nintendo Switch", "Gaming Accessories"]
+                    },
+                    {
+                        "name": "Smart Watches",
+                        "children": ["Apple Watch", "Samsung Galaxy Watch", "Fitness Trackers", "Smart Bands"]
+                    },
+                    {
+                        "name": "Accessories",
+                        "children": ["Phone Cases", "Chargers", "Cables", "Screen Protectors"]
+                    }
                 ]
             },
             {
                 "name": "Computers",
+                "slogan": "Powerful computing solutions for work and play",
                 "children": [
-                    "Desktop PCs", "Laptops", "Monitors", "Keyboards", "Mice",
-                    "Webcams", "Printers", "Storage Devices", "Networking"
+                    {
+                        "name": "Desktop PCs",
+                        "children": ["Gaming PCs", "Workstations", "All-in-One PCs", "Mini PCs"]
+                    },
+                    {
+                        "name": "Laptops",
+                        "children": ["Business Laptops", "Gaming Laptops", "Student Laptops", "Convertible Laptops"]
+                    },
+                    {
+                        "name": "Monitors",
+                        "children": ["4K Monitors", "Gaming Monitors", "Ultrawide Monitors", "Touchscreen Monitors"]
+                    },
+                    {
+                        "name": "Keyboards",
+                        "children": ["Mechanical Keyboards", "Wireless Keyboards", "Gaming Keyboards", "Ergonomic Keyboards"]
+                    },
+                    {
+                        "name": "Mice",
+                        "children": ["Gaming Mice", "Wireless Mice", "Ergonomic Mice", "Trackballs"]
+                    },
+                    {
+                        "name": "Webcams",
+                        "children": ["HD Webcams", "4K Webcams", "Streaming Cameras", "Conference Cameras"]
+                    },
+                    {
+                        "name": "Printers",
+                        "children": ["Inkjet Printers", "Laser Printers", "3D Printers", "Photo Printers"]
+                    },
+                    {
+                        "name": "Storage Devices",
+                        "children": ["External Hard Drives", "SSDs", "USB Drives", "Memory Cards"]
+                    },
+                    {
+                        "name": "Networking",
+                        "children": ["Routers", "WiFi Extenders", "Network Switches", "Modems"]
+                    }
                 ]
             },
             {
                 "name": "Fashion",
+                "slogan": "Style meets comfort in every piece",
                 "children": [
-                    "Men's Clothing", "Women's Clothing", "Shoes", "Bags",
-                    "Jewelry", "Watches", "Sunglasses", "Accessories"
+                    {
+                        "name": "Men's Clothing",
+                        "children": ["Shirts", "T-Shirts", "Jeans", "Suits", "Jackets"]
+                    },
+                    {
+                        "name": "Women's Clothing",
+                        "children": ["Dresses", "Tops", "Jeans", "Skirts", "Blouses"]
+                    },
+                    {
+                        "name": "Shoes",
+                        "children": ["Sneakers", "Boots", "Dress Shoes", "Sandals", "Athletic Shoes"]
+                    },
+                    {
+                        "name": "Bags",
+                        "children": ["Handbags", "Backpacks", "Laptop Bags", "Travel Bags", "Wallets"]
+                    },
+                    {
+                        "name": "Jewelry",
+                        "children": ["Necklaces", "Earrings", "Rings", "Bracelets", "Watches"]
+                    },
+                    {
+                        "name": "Watches",
+                        "children": ["Digital Watches", "Analog Watches", "Smart Watches", "Luxury Watches"]
+                    },
+                    {
+                        "name": "Sunglasses",
+                        "children": ["Aviator Sunglasses", "Wayfarer Sunglasses", "Sport Sunglasses", "Designer Sunglasses"]
+                    },
+                    {
+                        "name": "Accessories",
+                        "children": ["Belts", "Hats", "Scarves", "Gloves", "Phone Accessories"]
+                    }
                 ]
             },
             {
                 "name": "Home & Garden",
+                "slogan": "Transform your space into a haven",
                 "children": [
-                    "Furniture", "Kitchen Appliances", "Home Decor", "Garden Tools",
-                    "Lighting", "Bedding", "Bathroom", "Storage"
+                    {
+                        "name": "Furniture",
+                        "children": ["Living Room", "Bedroom", "Dining Room", "Office Furniture", "Outdoor Furniture"]
+                    },
+                    {
+                        "name": "Kitchen Appliances",
+                        "children": ["Refrigerators", "Microwaves", "Coffee Makers", "Blenders", "Toasters"]
+                    },
+                    {
+                        "name": "Home Decor",
+                        "children": ["Wall Art", "Candles", "Vases", "Mirrors", "Clocks"]
+                    },
+                    {
+                        "name": "Garden Tools",
+                        "children": ["Lawn Mowers", "Garden Hoses", "Planters", "Garden Tools", "Outdoor Lighting"]
+                    },
+                    {
+                        "name": "Lighting",
+                        "children": ["Ceiling Lights", "Table Lamps", "Floor Lamps", "LED Strips", "Outdoor Lighting"]
+                    },
+                    {
+                        "name": "Bedding",
+                        "children": ["Bed Sheets", "Pillows", "Comforters", "Mattress Toppers", "Blankets"]
+                    },
+                    {
+                        "name": "Bathroom",
+                        "children": ["Towels", "Bath Mats", "Shower Curtains", "Bathroom Accessories", "Toiletries"]
+                    },
+                    {
+                        "name": "Storage",
+                        "children": ["Storage Boxes", "Shelving Units", "Closet Organizers", "Kitchen Storage", "Garage Storage"]
+                    }
                 ]
             },
             {
                 "name": "Sports & Outdoors",
+                "slogan": "Gear up for your next adventure",
                 "children": [
-                    "Fitness Equipment", "Outdoor Gear", "Sports Clothing",
-                    "Team Sports", "Water Sports", "Winter Sports", "Camping"
+                    {
+                        "name": "Fitness Equipment",
+                        "children": ["Treadmills", "Exercise Bikes", "Weights", "Yoga Mats", "Resistance Bands"]
+                    },
+                    {
+                        "name": "Outdoor Gear",
+                        "children": ["Hiking Boots", "Backpacks", "Tents", "Sleeping Bags", "Camping Chairs"]
+                    },
+                    {
+                        "name": "Sports Clothing",
+                        "children": ["Athletic Wear", "Running Shoes", "Sports Bras", "Compression Wear", "Team Jerseys"]
+                    },
+                    {
+                        "name": "Team Sports",
+                        "children": ["Soccer", "Basketball", "Tennis", "Baseball", "Football"]
+                    },
+                    {
+                        "name": "Water Sports",
+                        "children": ["Swimming", "Surfing", "Kayaking", "Scuba Diving", "Water Polo"]
+                    },
+                    {
+                        "name": "Winter Sports",
+                        "children": ["Skiing", "Snowboarding", "Ice Skating", "Hockey", "Winter Clothing"]
+                    },
+                    {
+                        "name": "Camping",
+                        "children": ["Tents", "Sleeping Bags", "Camping Stoves", "Coolers", "Camping Chairs"]
+                    }
                 ]
             },
             {
                 "name": "Books & Media",
+                "slogan": "Stories, knowledge, and entertainment await",
                 "children": [
-                    "Books", "Movies", "Music", "Video Games", "Magazines",
-                    "Educational Materials", "Audiobooks", "E-books"
+                    {
+                        "name": "Books",
+                        "children": ["Fiction", "Non-Fiction", "Textbooks", "Children's Books", "E-books"]
+                    },
+                    {
+                        "name": "Movies",
+                        "children": ["Action Movies", "Comedy Movies", "Drama Movies", "Horror Movies", "Documentaries"]
+                    },
+                    {
+                        "name": "Music",
+                        "children": ["CDs", "Vinyl Records", "Digital Music", "Instruments", "Music Accessories"]
+                    },
+                    {
+                        "name": "Video Games",
+                        "children": ["Console Games", "PC Games", "Mobile Games", "Gaming Accessories", "Gaming Chairs"]
+                    },
+                    {
+                        "name": "Magazines",
+                        "children": ["Fashion Magazines", "Tech Magazines", "Sports Magazines", "News Magazines", "Lifestyle Magazines"]
+                    },
+                    {
+                        "name": "Educational Materials",
+                        "children": ["Online Courses", "Textbooks", "Study Guides", "Educational Toys", "Language Learning"]
+                    },
+                    {
+                        "name": "Audiobooks",
+                        "children": ["Fiction Audiobooks", "Non-Fiction Audiobooks", "Educational Audiobooks", "Children's Audiobooks"]
+                    },
+                    {
+                        "name": "E-books",
+                        "children": ["Kindle Books", "PDF Books", "Interactive Books", "Textbooks", "Comics"]
+                    }
                 ]
             }
         ]
@@ -143,26 +337,48 @@ class Command(BaseCommand):
             # Create parent category
             parent, created = Category.objects.get_or_create(
                 name=cat_data["name"],
-                parent=None
+                parent=None,
+                defaults={"slogan": cat_data.get("slogan", "")}
             )
             categories.append(parent)
             if created:
                 self.stdout.write(f"Created category: {parent.name}")
             
-            # Create subcategories
-            for child_name in cat_data["children"]:
-                child, created = Category.objects.get_or_create(
-                    name=child_name,
-                    parent=parent
-                )
-                categories.append(child)
-                if created:
-                    self.stdout.write(f"Created subcategory: {parent.name} / {child.name}")
+            # Create subcategories and grandchild categories
+            for child_data in cat_data["children"]:
+                if isinstance(child_data, dict):
+                    # Create subcategory
+                    child, created = Category.objects.get_or_create(
+                        name=child_data["name"],
+                        parent=parent
+                    )
+                    categories.append(child)
+                    if created:
+                        self.stdout.write(f"Created subcategory: {parent.name} / {child.name}")
+                    
+                    # Create grandchild categories
+                    for grandchild_name in child_data.get("children", []):
+                        grandchild, created = Category.objects.get_or_create(
+                            name=grandchild_name,
+                            parent=child
+                        )
+                        categories.append(grandchild)
+                        if created:
+                            self.stdout.write(f"Created grandchild category: {parent.name} / {child.name} / {grandchild.name}")
+                else:
+                    # Handle simple string children (backward compatibility)
+                    child, created = Category.objects.get_or_create(
+                        name=child_data,
+                        parent=parent
+                    )
+                    categories.append(child)
+                    if created:
+                        self.stdout.write(f"Created subcategory: {parent.name} / {child.name}")
         
         return categories
 
     def create_products(self, brands, categories, anime_path):
-        """Create products with detailed information"""
+        """Create comprehensive products with detailed information across all categories"""
         products_data = [
             # Electronics - Smartphones
             {
@@ -172,7 +388,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("5.00"),
                 "stock": 50,
                 "brand": "Apple",
-                "category": "Smartphones",
+                "category": "iPhone",
                 "isNew": True,
                 "is_top_selling": True,
                 "technical_specs": {
@@ -191,7 +407,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("8.00"),
                 "stock": 45,
                 "brand": "Samsung",
-                "category": "Smartphones",
+                "category": "Samsung Galaxy",
                 "isNew": True,
                 "is_top_selling": True,
                 "technical_specs": {
@@ -204,25 +420,25 @@ class Command(BaseCommand):
                 }
             },
             {
-                "name": "Sony WH-1000XM5",
-                "description": "Industry-leading noise canceling headphones with exceptional sound quality and comfort.",
-                "price": Decimal("399.99"),
+                "name": "Google Pixel 8 Pro",
+                "description": "AI-powered smartphone with exceptional camera capabilities and Google's latest features.",
+                "price": Decimal("999.99"),
                 "discount_rate": Decimal("10.00"),
-                "stock": 30,
-                "brand": "Sony",
-                "category": "Headphones",
-                "isNew": False,
-                "is_top_selling": True,
+                "stock": 35,
+                "brand": "Google",
+                "category": "Google Pixel",
+                "isNew": True,
+                "is_top_selling": False,
                 "technical_specs": {
-                    "driver": "30mm dynamic drivers",
-                    "frequency_response": "4Hz-40kHz",
-                    "battery": "30 hours with ANC",
-                    "connectivity": "Bluetooth 5.2, NFC, 3.5mm jack",
-                    "weight": "250g",
-                    "colors": ["Black", "Silver"]
+                    "display": "6.7-inch LTPO OLED",
+                    "processor": "Google Tensor G3",
+                    "storage": "128GB",
+                    "camera": "50MP Main, 48MP Ultra Wide, 48MP Telephoto",
+                    "battery": "5050mAh",
+                    "colors": ["Obsidian", "Porcelain", "Bay"]
                 }
             },
-            # Computers - Laptops
+            # Electronics - Laptops
             {
                 "name": "MacBook Pro 16-inch M3 Max",
                 "description": "Professional laptop with M3 Max chip, Liquid Retina XDR display, and all-day battery life.",
@@ -230,7 +446,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("3.00"),
                 "stock": 25,
                 "brand": "Apple",
-                "category": "Laptops",
+                "category": "MacBook",
                 "isNew": True,
                 "is_top_selling": False,
                 "technical_specs": {
@@ -249,7 +465,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("12.00"),
                 "stock": 35,
                 "brand": "Dell",
-                "category": "Laptops",
+                "category": "Windows Laptops",
                 "isNew": False,
                 "is_top_selling": True,
                 "technical_specs": {
@@ -261,6 +477,64 @@ class Command(BaseCommand):
                     "battery": "86Wh"
                 }
             },
+            {
+                "name": "ASUS ROG Strix G15",
+                "description": "High-performance gaming laptop with AMD Ryzen 9 and NVIDIA RTX 4070 graphics.",
+                "price": Decimal("1599.99"),
+                "discount_rate": Decimal("15.00"),
+                "stock": 20,
+                "brand": "ASUS",
+                "category": "Gaming Laptops",
+                "isNew": False,
+                "is_top_selling": True,
+                "technical_specs": {
+                    "processor": "AMD Ryzen 9 7940HS",
+                    "memory": "16GB DDR5",
+                    "storage": "1TB NVMe SSD",
+                    "display": "15.6-inch FHD 165Hz",
+                    "graphics": "NVIDIA GeForce RTX 4070",
+                    "battery": "90Wh"
+                }
+            },
+            # Electronics - Headphones
+            {
+                "name": "Sony WH-1000XM5",
+                "description": "Industry-leading noise canceling headphones with exceptional sound quality and comfort.",
+                "price": Decimal("399.99"),
+                "discount_rate": Decimal("10.00"),
+                "stock": 30,
+                "brand": "Sony",
+                "category": "Wireless Headphones",
+                "isNew": False,
+                "is_top_selling": True,
+                "technical_specs": {
+                    "driver": "30mm dynamic drivers",
+                    "frequency_response": "4Hz-40kHz",
+                    "battery": "30 hours with ANC",
+                    "connectivity": "Bluetooth 5.2, NFC, 3.5mm jack",
+                    "weight": "250g",
+                    "colors": ["Black", "Silver"]
+                }
+            },
+            {
+                "name": "Apple AirPods Pro 2nd Gen",
+                "description": "Premium wireless earbuds with active noise cancellation and spatial audio.",
+                "price": Decimal("249.99"),
+                "discount_rate": Decimal("5.00"),
+                "stock": 100,
+                "brand": "Apple",
+                "category": "Earbuds",
+                "isNew": True,
+                "is_top_selling": True,
+                "technical_specs": {
+                    "driver": "Custom high-excursion Apple driver",
+                    "noise_cancellation": "Active Noise Cancellation",
+                    "battery": "6 hours listening time",
+                    "connectivity": "Bluetooth 5.3",
+                    "case_battery": "30 hours total",
+                    "colors": ["White"]
+                }
+            },
             # Fashion - Shoes
             {
                 "name": "Nike Air Jordan 1 Retro High",
@@ -269,7 +543,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("15.00"),
                 "stock": 100,
                 "brand": "Nike",
-                "category": "Shoes",
+                "category": "Sneakers",
                 "isNew": False,
                 "is_top_selling": True,
                 "technical_specs": {
@@ -288,7 +562,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("20.00"),
                 "stock": 80,
                 "brand": "Adidas",
-                "category": "Shoes",
+                "category": "Athletic Shoes",
                 "isNew": True,
                 "is_top_selling": False,
                 "technical_specs": {
@@ -308,7 +582,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("25.00"),
                 "stock": 20,
                 "brand": "KitchenAid",
-                "category": "Kitchen Appliances",
+                "category": "Blenders",
                 "isNew": False,
                 "is_top_selling": True,
                 "technical_specs": {
@@ -320,6 +594,25 @@ class Command(BaseCommand):
                     "weight": "25 lbs"
                 }
             },
+            {
+                "name": "Ninja Food Processor",
+                "description": "Powerful food processor with multiple blades and bowls for versatile food preparation.",
+                "price": Decimal("199.99"),
+                "discount_rate": Decimal("20.00"),
+                "stock": 30,
+                "brand": "Ninja",
+                "category": "Blenders",
+                "isNew": True,
+                "is_top_selling": False,
+                "technical_specs": {
+                    "capacity": "8-cup processing bowl",
+                    "power": "1000W motor",
+                    "blades": "Dough blade, chopping blade, slicing disc",
+                    "features": "Auto-iQ technology",
+                    "colors": ["Black", "Silver"],
+                    "warranty": "1 year"
+                }
+            },
             # Sports & Outdoors - Fitness Equipment
             {
                 "name": "Peloton Bike+",
@@ -328,7 +621,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("5.00"),
                 "stock": 15,
                 "brand": "Peloton",
-                "category": "Fitness Equipment",
+                "category": "Exercise Bikes",
                 "isNew": True,
                 "is_top_selling": False,
                 "technical_specs": {
@@ -340,6 +633,25 @@ class Command(BaseCommand):
                     "colors": ["Black", "White"]
                 }
             },
+            {
+                "name": "Bowflex SelectTech 552 Adjustable Dumbbells",
+                "description": "Space-saving adjustable dumbbells that replace 15 sets of traditional dumbbells.",
+                "price": Decimal("549.99"),
+                "discount_rate": Decimal("10.00"),
+                "stock": 25,
+                "brand": "Bowflex",
+                "category": "Weights",
+                "isNew": False,
+                "is_top_selling": True,
+                "technical_specs": {
+                    "weight_range": "5-52.5 lbs per dumbbell",
+                    "increments": "2.5 lb increments",
+                    "space_saved": "Replaces 15 sets",
+                    "warranty": "2 years",
+                    "dimensions": "15.75 x 8.5 x 9 inches",
+                    "colors": ["Black"]
+                }
+            },
             # Books & Media - Video Games
             {
                 "name": "PlayStation 5 Console",
@@ -348,7 +660,7 @@ class Command(BaseCommand):
                 "discount_rate": Decimal("0.00"),
                 "stock": 10,
                 "brand": "Sony",
-                "category": "Gaming Consoles",
+                "category": "PlayStation",
                 "isNew": False,
                 "is_top_selling": True,
                 "technical_specs": {
@@ -358,6 +670,64 @@ class Command(BaseCommand):
                     "storage": "825GB SSD",
                     "optical_drive": "4K UHD Blu-ray",
                     "connectivity": "WiFi 6, Bluetooth 5.1"
+                }
+            },
+            {
+                "name": "Xbox Series X",
+                "description": "Most powerful Xbox console with 4K gaming and backward compatibility.",
+                "price": Decimal("499.99"),
+                "discount_rate": Decimal("0.00"),
+                "stock": 12,
+                "brand": "Microsoft",
+                "category": "Xbox",
+                "isNew": False,
+                "is_top_selling": True,
+                "technical_specs": {
+                    "cpu": "Custom AMD Zen 2 CPU",
+                    "gpu": "Custom AMD RDNA 2 GPU",
+                    "memory": "16GB GDDR6",
+                    "storage": "1TB NVMe SSD",
+                    "resolution": "4K at 60fps",
+                    "connectivity": "WiFi 6, Bluetooth 5.1"
+                }
+            },
+            # Additional Electronics - Cameras
+            {
+                "name": "Canon EOS R5",
+                "description": "Professional mirrorless camera with 45MP sensor and 8K video recording capabilities.",
+                "price": Decimal("3899.99"),
+                "discount_rate": Decimal("8.00"),
+                "stock": 8,
+                "brand": "Canon",
+                "category": "Mirrorless Cameras",
+                "isNew": False,
+                "is_top_selling": False,
+                "technical_specs": {
+                    "sensor": "45MP Full-Frame CMOS",
+                    "video": "8K RAW, 4K 120p",
+                    "iso": "100-51200 (expandable to 102400)",
+                    "autofocus": "Dual Pixel CMOS AF II",
+                    "stabilization": "5-axis in-body stabilization",
+                    "connectivity": "WiFi, Bluetooth, USB-C"
+                }
+            },
+            {
+                "name": "Sony Alpha A7 IV",
+                "description": "Versatile full-frame mirrorless camera with 33MP sensor and advanced autofocus.",
+                "price": Decimal("2498.99"),
+                "discount_rate": Decimal("5.00"),
+                "stock": 15,
+                "brand": "Sony",
+                "category": "Mirrorless Cameras",
+                "isNew": True,
+                "is_top_selling": True,
+                "technical_specs": {
+                    "sensor": "33MP Full-Frame Exmor R CMOS",
+                    "video": "4K 60p, 10-bit recording",
+                    "iso": "100-51200 (expandable to 204800)",
+                    "autofocus": "759-point phase-detection AF",
+                    "stabilization": "5-axis in-body stabilization",
+                    "battery": "Up to 580 shots"
                 }
             }
         ]
@@ -404,39 +774,146 @@ class Command(BaseCommand):
         return products
 
     def create_service_categories(self):
-        """Create service categories"""
+        """Create comprehensive service categories with subcategories"""
         service_categories_data = [
             {
                 "name": "Technical Support",
                 "description": "Professional technical assistance and troubleshooting services",
-                "ordering": 1
+                "ordering": 1,
+                "children": [
+                    {
+                        "name": "Hardware Support",
+                        "description": "Computer hardware diagnostics and repair",
+                        "ordering": 1
+                    },
+                    {
+                        "name": "Software Support",
+                        "description": "Software installation, configuration, and troubleshooting",
+                        "ordering": 2
+                    },
+                    {
+                        "name": "Network Support",
+                        "description": "Network connectivity and configuration assistance",
+                        "ordering": 3
+                    }
+                ]
             },
             {
                 "name": "Installation & Setup",
                 "description": "Product installation, configuration, and setup services",
-                "ordering": 2
+                "ordering": 2,
+                "children": [
+                    {
+                        "name": "Home Theater Setup",
+                        "description": "Complete home theater system installation and calibration",
+                        "ordering": 1
+                    },
+                    {
+                        "name": "Smart Home Installation",
+                        "description": "Smart home device installation and automation setup",
+                        "ordering": 2
+                    },
+                    {
+                        "name": "Computer Setup",
+                        "description": "New computer setup, software installation, and data migration",
+                        "ordering": 3
+                    },
+                    {
+                        "name": "Network Installation",
+                        "description": "Home and office network infrastructure installation",
+                        "ordering": 4
+                    }
+                ]
             },
             {
                 "name": "Repair & Maintenance",
                 "description": "Device repair, maintenance, and upgrade services",
-                "ordering": 3
+                "ordering": 3,
+                "children": [
+                    {
+                        "name": "Computer Repair",
+                        "description": "Desktop and laptop repair services",
+                        "ordering": 1
+                    },
+                    {
+                        "name": "Mobile Device Repair",
+                        "description": "Smartphone and tablet screen replacement and repair",
+                        "ordering": 2
+                    },
+                    {
+                        "name": "Appliance Repair",
+                        "description": "Home appliance repair and maintenance",
+                        "ordering": 3
+                    },
+                    {
+                        "name": "Gaming Console Repair",
+                        "description": "Gaming console repair and maintenance services",
+                        "ordering": 4
+                    }
+                ]
             },
             {
                 "name": "Consulting Services",
                 "description": "Expert consultation for technology decisions and implementations",
-                "ordering": 4
+                "ordering": 4,
+                "children": [
+                    {
+                        "name": "IT Strategy Consulting",
+                        "description": "Business IT strategy and technology roadmap development",
+                        "ordering": 1
+                    },
+                    {
+                        "name": "Data & Analytics",
+                        "description": "Data analysis, business intelligence, and analytics consulting",
+                        "ordering": 2
+                    },
+                    {
+                        "name": "Cybersecurity Consulting",
+                        "description": "Security assessment and cybersecurity strategy development",
+                        "ordering": 3
+                    },
+                    {
+                        "name": "Cloud Migration",
+                        "description": "Cloud infrastructure planning and migration services",
+                        "ordering": 4
+                    }
+                ]
             },
             {
                 "name": "Training & Education",
                 "description": "Training programs and educational workshops",
-                "ordering": 5
+                "ordering": 5,
+                "children": [
+                    {
+                        "name": "Software Training",
+                        "description": "Microsoft Office, Adobe Creative Suite, and other software training",
+                        "ordering": 1
+                    },
+                    {
+                        "name": "Digital Literacy",
+                        "description": "Basic computer skills and internet safety training",
+                        "ordering": 2
+                    },
+                    {
+                        "name": "Technical Workshops",
+                        "description": "Advanced technical workshops and certification preparation",
+                        "ordering": 3
+                    },
+                    {
+                        "name": "Online Learning Setup",
+                        "description": "Setting up online learning environments and tools",
+                        "ordering": 4
+                    }
+                ]
             }
         ]
         
         service_categories = []
         for cat_data in service_categories_data:
+            # Create parent service category
             category, created = ServiceCategory.objects.get_or_create(
                 name=cat_data["name"],
+                parent=None,
                 defaults={
                     "description": cat_data["description"],
                     "ordering": cat_data["ordering"]
@@ -444,141 +921,139 @@ class Command(BaseCommand):
             )
             service_categories.append(category)
             if created:
-                self.stdout.write(f" Created service category: {category.name}")
-        
-        # Ensure at least one subcategory exists under Consulting Services
-        consulting_parent = next((c for c in service_categories if c.name == "Consulting Services"), None)
-        if consulting_parent:
-            subcat_name = "Data & Analytics"
-            subcat, created = ServiceCategory.objects.get_or_create(
-                name=subcat_name,
-                parent=consulting_parent,
-                defaults={
-                    "description": "Consulting for data, BI and analytics",
-                    "ordering": consulting_parent.ordering + 1
-                }
-            )
-            if created:
-                self.stdout.write(f" Created service subcategory: {consulting_parent.name} / {subcat.name}")
-            # Include subcategory in the returned list so services can attach to it
-            service_categories.append(subcat)
+                self.stdout.write(f"Created service category: {category.name}")
+            
+            # Create subcategories
+            for child_data in cat_data.get("children", []):
+                subcategory, created = ServiceCategory.objects.get_or_create(
+                    name=child_data["name"],
+                    parent=category,
+                    defaults={
+                        "description": child_data["description"],
+                        "ordering": child_data["ordering"]
+                    }
+                )
+                service_categories.append(subcategory)
+                if created:
+                    self.stdout.write(f"Created service subcategory: {category.name} / {subcategory.name}")
         
         return service_categories
 
     def create_services(self, service_categories, anime_path, german_path):
-        """Create services with detailed information"""
+        """Create comprehensive services with detailed information across all categories"""
         services_data = [
+            # Technical Support Services
             {
-                "name": "Computer Repair & Diagnostics",
-                "description": "Professional computer repair services including hardware diagnostics, virus removal, and system optimization.",
-                "price": Decimal("89.99"),
-                "category": "Repair & Maintenance",
+                "name": "Computer Hardware Diagnostics",
+                "description": "Comprehensive hardware testing and diagnostics for desktop and laptop computers.",
+                "price": Decimal("79.99"),
+                "category": "Hardware Support",
                 "rating": Decimal("4.8"),
                 "review_count": 156,
-                "overview": "Our expert technicians provide comprehensive computer repair services. We diagnose and fix hardware issues, remove malware, optimize system performance, and ensure your computer runs smoothly.",
+                "overview": "Our certified technicians perform thorough hardware diagnostics to identify and resolve computer issues. We test all components including CPU, RAM, storage, graphics, and motherboard.",
                 "included_features": [
-                    "Hardware diagnostics and testing",
-                    "Virus and malware removal",
-                    "System optimization and cleanup",
-                    "Driver updates and installation",
-                    "Data recovery assistance",
-                    "Performance tuning"
+                    "Complete hardware testing",
+                    "Component performance analysis",
+                    "Temperature monitoring",
+                    "Power supply testing",
+                    "Detailed diagnostic report",
+                    "Repair recommendations"
                 ],
                 "process_steps": [
                     {"step": "Initial Assessment", "duration": "15 minutes"},
-                    {"step": "Diagnostic Testing", "duration": "30 minutes"},
-                    {"step": "Repair Implementation", "duration": "1-2 hours"},
-                    {"step": "Quality Testing", "duration": "15 minutes"},
-                    {"step": "Final Delivery", "duration": "10 minutes"}
+                    {"step": "Hardware Testing", "duration": "45 minutes"},
+                    {"step": "Performance Analysis", "duration": "30 minutes"},
+                    {"step": "Report Generation", "duration": "15 minutes"}
                 ],
                 "key_features": [
-                    "Same-day service available",
-                    "Free diagnostic assessment",
-                    "90-day warranty on repairs",
-                    "Expert certified technicians",
-                    "Transparent pricing"
+                    "Certified technicians",
+                    "Advanced diagnostic tools",
+                    "Same-day service",
+                    "Detailed reports",
+                    "Repair recommendations"
                 ],
                 "contact_info": {
                     "phone": "+1-555-0123",
-                    "email": "repair@sppix.com"
+                    "email": "hardware@sppix.com"
                 },
                 "availability": "Monday-Friday: 9AM-6PM, Saturday: 10AM-4PM"
             },
             {
-                "name": "Smartphone Screen Replacement",
-                "description": "Professional smartphone screen replacement service with genuine parts and warranty.",
-                "price": Decimal("129.99"),
-                "category": "Repair & Maintenance",
-                "rating": Decimal("4.9"),
-                "review_count": 89,
-                "overview": "Get your smartphone screen replaced by our certified technicians using genuine parts. We support all major brands including iPhone, Samsung, Google Pixel, and more.",
-                "included_features": [
-                    "Genuine OEM parts",
-                    "Professional installation",
-                    "Screen calibration",
-                    "Touch sensitivity testing",
-                    "Water resistance testing",
-                    "6-month warranty"
-                ],
-                "process_steps": [
-                    {"step": "Device Assessment", "duration": "10 minutes"},
-                    {"step": "Screen Removal", "duration": "20 minutes"},
-                    {"step": "New Screen Installation", "duration": "30 minutes"},
-                    {"step": "Testing & Calibration", "duration": "15 minutes"}
-                ],
-                "key_features": [
-                    "Same-day service",
-                    "Genuine parts guarantee",
-                    "6-month warranty",
-                    "All major brands supported",
-                    "Professional installation"
-                ],
-                "contact_info": {
-                    "phone": "+1-555-0124",
-                    "email": "screen@sppix.com"
-                },
-                "availability": "Monday-Sunday: 9AM-8PM"
-            },
-            {
-                "name": "Home Network Setup",
-                "description": "Complete home network installation and configuration for optimal internet connectivity.",
-                "price": Decimal("199.99"),
-                "category": "Installation & Setup",
+                "name": "Software Installation & Configuration",
+                "description": "Professional software installation, configuration, and optimization services.",
+                "price": Decimal("59.99"),
+                "category": "Software Support",
                 "rating": Decimal("4.7"),
-                "review_count": 67,
-                "overview": "Our network specialists will set up your home network infrastructure, configure routers, extenders, and ensure optimal coverage throughout your home.",
+                "review_count": 89,
+                "overview": "Expert software installation and configuration services for all major software applications. We ensure optimal performance and proper integration with your existing system.",
                 "included_features": [
-                    "Router installation and configuration",
-                    "WiFi extender setup",
-                    "Network security configuration",
-                    "Device connectivity testing",
-                    "Speed optimization",
-                    "Network documentation"
+                    "Software installation",
+                    "Configuration optimization",
+                    "License activation",
+                    "Integration setup",
+                    "Performance tuning",
+                    "User training"
                 ],
                 "process_steps": [
-                    {"step": "Site Survey", "duration": "30 minutes"},
-                    {"step": "Equipment Installation", "duration": "1 hour"},
-                    {"step": "Network Configuration", "duration": "45 minutes"},
-                    {"step": "Testing & Optimization", "duration": "30 minutes"}
+                    {"step": "Software Selection", "duration": "20 minutes"},
+                    {"step": "Installation Process", "duration": "30 minutes"},
+                    {"step": "Configuration Setup", "duration": "25 minutes"},
+                    {"step": "Testing & Training", "duration": "15 minutes"}
                 ],
                 "key_features": [
-                    "Custom network design",
-                    "Professional installation",
-                    "Security optimization",
-                    "Performance tuning",
+                    "All major software supported",
+                    "Performance optimization",
+                    "License management",
+                    "User training included",
                     "Ongoing support"
                 ],
                 "contact_info": {
-                    "phone": "+1-555-0125",
-                    "email": "network@sppix.com"
+                    "phone": "+1-555-0124",
+                    "email": "software@sppix.com"
                 },
-                "availability": "Monday-Friday: 8AM-6PM"
+                "availability": "Monday-Friday: 9AM-6PM"
+            },
+            # Installation & Setup Services
+            {
+                "name": "Home Theater System Installation",
+                "description": "Complete home theater system installation with professional calibration and setup.",
+                "price": Decimal("299.99"),
+                "category": "Home Theater Setup",
+                "rating": Decimal("4.9"),
+                "review_count": 67,
+                "overview": "Transform your living space into a premium home theater experience. Our experts handle everything from equipment installation to audio/video calibration.",
+                "included_features": [
+                    "Equipment installation",
+                    "Cable management",
+                    "Audio calibration",
+                    "Video calibration",
+                    "Remote programming",
+                    "User training"
+                ],
+                "process_steps": [
+                    {"step": "Site Assessment", "duration": "30 minutes"},
+                    {"step": "Equipment Installation", "duration": "2 hours"},
+                    {"step": "Calibration Process", "duration": "1 hour"},
+                    {"step": "Testing & Training", "duration": "30 minutes"}
+                ],
+                "key_features": [
+                    "Professional installation",
+                    "Audio/video calibration",
+                    "Cable management",
+                    "Remote programming",
+                    "Warranty on work"
+                ],
+                "contact_info": {
+                    "phone": "+1-555-0125",
+                    "email": "hometheater@sppix.com"
+                },
+                "availability": "Monday-Friday: 9AM-5PM"
             },
             {
-                "name": "Smart Home Installation",
+                "name": "Smart Home Device Installation",
                 "description": "Complete smart home setup including smart lights, thermostats, security systems, and voice assistants.",
                 "price": Decimal("399.99"),
-                "category": "Installation & Setup",
+                "category": "Smart Home Installation",
                 "rating": Decimal("4.6"),
                 "review_count": 43,
                 "overview": "Transform your home into a smart home with our comprehensive installation service. We'll set up smart devices, create automation routines, and ensure everything works seamlessly together.",
@@ -609,11 +1084,83 @@ class Command(BaseCommand):
                 },
                 "availability": "Monday-Friday: 9AM-5PM"
             },
+            # Repair & Maintenance Services
             {
-                "name": "IT Consulting Services",
+                "name": "Laptop Screen Replacement",
+                "description": "Professional laptop screen replacement service with genuine parts and warranty.",
+                "price": Decimal("149.99"),
+                "category": "Computer Repair",
+                "rating": Decimal("4.8"),
+                "review_count": 124,
+                "overview": "Expert laptop screen replacement using genuine parts. We support all major brands and provide warranty on our work.",
+                "included_features": [
+                    "Genuine OEM parts",
+                    "Professional installation",
+                    "Screen calibration",
+                    "Touch sensitivity testing",
+                    "Quality assurance testing",
+                    "6-month warranty"
+                ],
+                "process_steps": [
+                    {"step": "Device Assessment", "duration": "10 minutes"},
+                    {"step": "Screen Removal", "duration": "20 minutes"},
+                    {"step": "New Screen Installation", "duration": "30 minutes"},
+                    {"step": "Testing & Calibration", "duration": "15 minutes"}
+                ],
+                "key_features": [
+                    "Same-day service",
+                    "Genuine parts guarantee",
+                    "6-month warranty",
+                    "All major brands supported",
+                    "Professional installation"
+                ],
+                "contact_info": {
+                    "phone": "+1-555-0127",
+                    "email": "laptop@sppix.com"
+                },
+                "availability": "Monday-Sunday: 9AM-8PM"
+            },
+            {
+                "name": "iPhone Screen Repair",
+                "description": "Professional iPhone screen repair service with genuine Apple parts and warranty.",
+                "price": Decimal("129.99"),
+                "category": "Mobile Device Repair",
+                "rating": Decimal("4.9"),
+                "review_count": 89,
+                "overview": "Get your iPhone screen repaired by our certified technicians using genuine Apple parts. We support all iPhone models and provide warranty on our work.",
+                "included_features": [
+                    "Genuine Apple parts",
+                    "Professional installation",
+                    "Touch ID calibration",
+                    "Water resistance testing",
+                    "Quality assurance testing",
+                    "6-month warranty"
+                ],
+                "process_steps": [
+                    {"step": "Device Assessment", "duration": "10 minutes"},
+                    {"step": "Screen Removal", "duration": "20 minutes"},
+                    {"step": "New Screen Installation", "duration": "30 minutes"},
+                    {"step": "Testing & Calibration", "duration": "15 minutes"}
+                ],
+                "key_features": [
+                    "Same-day service",
+                    "Genuine Apple parts",
+                    "6-month warranty",
+                    "All iPhone models supported",
+                    "Professional installation"
+                ],
+                "contact_info": {
+                    "phone": "+1-555-0128",
+                    "email": "iphone@sppix.com"
+                },
+                "availability": "Monday-Sunday: 9AM-8PM"
+            },
+            # Consulting Services
+            {
+                "name": "IT Strategy Consulting",
                 "description": "Expert IT consulting for businesses looking to optimize their technology infrastructure.",
                 "price": Decimal("150.00"),
-                "category": "Consulting Services",
+                "category": "IT Strategy Consulting",
                 "rating": Decimal("4.8"),
                 "review_count": 34,
                 "overview": "Our certified IT consultants provide strategic technology guidance to help businesses optimize their IT infrastructure, improve security, and enhance productivity.",
@@ -639,65 +1186,121 @@ class Command(BaseCommand):
                     "ROI analysis"
                 ],
                 "contact_info": {
-                    "phone": "+1-555-0127",
-                    "email": "consulting@sppix.com"
+                    "phone": "+1-555-0129",
+                    "email": "strategy@sppix.com"
                 },
                 "availability": "Monday-Friday: 9AM-6PM"
+            },
+            {
+                "name": "Data Analytics Consulting",
+                "description": "Expert data analysis and business intelligence consulting to help you make data-driven decisions.",
+                "price": Decimal("200.00"),
+                "category": "Data & Analytics",
+                "rating": Decimal("4.7"),
+                "review_count": 28,
+                "overview": "Transform your data into actionable insights with our comprehensive analytics consulting services. We help businesses implement data-driven strategies and build custom analytics solutions.",
+                "included_features": [
+                    "Data analysis and visualization",
+                    "Custom dashboard development",
+                    "Predictive analytics models",
+                    "Business intelligence setup",
+                    "Data governance planning",
+                    "Training and support"
+                ],
+                "process_steps": [
+                    {"step": "Data Discovery", "duration": "3-5 days"},
+                    {"step": "Analysis & Modeling", "duration": "1-2 weeks"},
+                    {"step": "Dashboard Development", "duration": "1 week"},
+                    {"step": "Training & Handover", "duration": "2 days"}
+                ],
+                "key_features": [
+                    "Advanced analytics tools",
+                    "Custom dashboard development",
+                    "Predictive modeling",
+                    "Data visualization",
+                    "Ongoing support"
+                ],
+                "contact_info": {
+                    "phone": "+1-555-0130",
+                    "email": "analytics@sppix.com"
+                },
+                "availability": "Monday-Friday: 9AM-6PM"
+            },
+            # Training & Education Services
+            {
+                "name": "Microsoft Office Training",
+                "description": "Comprehensive Microsoft Office training for individuals and businesses.",
+                "price": Decimal("99.99"),
+                "category": "Software Training",
+                "rating": Decimal("4.6"),
+                "review_count": 45,
+                "overview": "Master Microsoft Office applications with our comprehensive training program. We cover Word, Excel, PowerPoint, Outlook, and more with hands-on practice and real-world examples.",
+                "included_features": [
+                    "Hands-on training sessions",
+                    "Customized curriculum",
+                    "Practice exercises",
+                    "Certification preparation",
+                    "Training materials",
+                    "Follow-up support"
+                ],
+                "process_steps": [
+                    {"step": "Skill Assessment", "duration": "30 minutes"},
+                    {"step": "Training Sessions", "duration": "4-8 hours"},
+                    {"step": "Practice Exercises", "duration": "2 hours"},
+                    {"step": "Assessment & Certification", "duration": "1 hour"}
+                ],
+                "key_features": [
+                    "Experienced instructors",
+                    "Customized curriculum",
+                    "Hands-on practice",
+                    "Certification preparation",
+                    "Flexible scheduling"
+                ],
+                "contact_info": {
+                    "phone": "+1-555-0131",
+                    "email": "training@sppix.com"
+                },
+                "availability": "Monday-Friday: 9AM-5PM, Saturday: 10AM-2PM"
+            },
+            {
+                "name": "Digital Literacy Workshop",
+                "description": "Basic computer skills and internet safety training for beginners.",
+                "price": Decimal("49.99"),
+                "category": "Digital Literacy",
+                "rating": Decimal("4.5"),
+                "review_count": 67,
+                "overview": "Learn essential computer skills and internet safety in our beginner-friendly workshop. Perfect for those new to computers or looking to improve their digital skills.",
+                "included_features": [
+                    "Basic computer operation",
+                    "Internet navigation",
+                    "Email setup and management",
+                    "Online safety and security",
+                    "Social media basics",
+                    "Troubleshooting common issues"
+                ],
+                "process_steps": [
+                    {"step": "Skill Assessment", "duration": "15 minutes"},
+                    {"step": "Basic Computer Skills", "duration": "2 hours"},
+                    {"step": "Internet & Email", "duration": "1.5 hours"},
+                    {"step": "Safety & Security", "duration": "1 hour"}
+                ],
+                "key_features": [
+                    "Beginner-friendly approach",
+                    "Small class sizes",
+                    "Patient instructors",
+                    "Take-home materials",
+                    "Ongoing support"
+                ],
+                "contact_info": {
+                    "phone": "+1-555-0132",
+                    "email": "literacy@sppix.com"
+                },
+                "availability": "Monday-Friday: 10AM-4PM"
             }
         ]
         
         services = []
         
-        # Duplicate a specific subcategory with variants to ensure at least 10 services in one subcategory
-        # Place all consulting variants under a real subcategory under Consulting Services
-        base_subcategory = "Data & Analytics"
-        consulting_variants = [
-            {"name": "Data Analytics Consulting", "price": Decimal("500.00")},
-            {"name": "Cloud Migration Consulting", "price": Decimal("650.00")},
-            {"name": "Cybersecurity Assessment", "price": Decimal("700.00")},
-            {"name": "DevOps Transformation", "price": Decimal("600.00")},
-            {"name": "AI/ML Strategy", "price": Decimal("900.00")},
-            {"name": "ERP Implementation Advisory", "price": Decimal("1200.00")},
-            {"name": "CRM Optimization", "price": Decimal("800.00")},
-            {"name": "Data Governance Setup", "price": Decimal("750.00")},
-            {"name": "IT Compliance & Audit", "price": Decimal("650.00")},
-            {"name": "Business Intelligence Dashboards", "price": Decimal("550.00")},
-        ]
-
-        standard_overview = "Detailed service overview and description..."
-        standard_description = "Describe your service in detail..."
-        standard_included = [
-            "Data collection and integration setup",
-            "Custom dashboard development",
-            "Predictive analytics models",
-        ]
-        standard_process = [
-            {"step": "Data Discovery", "duration": "3-5 days", "description": "Identify data sources and business requirements"},
-            {"step": "Data Integration", "duration": "1 week", "description": "Set up data pipelines and integration systems"},
-        ]
-        standard_keys = [
-            "Data Visualization",
-            "Predictive Analytics",
-            "Custom Dashboards",
-            "Real-time Reports",
-        ]
-
-        for variant in consulting_variants:
-            services_data.append({
-                "name": variant["name"],
-                "description": standard_description,
-                "price": variant["price"],
-                "category": base_subcategory,
-                "rating": Decimal("4.7"),
-                "review_count": 0,
-                "overview": standard_overview,
-                "included_features": standard_included,
-                "process_steps": standard_process,
-                "key_features": standard_keys,
-                "contact_info": {"phone": "+1 (555) 123-4567", "email": "support@example.com"},
-                "availability": "Available 24/7, Monday to Friday, etc."
-            })
-
         for service_data in services_data:
             # Find service category
             category = next((c for c in service_categories if c.name == service_data["category"]), None)
@@ -854,7 +1457,9 @@ class Command(BaseCommand):
                 "postcode": "94105",
                 "country": "United States",
                 "phone": "+1-555-0123",
-                "email": "info@sppix.com"
+                "email": "info@sppix.com",
+                "services_page_title": "Professional Electrical Services",
+                "services_page_description": "Expert electrical solutions for your home and business. From installations to repairs, we deliver quality service you can trust."
             }
         )
         

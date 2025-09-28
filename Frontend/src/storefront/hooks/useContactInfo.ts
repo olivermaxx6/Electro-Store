@@ -29,12 +29,29 @@ export const useContactInfo = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refresh = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   useEffect(() => {
     const fetchContactInfo = async () => {
       try {
         setLoading(true);
+        console.log('useContactInfo - Fetching contact info...');
         const data = await contentRepo.getContactInfo();
+        console.log('useContactInfo - Received data:', data);
+        console.log('useContactInfo - Phone:', data.phone, 'Type:', typeof data.phone);
+        console.log('useContactInfo - Email:', data.email, 'Type:', typeof data.email);
+        console.log('useContactInfo - City:', data.city, 'Type:', typeof data.city);
+        console.log('useContactInfo - Country:', data.country, 'Type:', typeof data.country);
+        console.log('useContactInfo - Phone empty check:', !data.phone);
+        console.log('useContactInfo - Email empty check:', !data.email);
+        console.log('useContactInfo - Phone length:', data.phone?.length);
+        console.log('useContactInfo - Email length:', data.email?.length);
+        console.log('useContactInfo - Phone truthy check:', !!data.phone);
+        console.log('useContactInfo - Email truthy check:', !!data.email);
         setContactInfo(data);
         setError(null);
       } catch (err) {
@@ -47,7 +64,7 @@ export const useContactInfo = () => {
     };
 
     fetchContactInfo();
-  }, []);
+  }, [refreshTrigger]);
 
-  return { contactInfo, loading, error };
+  return { contactInfo, loading, error, refresh };
 };

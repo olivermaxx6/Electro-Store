@@ -321,7 +321,7 @@ const Home: React.FC = () => {
               Welcome to <span className="text-red-600 dark:text-blue-400">{storeSettings?.store_name || 'Store'}</span>
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto px-4">
-              Discover the latest in technology with our premium selection of electronics, gadgets, and accessories.
+              {websiteContent?.home_hero_subtitle || "Discover the latest in technology with our premium selection of electronics, gadgets, and accessories."}
             </p>
           </div>
 
@@ -401,7 +401,7 @@ const Home: React.FC = () => {
               <span className="text-red-600 dark:text-blue-400">Services</span>
             </h2>
             <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
-              We provide comprehensive services to meet all your technology needs with expert support and quality assurance.
+              {websiteContent?.home_services_description || "We provide comprehensive services to meet all your technology needs with expert support and quality assurance."}
             </p>
           </div>
           
@@ -476,7 +476,7 @@ const Home: React.FC = () => {
               <span className="text-red-600 dark:text-blue-400">PRODUCT CATEGORIES</span>
             </h2>
             <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
-              Explore our wide range of product categories to find exactly what you need
+              {websiteContent?.home_categories_description || "Explore our wide range of product categories to find exactly what you need"}
             </p>
           </div>
           
@@ -489,7 +489,7 @@ const Home: React.FC = () => {
                     const style = getProductCategoryStyle(index);
                     return (
                       <div key={category.id} className="flex-shrink-0 category-card-container">
-                        <Link to={`/category/${category.name.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <Link to={`/allsubcategories?category=${category.id}&name=${encodeURIComponent(category.name)}`}>
                           <div className="bg-white dark:bg-slate-700 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer group category-card">
                             <div className={`h-48 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
                               <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

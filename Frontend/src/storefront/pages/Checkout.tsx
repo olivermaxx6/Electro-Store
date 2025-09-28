@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { selectCartItems, selectCartTotal, clearCart } from '../store/cartSlice';
+import { selectCartItems, selectCartTotal } from '../store/cartSlice';
 import { selectProducts, setProducts } from '../store/productsSlice';
 import { selectCurrentUser } from '../store/userSlice';
 import { addToast } from '../store/uiSlice';
 import { formatCurrency, currencyOptions } from '../lib/format';
-import { Currency } from '../lib/types';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import { getProducts } from '../../lib/productsApi';
-import { getStripe, testStripeConnection, isStripeConfigured, getStripeConfig } from '../../lib/stripe';
+import { testStripeConnection, isStripeConfigured, getStripeConfig } from '../../lib/stripe';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import Placeholder from '../components/common/Placeholder';
 import TitleUpdater from '../components/common/TitleUpdater';
-import { CreditCard, Save, Trash2, Zap } from 'lucide-react';
+import { CreditCard } from 'lucide-react';
 
 interface ShippingOption {
   id: string;
@@ -33,6 +32,7 @@ interface AddressForm {
   city: string;
   state: string;
   postcode: string;
+  country: string;
 }
 
 interface PaymentForm {
@@ -155,7 +155,8 @@ const Checkout: React.FC = () => {
     address2: '',
     city: '',
     state: '',
-    postcode: ''
+    postcode: '',
+    country: 'United Kingdom'
   });
   
   const [payment, setPayment] = useState<PaymentForm>({
@@ -167,12 +168,10 @@ const Checkout: React.FC = () => {
   
   const [selectedShipping, setSelectedShipping] = useState<string>('standard');
   const [privacyConsent, setPrivacyConsent] = useState<boolean>(false);
-  const [autoFillEnabled, setAutoFillEnabled] = useState<boolean>(true);
 
   // Auto-fill payment information from localStorage (only on initial load)
   useEffect(() => {
     const loadSavedPaymentInfo = () => {
-      if (!autoFillEnabled) return;
       
       try {
         const savedPaymentInfo = localStorage.getItem('savedPaymentInfo');
@@ -217,7 +216,8 @@ const Checkout: React.FC = () => {
                 address2: parsedAddress.address2 || '',
                 city: parsedAddress.city || '',
                 state: parsedAddress.state || '',
-                postcode: parsedAddress.postcode || ''
+                postcode: parsedAddress.postcode || '',
+                country: parsedAddress.country || 'United Kingdom'
               };
             }
             return prev;
@@ -234,7 +234,7 @@ const Checkout: React.FC = () => {
 
     // Only run on initial load
     loadSavedPaymentInfo();
-  }, [autoFillEnabled, currentUser, dispatch]);
+  }, [currentUser, dispatch]);
 
   // Debug cart items and products
   useEffect(() => {
@@ -247,8 +247,7 @@ const Checkout: React.FC = () => {
       address: address,
       payment: payment,
       selectedShipping: selectedShipping,
-      privacyConsent: privacyConsent,
-      autoFillEnabled: autoFillEnabled
+      privacyConsent: privacyConsent
     });
     
     console.log('🔘 Button State Debug:', {
@@ -271,7 +270,7 @@ const Checkout: React.FC = () => {
         }, 0)
       });
     }
-  }, [cartItems, products, cartTotal, isLoadingProducts, currentStep, address, payment, selectedShipping, privacyConsent, autoFillEnabled]);
+  }, [cartItems, products, cartTotal, isLoadingProducts, currentStep, address, payment, selectedShipping, privacyConsent]);
   // Dynamic shipping options based on admin settings
   const shippingOptions: ShippingOption[] = [
     {
@@ -331,57 +330,14 @@ const Checkout: React.FC = () => {
     }
     
     // Auto-save address information
-    if (autoFillEnabled) {
-      const addressToSave = { ...address, [field]: value };
-      try {
-        localStorage.setItem('savedAddressInfo', JSON.stringify(addressToSave));
-      } catch (error) {
-        console.error('Failed to save address info:', error);
-      }
+    const addressToSave = { ...address, [field]: value };
+    try {
+      localStorage.setItem('savedAddressInfo', JSON.stringify(addressToSave));
+    } catch (error) {
+      console.error('Failed to save address info:', error);
     }
   };
   
-  const handlePaymentChange = (field: keyof PaymentForm, value: string) => {
-    setPayment(prev => ({ ...prev, [field]: value }));
-    
-    // Auto-save payment information (except CVV for security)
-    if (field !== 'cvv' && autoFillEnabled) {
-      const paymentToSave = { ...payment, [field]: value };
-      try {
-        localStorage.setItem('savedPaymentInfo', JSON.stringify(paymentToSave));
-      } catch (error) {
-        console.error('Failed to save payment info:', error);
-      }
-    }
-  };
-
-  const clearSavedInfo = () => {
-    try {
-      localStorage.removeItem('savedPaymentInfo');
-      localStorage.removeItem('savedAddressInfo');
-      setPayment({
-        cardNumber: '',
-        expiryDate: '',
-        cvv: '',
-        cardholderName: ''
-      });
-      setAddress({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        address1: '',
-        address2: '',
-        city: '',
-        state: '',
-        postcode: ''
-      });
-      dispatch(addToast({ message: 'Saved payment information cleared', type: 'success' }));
-    } catch (error) {
-      console.error('Failed to clear saved info:', error);
-      dispatch(addToast({ message: 'Failed to clear saved information', type: 'error' }));
-    }
-  };
 
   const hasValidationError = (fieldName: string): boolean => {
     return validationErrors.includes(fieldName);
@@ -425,6 +381,7 @@ const Checkout: React.FC = () => {
     }
     
     if (!address.postcode?.trim()) missingFields.push('postcode');
+    if (!address.country?.trim()) missingFields.push('country');
     
     // Shipping validation
     if (!selectedShipping) missingFields.push('shipping');
@@ -454,13 +411,6 @@ const Checkout: React.FC = () => {
     setCurrentStep(prev => prev - 1);
   };
   
-  const formatCardNumber = (value: string) => {
-    return value.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim();
-  };
-  
-  const formatExpiryDate = (value: string) => {
-    return value.replace(/\D/g, '').replace(/(\d{2})(\d{2})/, '$1/$2');
-  };
 
   // Add Stripe connectivity test functions
   const testStripeConnectionLocal = async () => {
@@ -570,15 +520,16 @@ const Checkout: React.FC = () => {
           message: 'Please enter your phone number',
           type: 'error'
         }));
-      } else if (validation.missingFields.includes('address1') || validation.missingFields.includes('city') || validation.missingFields.includes('state') || validation.missingFields.includes('postcode')) {
+      } else if (validation.missingFields.includes('address1') || validation.missingFields.includes('city') || validation.missingFields.includes('state') || validation.missingFields.includes('postcode') || validation.missingFields.includes('country')) {
         const missingAddressFields = validation.missingFields.filter(field => 
-          ['address1', 'city', 'state', 'postcode'].includes(field)
+          ['address1', 'city', 'state', 'postcode', 'country'].includes(field)
         );
         const fieldNames = {
           'address1': 'Address',
           'city': 'City', 
           'state': 'State',
-          'postcode': 'Post Code'
+          'postcode': 'Post Code',
+          'country': 'Country'
         };
         const missingFieldNames = missingAddressFields.map(field => fieldNames[field as keyof typeof fieldNames]).join(', ');
         
@@ -614,7 +565,7 @@ const Checkout: React.FC = () => {
           const product = products.find(p => p.id === item.productId);
           return {
             product_id: item.productId,
-            name: product?.name || 'Unknown Product',
+            name: product?.title || product?.name || 'Unknown Product',
             price: product?.price || 0,
             quantity: item.qty,
             image: product?.image || ''
@@ -653,7 +604,7 @@ const Checkout: React.FC = () => {
       console.log('📦 Order data prepared:', orderData);
 
       // Step 3: Create order and get checkout session atomically
-      const response = await fetch('/api/public/create-order-checkout/', {
+      const response = await fetch('http://127.0.0.1:8001/api/public/create-order-checkout/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -737,67 +688,6 @@ const Checkout: React.FC = () => {
         <Breadcrumbs className="mb-6" />
         
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-6 sm:mb-8">Checkout</h1>
-        
-        {/* Debug Info */}
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Debug:</strong> Current Step: {currentStep}/4 | 
-            Place Order Button: {currentStep === 4 ? 'Visible' : 'Hidden'} | 
-            Processing: {processingPayment ? 'Yes' : 'No'}
-          </p>
-          {currentStep < 4 && (
-            <button
-              onClick={() => setCurrentStep(4)}
-              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 mr-2"
-            >
-              Go to Step 4 (Order Review)
-            </button>
-          )}
-          {currentStep === 4 && (
-            <button
-              onClick={() => {
-                console.log('🧪 Test button clicked - filling state field');
-                // Fill in required fields for testing
-                setAddress(prev => ({
-                  ...prev,
-                  firstName: 'Test',
-                  lastName: 'User',
-                  email: 'test@example.com',
-                  phone: '1234567890',
-                  address1: '123 Test St',
-                  city: 'Test City',
-                  state: 'TS',
-                  postcode: '12345'
-                }));
-                setPrivacyConsent(true);
-                console.log('🧪 State field filled with "TS"');
-                setTimeout(() => {
-                  console.log('🧪 Calling handlePlaceOrder after filling test data');
-                  handlePlaceOrder();
-                }, 100);
-              }}
-              className="mt-2 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-            >
-              Test Place Order (Fill & Submit)
-            </button>
-          )}
-          
-          {/* Debug button to check current state */}
-          <button
-            onClick={() => {
-              console.log('🔍 Current Address State:', address);
-              console.log('🔍 State field specifically:', {
-                value: address.state,
-                type: typeof address.state,
-                trimmed: address.state?.trim(),
-                length: address.state?.length
-              });
-            }}
-            className="mt-2 px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
-          >
-            Debug State Field
-          </button>
-        </div>
         
         {/* Progress Steps */}
         <div className="mb-8">
@@ -915,6 +805,13 @@ const Checkout: React.FC = () => {
                         className={getInputClassName('postcode', "px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
                       />
                     </div>
+                    <input
+                      type="text"
+                      placeholder="Country *"
+                      value={address.country}
+                      onChange={(e) => handleAddressChange('country', e.target.value)}
+                      className={getInputClassName('country', "w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400")}
+                    />
                   </div>
                 )}
                 
@@ -1028,6 +925,7 @@ const Checkout: React.FC = () => {
                         {address.address1}<br />
                         {address.address2 && <>{address.address2}<br /></>}
                         {address.city}, {address.state} {address.postcode}<br />
+                        {address.country}<br />
                         {address.email}<br />
                         {address.phone}
                       </p>

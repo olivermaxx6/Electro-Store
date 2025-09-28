@@ -29,7 +29,7 @@ const MainHeader: React.FC = () => {
   
   return (
     <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-8 sm:px-12 lg:px-16 xl:px-20 py-4">
         <div className="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
 
           {/* Logo */}

@@ -20,9 +20,12 @@ const useChatApiStore = create((set, get) => ({
   maxReconnectAttempts: 5,
   reconnectInterval: 3000,
 
-  // Messages
+  // Chat state
+  currentRoom: null,
   messages: [],
   unreadCount: 0,
+  loading: false,
+  error: null,
 
   // Connection management
   connect: (roomId = null) => {
@@ -36,7 +39,7 @@ const useChatApiStore = create((set, get) => ({
     const token = localStorage.getItem('access_token') || localStorage.getItem('authToken');
     if (!token) {
       console.error('No auth token found for WebSocket connection');
-      set({ connectionState: WS_STATES.ERROR });
+      set({ connectionState: WS_STATES.ERROR, error: 'No authentication token found' });
       return;
     }
 
@@ -46,14 +49,16 @@ const useChatApiStore = create((set, get) => ({
     set({ 
       ws: newWs, 
       connectionState: WS_STATES.CONNECTING,
-      reconnectAttempts: 0
+      reconnectAttempts: 0,
+      error: null
     });
 
     newWs.onopen = () => {
       console.log('WebSocket connected');
       set({ 
         connectionState: WS_STATES.CONNECTED,
-        reconnectAttempts: 0
+        reconnectAttempts: 0,
+        error: null
       });
     };
 
@@ -68,11 +73,17 @@ const useChatApiStore = create((set, get) => ({
           }));
         } else if (data.type === 'message_history') {
           set({ messages: data.messages || [] });
+        } else if (data.type === 'room_created') {
+          set({ currentRoom: data.room });
+        } else if (data.type === 'room_updated') {
+          set({ currentRoom: data.room });
         } else if (data.type === 'error') {
           console.error('WebSocket error:', data.error);
+          set({ error: data.error });
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
+        set({ error: 'Failed to parse message' });
       }
     };
 
@@ -88,7 +99,7 @@ const useChatApiStore = create((set, get) => ({
 
     newWs.onerror = (error) => {
       console.error('WebSocket error:', error);
-      set({ connectionState: WS_STATES.ERROR });
+      set({ connectionState: WS_STATES.ERROR, error: 'WebSocket connection failed' });
     };
   },
 
@@ -104,12 +115,27 @@ const useChatApiStore = create((set, get) => ({
     }
   },
 
+  // Alias for disconnect to match ChatModal expectations
+  disconnectWebSocket: () => {
+    get().disconnect();
+  },
+
+  // Alias for connect to match ChatModal expectations
+  connectWebSocket: (roomId = null) => {
+    get().connect(roomId);
+  },
+
+  // Admin WebSocket connection function
+  connectAdminWebSocket: () => {
+    get().connect();
+  },
+
   attemptReconnect: () => {
     const { reconnectAttempts, maxReconnectAttempts, reconnectInterval } = get();
     
     if (reconnectAttempts >= maxReconnectAttempts) {
       console.log('Max reconnection attempts reached');
-      set({ connectionState: WS_STATES.ERROR });
+      set({ connectionState: WS_STATES.ERROR, error: 'Max reconnection attempts reached' });
       return;
     }
 
@@ -123,24 +149,147 @@ const useChatApiStore = create((set, get) => ({
     }, reconnectInterval);
   },
 
-  sendMessage: (message, roomId = null) => {
+  // Retry connection function for ChatModal
+  retryConnection: () => {
+    set({ error: null, reconnectAttempts: 0 });
+    get().connect();
+  },
+
+  // Clear error function for ChatModal
+  clearError: () => {
+    set({ error: null });
+  },
+
+  // Customer chat initialization
+  initializeCustomerChat: async (customerInfo) => {
+    set({ loading: true, error: null });
+    
+    try {
+      // Create a mock room for now - in a real implementation, this would call an API
+      const mockRoom = {
+        id: `room_${Date.now()}`,
+        customer_name: customerInfo.name,
+        customer_email: customerInfo.email,
+        created_at: new Date().toISOString(),
+        is_active: true
+      };
+
+      set({ 
+        currentRoom: mockRoom,
+        loading: false,
+        error: null
+      });
+
+      // Connect to WebSocket with the room
+      get().connect(mockRoom.id);
+      
+      return { success: true, room: mockRoom };
+    } catch (error) {
+      console.error('Failed to initialize customer chat:', error);
+      set({ 
+        loading: false, 
+        error: error.message || 'Failed to initialize chat'
+      });
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Get chat room messages
+  getChatRoom: async (roomId) => {
+    set({ loading: true, error: null });
+    
+    try {
+      // Mock implementation - in a real app, this would call an API
+      const mockMessages = [
+        {
+          id: `msg_${Date.now()}`,
+          content: 'Welcome! How can I help you today?',
+          sender_type: 'admin',
+          sender_name: 'Admin',
+          is_read: true,
+          created_at: new Date().toISOString()
+        }
+      ];
+
+      set({ 
+        messages: mockMessages,
+        loading: false,
+        error: null
+      });
+
+      // Connect to WebSocket for this room
+      get().connect(roomId);
+      
+      return { success: true, messages: mockMessages };
+    } catch (error) {
+      console.error('Failed to get chat room:', error);
+      set({ 
+        loading: false, 
+        error: error.message || 'Failed to load chat room'
+      });
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Update customer info
+  updateCustomerInfo: async (roomId) => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      
+      if (currentUser && currentUser.name) {
+        const updatedRoom = {
+          ...get().currentRoom,
+          customer_name: currentUser.name,
+          customer_email: currentUser.email
+        };
+        
+        set({ currentRoom: updatedRoom });
+        return { success: true };
+      }
+      
+      return { success: false, error: 'No user information available' };
+    } catch (error) {
+      console.error('Failed to update customer info:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  sendMessage: async (roomId, message) => {
     const { ws, connectionState } = get();
     
     if (!ws || connectionState !== WS_STATES.CONNECTED) {
       console.error('WebSocket not connected');
-      return false;
+      return { success: false, error: 'WebSocket not connected' };
     }
 
     try {
-      ws.send(JSON.stringify({
+      const messageData = {
         type: 'message',
-        message: message,
-        room: roomId
+        content: message,
+        room_id: roomId,
+        sender_type: 'customer'
+      };
+
+      ws.send(JSON.stringify(messageData));
+      
+      // Add message to local state immediately
+      const newMessage = {
+        id: `msg_${Date.now()}`,
+        content: message,
+        sender_type: 'customer',
+        sender_name: get().currentRoom?.customer_name || 'You',
+        is_read: false,
+        created_at: new Date().toISOString()
+      };
+
+      set(state => ({
+        messages: [...state.messages, newMessage]
       }));
-      return true;
+
+      return { success: true };
     } catch (error) {
       console.error('Error sending message:', error);
-      return false;
+      return { success: false, error: error.message };
     }
   },
 

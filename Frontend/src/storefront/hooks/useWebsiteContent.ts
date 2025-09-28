@@ -27,6 +27,15 @@ interface WebsiteContent {
   city: string;
   postcode: string;
   country: string;
+  
+  // Home Page Content
+  home_hero_subtitle: string;
+  home_services_description: string;
+  home_categories_description: string;
+  
+  // Services Page Content - Updated with title field
+  services_page_title: string;
+  services_page_description: string;
 }
 
 interface UseWebsiteContentReturn {
@@ -46,7 +55,7 @@ export const useWebsiteContent = (): UseWebsiteContentReturn => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/public/website-content/1/');
+      const response = await fetch('http://127.0.0.1:8001/api/public/website-content/1/');
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

@@ -27,7 +27,12 @@ export const StoreProvider = ({ children }) => {
     const fetchStoreSettings = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://127.0.0.1:8001/api/public/store-settings/');
+        const response = await fetch(`http://127.0.0.1:8001/api/public/store-settings/?t=${Date.now()}&r=${Math.random()}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           setStoreSettings(data);
@@ -53,7 +58,12 @@ export const StoreProvider = ({ children }) => {
       const fetchStoreSettings = async () => {
         try {
           setLoading(true);
-          const response = await fetch('http://127.0.0.1:8001/api/public/store-settings/');
+          const response = await fetch(`http://127.0.0.1:8001/api/public/store-settings/?t=${Date.now()}&r=${Math.random()}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
           if (response.ok) {
             const data = await response.json();
             setStoreSettings(data);

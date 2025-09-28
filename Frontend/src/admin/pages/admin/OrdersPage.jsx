@@ -738,10 +738,18 @@ export default function OrdersPage() {
                         <div className="mb-2">
                           <span className="font-medium">Phone:</span> {o.customer_phone || 'Not provided'}
                         </div>
+                        <div className="mb-2">
+                          <span className="font-medium">Method:</span> {o.shipping_method === 'standard' ? 'Standard Shipping (5-7 business days)' : 
+                                                                        o.shipping_method === 'express' ? 'Express Shipping (2-3 business days)' : 
+                                                                        o.shipping_method || 'Standard Shipping'}
+                        </div>
+                        <div className="mb-2">
+                          <span className="font-medium">Cost:</span> {formatAmount(Number(o.shipping_cost))}
+                        </div>
                         <div className="font-medium mb-1">Address:</div>
-                        <div>{o.shipping_address.address1}</div>
+                        <div>{o.shipping_address.address || o.shipping_address.address1}</div>
                         {o.shipping_address.address2 && <div>{o.shipping_address.address2}</div>}
-                        <div>{o.shipping_address.city}, {o.shipping_address.state} {o.shipping_address.postcode}</div>
+                        <div>{o.shipping_address.city}, {o.shipping_address.state} {o.shipping_address.zipCode || o.shipping_address.postcode}</div>
                         {o.shipping_address.country && <div>{o.shipping_address.country}</div>}
                       </div>
                     </div>

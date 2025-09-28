@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8001/api/public';
 
 export interface StoreSettings {
   store_name: string;
@@ -24,11 +24,10 @@ export interface StoreSettings {
 
 export const getStoreSettings = async (): Promise<StoreSettings> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/public/store-settings/?t=${Date.now()}`, {
+    const response = await axios.get(`${API_BASE_URL}/store-settings/?t=${Date.now()}`, {
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       }
     });
     return response.data;

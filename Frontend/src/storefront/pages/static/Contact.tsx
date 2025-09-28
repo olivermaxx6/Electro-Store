@@ -1,16 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Clock } from 'lucide-react';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import TitleUpdater from '../../components/common/TitleUpdater';
-import { useContactInfo } from '../../hooks/useContactInfo';
+
+interface ContactInfo {
+  phone: string;
+  email: string;
+  city: string;
+  country: string;
+  address: string;
+  businessHours: {
+    mondayFriday: string;
+    saturday: string;
+    sunday: string;
+  };
+}
 
 const Contact: React.FC = () => {
-  const { contactInfo, loading, error } = useContactInfo();
+  const [contactInfo, setContactInfo] = useState<ContactInfo>({
+    phone: '',
+    email: '',
+    city: '',
+    country: '',
+    address: '',
+    businessHours: {
+      mondayFriday: 'Monday - Friday: 9:00 AM - 6:00 PM',
+      saturday: 'Saturday: 10:00 AM - 4:00 PM',
+      sunday: 'Sunday: Closed'
+    }
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Debug logging
   console.log('Contact page - contactInfo:', contactInfo);
   console.log('Contact page - loading:', loading);
   console.log('Contact page - error:', error);
+
+  useEffect(() => {
+    const loadContactInfo = async () => {
+      try {
+        setLoading(true);
+        console.log('Contact page - Fetching contact info...');
+        const response = await fetch('http://127.0.0.1:8001/api/public/store-settings/');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Contact page - Received data:', data);
+          
+          // Map the store settings to contact info format
+          const mappedData = {
+            phone: data.phone || '',
+            email: data.email || '',
+            city: data.city || '',
+            country: data.country || '',
+            address: data.street_address || '',
+            businessHours: {
+              mondayFriday: data.monday_friday_hours || 'Monday - Friday: 9:00 AM - 6:00 PM',
+              saturday: data.saturday_hours || 'Saturday: 10:00 AM - 4:00 PM',
+              sunday: data.sunday_hours || 'Sunday: Closed'
+            }
+          };
+          
+          console.log('Contact page - Mapped data:', mappedData);
+          setContactInfo(mappedData);
+          setError(null);
+        } else {
+          setError('Failed to load contact information');
+        }
+      } catch (err) {
+        setError('Failed to load contact information');
+        console.error('Error loading contact info:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadContactInfo();
+  }, []);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,7 +93,7 @@ const Contact: React.FC = () => {
     setSubmitStatus('idle');
     
     try {
-      const response = await fetch('/api/public/contacts/', {
+      const response = await fetch('http://127.0.0.1:8001/api/public/contacts/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

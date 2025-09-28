@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Settings Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .status { font-weight: bold; }
+        .phone-test { background: #fff3cd; border-color: #ffeaa7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Store Settings Debug Test</h1>
+        
+        <div class="test-section info">
+            <h2>📋 Test Instructions</h2>
+            <p>This page tests the store settings API and data flow. Check the results below to see if the store information is being fetched correctly.</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🌐 API Response Test</h2>
+            <button onclick="testAPI()">Test Store Settings API</button>
+            <button onclick="testMultipleTimes()">Test Multiple Times</button>
+            <div id="apiResult"></div>
+        </div>
+
+        <div class="test-section phone-test">
+            <h2>📞 Phone Number Test</h2>
+            <p>Expected: <strong>+92123456789</strong></p>
+            <div id="phoneTest"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📧 Email Test</h2>
+            <p>Expected: <strong>abc@gmail.com</strong></p>
+            <div id="emailTest"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📍 Location Test</h2>
+            <p>Expected: <strong>abc, Pakistan</strong></p>
+            <div id="locationTest"></div>
+        </div>
+    </div>
+
+    <script>
+        let testCount = 0;
+        
+        async function testAPI() {
+            testCount++;
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = `<p>🔄 Testing API (Test #${testCount})...</p>`;
+            
+            try {
+                const timestamp = Date.now();
+                const random = Math.random();
+                const url = `http://127.0.0.1:8001/api/public/store-settings/?t=${timestamp}&r=${random}`;
+                
+                console.log('Testing URL:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                        'If-None-Match': '*'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Test phone number
+                const phoneDiv = document.getElementById('phoneTest');
+                const phoneCorrect = data.phone === '+92123456789';
+                phoneDiv.innerHTML = `
+                    <p class="status ${phoneCorrect ? 'success' : 'error'}">
+                        ${phoneCorrect ? '✅' : '❌'} Phone: "${data.phone}" 
+                        ${phoneCorrect ? '(Correct!)' : '(Incorrect!)'}
+                    </p>
+                `;
+                
+                // Test email
+                const emailDiv = document.getElementById('emailTest');
+                const emailCorrect = data.email === 'abc@gmail.com';
+                emailDiv.innerHTML = `
+                    <p class="status ${emailCorrect ? 'success' : 'error'}">
+                        ${emailCorrect ? '✅' : '❌'} Email: "${data.email}" 
+                        ${emailCorrect ? '(Correct!)' : '(Incorrect!)'}
+                    </p>
+                `;
+                
+                // Test location
+                const locationDiv = document.getElementById('locationTest');
+                const locationCorrect = data.city === 'abc' && data.country === 'Pakistan';
+                locationDiv.innerHTML = `
+                    <p class="status ${locationCorrect ? 'success' : 'error'}">
+                        ${locationCorrect ? '✅' : '❌'} Location: "${data.city}, ${data.country}" 
+                        ${locationCorrect ? '(Correct!)' : '(Incorrect!)'}
+                    </p>
+                `;
+                
+                resultDiv.innerHTML = `
+                    <div class="test-section success">
+                        <h3>✅ API Test #${testCount} Successful!</h3>
+                        <p><strong>Timestamp:</strong> ${timestamp}</p>
+                        <p><strong>Random:</strong> ${random}</p>
+                        <h4>Store Information:</h4>
+                        <ul>
+                            <li><strong>Store Name:</strong> ${data.store_name || 'Not set'}</li>
+                            <li><strong>Phone:</strong> ${data.phone || 'Not set'}</li>
+                            <li><strong>Email:</strong> ${data.email || 'Not set'}</li>
+                            <li><strong>Address:</strong> ${data.street_address || 'Not set'}</li>
+                            <li><strong>City:</strong> ${data.city || 'Not set'}</li>
+                            <li><strong>Country:</strong> ${data.country || 'Not set'}</li>
+                            <li><strong>Business Hours:</strong> ${data.monday_friday_hours || 'Not set'}</li>
+                        </ul>
+                        <details>
+                            <summary>Raw API Response</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test-section error">
+                        <h3>❌ API Test #${testCount} Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p>Make sure the backend server is running on http://127.0.0.1:8001</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testMultipleTimes() {
+            for (let i = 0; i < 3; i++) {
+                await testAPI();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        // Auto-run test on page load
+        window.onload = testAPI;
+    </script>
+</body>
+</html>

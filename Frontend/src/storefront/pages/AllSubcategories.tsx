@@ -7,6 +7,7 @@ interface Category {
   id: number;
   name: string;
   slug: string;
+  slogan?: string;
   parent: number | null;
   description?: string;
   image?: string;
@@ -273,19 +274,40 @@ const AllSubcategories: React.FC = () => {
 
   // Get description for the main category
   const getCategoryDescription = () => {
-    if (categoryId === '12') { // Electrical & Lights
-      return "Browse our stunning range of lighting here at Electro-Store. We have everything you need, from statement pieces with the wow factor, to functional items helping to light the way in your home or garden. Our wide range of electrical products ensures you will have everything you need to get the job done. Whether you're looking for modern LED fixtures, traditional chandeliers, outdoor lighting solutions, or essential electrical components, our carefully curated collection offers premium quality products at competitive prices.";
+    // Use slogan from the API if available
+    if (parentCategory?.slogan) {
+      return parentCategory.slogan;
     }
+    
+    // Fallback to default description
     return `Explore our comprehensive range of ${categoryName || parentCategory?.name || 'products'}. Discover high-quality items carefully selected to meet your needs, featuring the latest innovations and timeless classics. Our extensive collection ensures you'll find exactly what you're looking for, backed by our commitment to quality and customer satisfaction.`;
   };
 
   // Event handlers
   const handleCategoryClick = (category: GrandchildCategory) => {
-    navigate(`/category/${category.slug}`);
+    // Check if this category has children (subcategories)
+    const hasChildren = categories.some(cat => cat.parent === category.id);
+    
+    if (hasChildren) {
+      // If it has children, show subcategories
+      navigate(`/allsubcategories?category=${category.id}&name=${encodeURIComponent(category.name)}`);
+    } else {
+      // If it's a leaf category, show products using the Category page
+      navigate(`/category/${category.slug}`);
+    }
   };
 
   const handleShopAllClick = (subcategory: Category) => {
-    navigate(`/category/${subcategory.slug}`);
+    // Check if this subcategory has children (grandchild categories)
+    const hasChildren = categories.some(cat => cat.parent === subcategory.id);
+    
+    if (hasChildren) {
+      // If it has children, show subcategories
+      navigate(`/allsubcategories?category=${subcategory.id}&name=${encodeURIComponent(subcategory.name)}`);
+    } else {
+      // If it's a leaf category, show products using the Category page
+      navigate(`/category/${subcategory.slug}`);
+    }
   };
 
   const handleSubcategoryClick = (subcategory: Category) => {

@@ -3,12 +3,11 @@ import sys
 import subprocess
 
 # Set Stripe environment variables if not already set
-# Note: Add your Stripe keys to .env file or environment variables
 if not os.getenv("STRIPE_SECRET_KEY"):
-    print("Warning: STRIPE_SECRET_KEY not set. Please add it to your .env file.")
-    
+    os.environ["STRIPE_SECRET_KEY"] = "your_stripe_secret_key_here"
+
 if not os.getenv("STRIPE_PUBLISHABLE_KEY"):
-    print("Warning: STRIPE_PUBLISHABLE_KEY not set. Please add it to your .env file.")
+    os.environ["STRIPE_PUBLISHABLE_KEY"] = "your_stripe_publishable_key_here"
 
 # Get host and port from environment variables with defaults
 host = os.getenv("DJANGO_DEV_HOST", "127.0.0.1")

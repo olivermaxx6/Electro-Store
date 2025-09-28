@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, ArrowRight } from 'lucide-react';
+import { ChevronRight, ArrowRight, Star, Clock, Shield, Award, Users, CheckCircle, Zap, Phone, Mail, MapPin, MessageCircle } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
 import TitleUpdater from '../components/common/TitleUpdater';
+import PhoneDialog from '../components/common/PhoneDialog';
 // @ts-ignore
 import { getServices, getServiceCategories, incrementServiceView, Service, ServiceCategory } from '../../lib/servicesApi';
 import { useStoreSettings } from '../hooks/useStoreSettings';
+import { useWebsiteContent } from '../hooks/useWebsiteContent';
 
 // Transform API service data to match the component's expected format
 const transformServiceData = (apiService: Service) => {
@@ -63,7 +65,7 @@ const SubcategoryCard: React.FC<{
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer flex-shrink-0 min-w-[300px] max-w-[300px] subcategory-card">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer flex-shrink-0 min-w-[300px] max-w-[300px] subcategory-card transform hover:-translate-y-1 mx-2">
       <Link 
         to={`/services/${encodeURIComponent(subcategory.parent_name?.toLowerCase() || 'services')}?category=${encodeURIComponent(subcategory.parent_name || subcategory.name)}`} 
         onClick={() => handleServiceClick(services[0])}
@@ -97,25 +99,63 @@ const SubcategoryCard: React.FC<{
               </div>
             </div>
           )}
+          
+          {/* Overlay on hover */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300"></div>
+          
+          {/* Service count badge */}
+          <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-medium text-gray-900 dark:text-white">
+            {services.length} service{services.length !== 1 ? 's' : ''}
+          </div>
         </div>
         
         {/* Subcategory Info */}
-        <div className="p-4">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-base">
+        <div className="p-6">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-lg">
             {subcategory.name}
           </h3>
           
-          <p className="text-gray-600 dark:text-gray-300 text-sm mb-3 line-clamp-2">
+          <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2 leading-relaxed">
             {subcategory.description}
           </p>
           
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {services.length} service{services.length !== 1 ? 's' : ''}
+          {/* Features preview */}
+          {services[0]?.features && services[0].features.length > 0 && (
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-1">
+                {services[0].features.slice(0, 2).map((feature: string, index: number) => (
+                  <span key={index} className="inline-block bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs px-2 py-1 rounded-full">
+                    {feature}
+                  </span>
+                ))}
+                {services[0].features.length > 2 && (
+                  <span className="inline-block bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs px-2 py-1 rounded-full">
+                    +{services[0].features.length - 2} more
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium">
+          )}
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {services[0]?.rating && (
+                <div className="flex items-center gap-1">
+                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {services[0].rating}
+                  </span>
+                </div>
+              )}
+              {services[0]?.reviewCount && services[0].reviewCount > 0 && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  ({services[0].reviewCount} reviews)
+                </span>
+              )}
+            </div>
+            <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium group-hover:gap-2 transition-all duration-300">
               <span>View All</span>
-              <ArrowRight className="w-4 h-4 ml-1" />
+              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
             </div>
           </div>
         </div>
@@ -134,7 +174,7 @@ const HorizontalScrollContainer: React.FC<{
     <div className="relative w-full">
       {/* Horizontal scrollable container */}
       <div className="overflow-x-auto overflow-y-hidden scrollbar-hide w-full" style={{ scrollBehavior: 'smooth' }}>
-        <div className="flex gap-6 pb-4" style={{ width: 'max-content', minWidth: '100%' }}>
+        <div className="flex gap-8 pb-4 px-4" style={{ width: 'max-content', minWidth: '100%' }}>
           {subcategories.map((subcategory) => (
             <div key={subcategory.id} className="flex-shrink-0 subcategory-card-container">
               <SubcategoryCard 
@@ -159,12 +199,17 @@ const CategorySection: React.FC<{
   onServiceClick: (service: any) => void;
 }> = ({ categoryName, categoryDescription, subcategories, servicesBySubcategory, onServiceClick }) => {
   return (
-    <div className="space-y-6">
-      {/* Category Header - Left-aligned */}
+    <div className="space-y-12">
+      {/* Category Header - Enhanced */}
       <div className="text-left">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-          {categoryName}
-        </h2>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <Zap className="w-6 h-6 text-white" />
+          </div>
+          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
+            {categoryName}
+          </h2>
+        </div>
         <p className="text-gray-600 dark:text-gray-300 text-lg max-w-4xl leading-relaxed">
           {categoryDescription}
         </p>
@@ -178,18 +223,23 @@ const CategorySection: React.FC<{
           onServiceClick={onServiceClick}
         />
       ) : (
-        <div className="text-center py-8">
-          <p className="text-gray-500 dark:text-gray-400">
+        <div className="text-center py-12 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">
             No subcategories available for this category.
           </p>
         </div>
       )}
 
-      {/* Show All Button - Centered */}
+      {/* Show All Button - Enhanced */}
       <div className="flex justify-center">
         <Link
           to={`/services/${encodeURIComponent(categoryName.toLowerCase())}?category=${encodeURIComponent(categoryName)}`}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           Show All {categoryName} Services
           <ChevronRight className="w-5 h-5" />
@@ -206,8 +256,14 @@ const Services: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Dialog state
+  const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false);
+  
   // Store settings for currency (currently unused but kept for future use)
   const { settings: _settings } = useStoreSettings();
+  
+  // Website content for services page description
+  const { content: websiteContent } = useWebsiteContent();
 
   // Add CSS for horizontal scrolling
   useEffect(() => {
@@ -234,8 +290,8 @@ const Services: React.FC = () => {
       }
       .subcategory-card {
         flex-shrink: 0;
-        min-width: 300px;
-        max-width: 300px;
+        min-width: 280px;
+        max-width: 320px;
       }
       .subcategory-card img {
         max-width: 100%;
@@ -245,7 +301,16 @@ const Services: React.FC = () => {
       }
       .subcategory-card-container {
         flex-shrink: 0;
-        width: 300px;
+        width: 280px;
+      }
+      @media (max-width: 640px) {
+        .subcategory-card {
+          min-width: 260px;
+          max-width: 280px;
+        }
+        .subcategory-card-container {
+          width: 260px;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -268,8 +333,8 @@ const Services: React.FC = () => {
         ]);
         
         // Extract results from paginated response
-        const services = servicesResponse.results || servicesResponse;
-        const categoriesRaw = categoriesResponse.results || categoriesResponse;
+        const services = (servicesResponse as any).results || servicesResponse;
+        const categoriesRaw = (categoriesResponse as any).results || categoriesResponse;
         
         // Debug logging
         console.log('Raw services response:', servicesResponse);
@@ -337,7 +402,21 @@ const Services: React.FC = () => {
       if (category) {
         const parentCategoryId = category.parent || 'uncategorized';
         const parentCategory = categories.find(cat => cat.id === parentCategoryId) || 
-                              { id: 'uncategorized', name: 'Uncategorized', description: 'Services without category' };
+                              { 
+                                id: 0, 
+                                name: 'Uncategorized', 
+                                description: 'Services without category',
+                                slug: 'uncategorized',
+                                ordering: 0,
+                                is_active: true,
+                                parent: null,
+                                parent_name: null,
+                                children: [],
+                                depth: 0,
+                                services_count: 0,
+                                image: null,
+                                created_at: new Date().toISOString()
+                              } as unknown as ServiceCategory;
         
         console.log(`Service ${service.title} belongs to parent category: ${parentCategory.name}`);
         
@@ -378,6 +457,15 @@ const Services: React.FC = () => {
     // Service click is handled in the SubcategoryCard component
   };
 
+  // Dialog handlers
+  const openPhoneDialog = () => {
+    setIsPhoneDialogOpen(true);
+  };
+
+  const closePhoneDialog = () => {
+    setIsPhoneDialogOpen(false);
+  };
+
   // Filter out empty categories
   const nonEmptyCategories = Object.keys(groupedServices).filter(categoryName => {
     const categoryData = groupedServices[categoryName];
@@ -387,19 +475,115 @@ const Services: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <TitleUpdater pageTitle="All Services" />
-      <div className="container mx-auto px-4 py-8">
-        {/* Breadcrumbs */}
-        <Breadcrumbs className="mb-6" />
+      
+      {/* Hero Section */}
+      <div className="relative bg-gradient-to-br from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-slate-900 text-white overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-black/10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }} />
+        </div>
         
-        {/* Page Header */}
-        <div className="mb-12 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">
-            All Services
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed">
-            Explore our full range of services across electrical, lighting, security, and smart home solutions. 
-            Each category is designed to help you find exactly what you need quickly and easily.
-          </p>
+        <div className="relative container mx-auto px-4 py-12 sm:py-16 lg:py-24">
+          <div className="text-center max-w-4xl mx-auto">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
+              {(websiteContent as any)?.services_page_title ? (
+                (() => {
+                  const title = (websiteContent as any).services_page_title;
+                  const words = title.split(' ');
+                  const firstWords = words.slice(0, -1).join(' ');
+                  const lastWord = words[words.length - 1];
+                  
+                  return (
+                    <>
+                      <span className="text-yellow-400">{firstWords}</span>
+                      <span className="block text-white">{lastWord}</span>
+                    </>
+                  );
+                })()
+              ) : (
+                <>
+                  <span className="text-yellow-400">Professional</span>
+                  <span className="block text-white">Electrical Services</span>
+                </>
+              )}
+            </h1>
+            <p className="text-lg sm:text-xl lg:text-2xl text-red-100 dark:text-blue-100 mb-6 sm:mb-8 leading-relaxed px-4">
+              {websiteContent?.services_page_description || 
+                "Expert electrical solutions for your home and business. From installations to repairs, we deliver quality service you can trust."}
+            </p>
+            
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-4">
+              <Link
+                to="/contact"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 bg-yellow-500 hover:bg-yellow-400 text-red-900 dark:text-blue-900 font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Get Free Quote
+              </Link>
+              <button
+                onClick={openPhoneDialog}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-all duration-300 backdrop-blur-sm border border-white/20"
+              >
+                <Phone className="w-5 h-5" />
+                Call Now
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+          <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
+            <div className="w-1 h-3 bg-white/60 rounded-full mt-2 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Spacer between hero and main content */}
+      <div className="h-8 sm:h-12"></div>
+
+      <div className="container mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 py-12 sm:py-16">
+        {/* Breadcrumbs */}
+        <Breadcrumbs className="mb-8" />
+        
+        {/* Features Section */}
+        <div className="mb-12 sm:mb-16" id="features">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-slate-700">
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Award className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Certified Experts</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">Licensed and insured professionals with years of experience</p>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-slate-700">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">24/7 Emergency</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">Round-the-clock emergency service for urgent electrical issues</p>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-slate-700">
+              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Quality Guarantee</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">100% satisfaction guarantee on all our electrical services</p>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-slate-700">
+              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Fast Service</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">Quick response times and efficient electrical solutions</p>
+            </div>
+          </div>
         </div>
 
         {/* Loading State */}
@@ -428,10 +612,10 @@ const Services: React.FC = () => {
 
         {/* Main Content - only show when not loading and no error */}
         {!loading && !error && (
-          <div className="space-y-16">
+          <div className="space-y-20" id="services">
             {/* Services by Categories */}
             {nonEmptyCategories.length > 0 ? (
-              <div className="space-y-20">
+              <div className="space-y-24">
                 {nonEmptyCategories.map((categoryName) => {
                   const categoryData = groupedServices[categoryName];
                   
@@ -473,7 +657,103 @@ const Services: React.FC = () => {
             )}
           </div>
         )}
+        
+        {/* Stage Section - Additional Content */}
+        <div className="mt-20 sm:mt-24 mb-16 sm:mb-20 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl p-8 sm:p-10 lg:p-12">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
+                Why Choose Our Electrical Services?
+              </h2>
+              <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-4">
+                We combine technical expertise with exceptional customer service to deliver electrical solutions that exceed your expectations.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-center">
+              {/* Left Side - Benefits */}
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Licensed & Insured</h3>
+                    <p className="text-gray-600 dark:text-gray-300">All our electricians are fully licensed, bonded, and insured for your peace of mind.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Expert Team</h3>
+                    <p className="text-gray-600 dark:text-gray-300">Our experienced technicians stay updated with the latest electrical codes and technologies.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Star className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Quality Workmanship</h3>
+                    <p className="text-gray-600 dark:text-gray-300">We use only premium materials and follow industry best practices for every project.</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right Side - Contact Info */}
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 sm:p-8 shadow-lg border border-gray-200 dark:border-slate-700">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">Ready to Get Started?</h3>
+                
+                <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Call us for immediate assistance</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Email us for detailed quotes</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Serving the entire region</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <Link
+                    to="/contact"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
+                  >
+                    <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                    Contact Us Now
+                  </Link>
+                  <Link
+                    to="/services"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-900 dark:text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
+                  >
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                    Browse All Services
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+      
+      {/* Bottom spacer */}
+      <div className="h-8 sm:h-12"></div>
+      
+      {/* Phone Dialog */}
+      <PhoneDialog
+        isOpen={isPhoneDialogOpen}
+        onClose={closePhoneDialog}
+        type="call"
+      />
     </div>
   );
 };

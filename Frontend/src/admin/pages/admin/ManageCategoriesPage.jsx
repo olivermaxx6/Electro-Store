@@ -112,6 +112,11 @@ function CategoryItem({ category, onSelect, depth = 0, isSelected = false, expan
             <div className="font-medium text-slate-800 dark:text-slate-200 break-words leading-tight">
               {category.name}
             </div>
+            {category.slogan && (
+              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 italic break-words leading-tight">
+                "{category.slogan.length > 80 ? category.slogan.substring(0, 80) + '...' : category.slogan}"
+              </div>
+            )}
             <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
               <span>{levelNames[category.level] || 'Category'}</span>
               <span>•</span>
@@ -158,8 +163,10 @@ export default function ManageCategoriesPage() {
 
   // Form states for adding new items
   const [newCatName, setNewCatName] = useState('');
+  const [newCatSlogan, setNewCatSlogan] = useState('');
   const [newSubParentId, setNewSubParentId] = useState('');
   const [newSubName, setNewSubName] = useState('');
+  const [newSubSlogan, setNewSubSlogan] = useState('');
   const [newBrandName, setNewBrandName] = useState('');
   const [newBrandImage, setNewBrandImage] = useState(null);
   const [newSubImage, setNewSubImage] = useState(null);
@@ -171,6 +178,7 @@ export default function ManageCategoriesPage() {
   const [editSubId, setEditSubId] = useState('');
   const [editBrandId, setEditBrandId] = useState('');
   const [editName, setEditName] = useState('');
+  const [editSlogan, setEditSlogan] = useState('');
   const [editBrandImage, setEditBrandImage] = useState(null);
   const [editSubImage, setEditSubImage] = useState(null);
   const [editCurrentImage, setEditCurrentImage] = useState(null);
@@ -304,6 +312,7 @@ export default function ManageCategoriesPage() {
       const cats = Array.isArray(allCategories) ? allCategories.map(c => ({
         id: c.id, 
         name: c.name, 
+        slogan: c.slogan || '',
         parent: c.parent ?? null,
         depth: c.depth || 0,
         level: c.level || 0,
@@ -493,6 +502,7 @@ export default function ManageCategoriesPage() {
     }
     
     setEditName(cat.name);
+    setEditSlogan(cat.slogan || '');
     setEditCurrentImage(cat.image);
     setEditSubImage(null);
     setMsg(null);
@@ -554,12 +564,14 @@ export default function ManageCategoriesPage() {
     e.preventDefault();
     setMsg(null);
     const name = (newCatName || '').trim();
+    const slogan = (newCatSlogan || '').trim();
     if (!name) return setMsg({ kind: 'error', text: 'Please enter a category name.' });
     try {
       setBusy(true);
-      await createCategory({ name });
+      await createCategory({ name, slogan });
       await loadAll();
       setNewCatName('');
+      setNewCatSlogan('');
       broadcast();
       setMsg({ kind: 'success', text: 'Parent category added.' });
     } catch (err) {
@@ -573,6 +585,7 @@ export default function ManageCategoriesPage() {
     setMsg(null);
     const parent = normalizeId(newSubParentId);
     const name = (newSubName || '').trim();
+    const slogan = (newSubSlogan || '').trim();
     if (!parent) return setMsg({ kind: 'error', text: 'Please select a parent category first.' });
     if (!name) return setMsg({ kind: 'error', text: 'Please enter a subcategory name.' });
     
@@ -581,6 +594,7 @@ export default function ManageCategoriesPage() {
       
       const formData = new FormData();
       formData.append('name', name);
+      formData.append('slogan', slogan);
       formData.append('parent', parent);
       if (newSubImage) {
         formData.append('image', newSubImage);
@@ -589,6 +603,7 @@ export default function ManageCategoriesPage() {
       await createCategory(formData);
       await loadAll();
       setNewSubName('');
+      setNewSubSlogan('');
       setNewSubParentId('');
       setNewSubImage(null);
       broadcast();
@@ -633,12 +648,14 @@ export default function ManageCategoriesPage() {
       
       if (editMode === 'category') {
         if (!editCatId) return setMsg({ kind: 'error', text: 'Pick a category to edit.' });
-        await updateCategory(editCatId, { name: editName });
+        console.log('Updating category with data:', { name: editName, slogan: editSlogan });
+        await updateCategory(editCatId, { name: editName, slogan: editSlogan });
       } else if (editMode === 'subcategory' || editMode === 'grandchild') {
         if (!editSubId) return setMsg({ kind: 'error', text: 'Pick a subcategory to edit.' });
         
         const formData = new FormData();
         formData.append('name', editName);
+        formData.append('slogan', editSlogan);
         if (editSubImage) {
           formData.append('image', editSubImage);
         }
@@ -657,6 +674,17 @@ export default function ManageCategoriesPage() {
       }
       
       await loadAll();
+      
+      // Update the selected category with the new data
+      if (selectedCategory) {
+        console.log('Updating selected category:', { name: editName, slogan: editSlogan });
+        setSelectedCategory(prev => ({
+          ...prev,
+          name: editName,
+          slogan: editSlogan
+        }));
+      }
+      
       broadcast();
       setMsg({ kind: 'success', text: 'Changes saved.' });
       
@@ -945,8 +973,10 @@ export default function ManageCategoriesPage() {
               <button
                 onClick={() => {
                   setNewCatName('');
+                  setNewCatSlogan('');
                   setNewSubParentId('');
                   setNewSubName('');
+                  setNewSubSlogan('');
                   setNewBrandName('');
                   setMsg(null);
                 }}
@@ -997,14 +1027,27 @@ export default function ManageCategoriesPage() {
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Create New Parent Category</h3>
               </div>
               <form onSubmit={addCategory} className="space-y-4">
-                <div className="flex gap-3">
+                <div className="space-y-3">
                   <ThemeInput
                     value={newCatName}
                     onChange={(e) => setNewCatName(e.target.value)}
                     placeholder="Enter parent category name"
-                    className="flex-1"
                     required
                   />
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      💬 Category Slogan (Optional)
+                    </label>
+                    <textarea
+                      value={newCatSlogan}
+                      onChange={(e) => setNewCatSlogan(e.target.value)}
+                      placeholder="Browse our stunning range of lighting here at Electro-Store. We have everything you need, from statement pieces with the wow factor, to functional items helping to light the way in your home or garden..."
+                      className="w-full px-4 py-3 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
                   <ThemeButton 
                     type="submit" 
                     disabled={busy || !newCatName.trim()} 
@@ -1051,6 +1094,18 @@ export default function ManageCategoriesPage() {
                     onChange={(e) => setNewSubName(e.target.value)}
                     placeholder="Enter subcategory name"
                     required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    💬 Category Slogan (Optional)
+                  </label>
+                  <textarea
+                    value={newSubSlogan}
+                    onChange={(e) => setNewSubSlogan(e.target.value)}
+                    placeholder="Browse our stunning range of lighting here at Electro-Store. We have everything you need, from statement pieces with the wow factor, to functional items helping to light the way in your home or garden..."
+                    className="w-full px-4 py-3 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 resize-none"
+                    rows={4}
                   />
                 </div>
                 <div>
@@ -1172,39 +1227,54 @@ export default function ManageCategoriesPage() {
               <div className="mb-6">
                 <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Select Item Type:</div>
                 <div className="flex flex-wrap gap-3">
-                  <TypePill selected={editMode === 'category'} onClick={() => { setEditMode('category'); setEditName(''); setMsg(null); }}>
+                  <TypePill selected={editMode === 'category'} onClick={() => { setEditMode('category'); setEditName(''); setEditSlogan(''); setMsg(null); }}>
                     Parent Category
                   </TypePill>
-                  <TypePill selected={editMode === 'subcategory'} onClick={() => { setEditMode('subcategory'); setEditName(''); setMsg(null); }}>
+                  <TypePill selected={editMode === 'subcategory'} onClick={() => { setEditMode('subcategory'); setEditName(''); setEditSlogan(''); setMsg(null); }}>
                     Child Category
                   </TypePill>
-                  <TypePill selected={editMode === 'grandchild'} onClick={() => { setEditMode('grandchild'); setEditName(''); setMsg(null); }}>
+                  <TypePill selected={editMode === 'grandchild'} onClick={() => { setEditMode('grandchild'); setEditName(''); setEditSlogan(''); setMsg(null); }}>
                     Grandchild Category
                   </TypePill>
-                  <TypePill selected={editMode === 'brand'} onClick={() => { setEditMode('brand'); setEditName(''); setMsg(null); }}>
+                  <TypePill selected={editMode === 'brand'} onClick={() => { setEditMode('brand'); setEditName(''); setEditSlogan(''); setMsg(null); }}>
                     Brand
                   </TypePill>
                 </div>
               </div>
 
               {editMode === 'category' && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <ThemeSelect
-                    value={editCatId}
-                    onChange={(e) => {
-                      const id = e.target.value; 
-                      setEditCatId(id);
-                      const c = allCats.find(x => String(x.id) === String(id));
-                      setEditName(c?.name || '');
-                    }}
-                    placeholder="Select Parent Category"
-                    options={parentCats.map(c => ({ value: c.id, label: c.name }))}
-                  />
-                  <ThemeInput
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="New name"
-                  />
+                <div className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <ThemeSelect
+                      value={editCatId}
+                      onChange={(e) => {
+                        const id = e.target.value; 
+                        setEditCatId(id);
+                        const c = allCats.find(x => String(x.id) === String(id));
+                        setEditName(c?.name || '');
+                        setEditSlogan(c?.slogan || '');
+                      }}
+                      placeholder="Select Parent Category"
+                      options={parentCats.map(c => ({ value: c.id, label: c.name }))}
+                    />
+                    <ThemeInput
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="New name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      💬 Category Slogan
+                    </label>
+                    <textarea
+                      value={editSlogan}
+                      onChange={(e) => setEditSlogan(e.target.value)}
+                      placeholder="Browse our stunning range of lighting here at Electro-Store. We have everything you need, from statement pieces with the wow factor, to functional items helping to light the way in your home or garden..."
+                      className="w-full px-4 py-3 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 resize-none"
+                      rows={4}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1218,6 +1288,7 @@ export default function ManageCategoriesPage() {
                         setEditSubId(id);
                         const sc = allCats.find(x => String(x.id) === String(id));
                         setEditName(sc?.name || '');
+                        setEditSlogan(sc?.slogan || '');
                         setEditCurrentImage(sc?.image || null);
                         setEditSubImage(null);
                       }}
@@ -1231,6 +1302,18 @@ export default function ManageCategoriesPage() {
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       placeholder="New name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      💬 Category Slogan
+                    </label>
+                    <textarea
+                      value={editSlogan}
+                      onChange={(e) => setEditSlogan(e.target.value)}
+                      placeholder="Browse our stunning range of lighting here at Electro-Store. We have everything you need, from statement pieces with the wow factor, to functional items helping to light the way in your home or garden..."
+                      className="w-full px-4 py-3 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 resize-none"
+                      rows={4}
                     />
                   </div>
                   <div>

@@ -38,6 +38,11 @@ class Brand(models.Model):
 class Category(models.Model):
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=120, null=True, blank=True)
+    slogan = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="Dynamic slogan for this category. Will be displayed on category pages."
+    )
     # self-referential FK for subcategories
     parent = models.ForeignKey(
         "self",
@@ -188,8 +193,7 @@ class ProductImage(models.Model):
 class Order(models.Model):
     # Order fulfillment status (for shipping/delivery)
     ORDER_STATUS_CHOICES = [
-        ("pending", "Pending Payment"),
-        ("paid", "Paid"),
+        ("pending", "Pending"),
         ("processing", "Processing"),
         ("shipped", "Shipped"),
         ("delivered", "Delivered"),
@@ -524,6 +528,15 @@ class WebsiteContent(models.Model):
     # Contact Information
     phone = models.CharField(max_length=50, blank=True, help_text="Store phone number")
     email = models.EmailField(blank=True, help_text="Store email address")
+    
+    # Home Page Content
+    home_hero_subtitle = models.TextField(blank=True, help_text="Hero section subtitle text on home page")
+    home_services_description = models.TextField(blank=True, help_text="Services section description text on home page")
+    home_categories_description = models.TextField(blank=True, help_text="Product categories section description text on home page")
+    
+    # Services Page Content
+    services_page_title = models.CharField(max_length=200, blank=True, help_text="Title text for the services page")
+    services_page_description = models.TextField(blank=True, help_text="Description text for the services page")
 
 class StoreSettings(models.Model):
     store_name = models.CharField(max_length=200, default="sppix")

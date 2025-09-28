@@ -386,7 +386,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
 # --- Content & Settings ---
 class WebsiteContentViewSet(viewsets.ViewSet):
     permission_classes = [IsAdmin]
-    http_method_names = ['get', 'put', 'head', 'options']
+    http_method_names = ['get', 'put', 'patch', 'head', 'options']
     parser_classes = [MultiPartParser, FormParser]
 
     def _get_singleton(self):
@@ -396,6 +396,14 @@ class WebsiteContentViewSet(viewsets.ViewSet):
     def list(self, request):
         obj = self._get_singleton()
         return Response(WebsiteContentSerializer(obj).data)
+    
+    def put(self, request):
+        """Handle PUT on collection endpoint for singleton"""
+        obj = self._get_singleton()
+        ser = WebsiteContentSerializer(obj, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
 
     def retrieve(self, request, pk=None):
         obj = self._get_singleton()
@@ -407,9 +415,17 @@ class WebsiteContentViewSet(viewsets.ViewSet):
         ser.is_valid(raise_exception=True)
         ser.save()
         return Response(ser.data)
+    
+    def partial_update(self, request, pk=None):
+        obj = self._get_singleton()
+        ser = WebsiteContentSerializer(obj, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
 
 class StoreSettingsViewSet(viewsets.ViewSet):
     permission_classes = [IsAdmin]
+    http_method_names = ['get', 'put', 'patch', 'head', 'options']
     parser_classes = [MultiPartParser, FormParser]
 
     def _get_singleton(self):
@@ -419,12 +435,27 @@ class StoreSettingsViewSet(viewsets.ViewSet):
     def list(self, request):
         obj = self._get_singleton()
         return Response(StoreSettingsSerializer(obj).data)
+    
+    def put(self, request):
+        """Handle PUT on collection endpoint for singleton"""
+        obj = self._get_singleton()
+        ser = StoreSettingsSerializer(obj, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
 
     def retrieve(self, request, pk=None):
         obj = self._get_singleton()
         return Response(StoreSettingsSerializer(obj).data)
 
     def update(self, request, pk=None):
+        obj = self._get_singleton()
+        ser = StoreSettingsSerializer(obj, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
+    
+    def partial_update(self, request, pk=None):
         obj = self._get_singleton()
         ser = StoreSettingsSerializer(obj, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)

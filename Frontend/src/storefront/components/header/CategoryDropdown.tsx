@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 interface Category {
   id: number;
   name: string;
+  slug: string;
   children?: Category[];
 }
 
@@ -443,7 +444,10 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
                   >
                     {/* Enhanced Subcategory Header */}
                     <Link
-                      to={`/allsubcategories?category=${subcategory.id}&name=${encodeURIComponent(subcategory.name)}`}
+                      to={subcategory.children && subcategory.children.length > 0 
+                        ? `/allsubcategories?category=${subcategory.id}&name=${encodeURIComponent(subcategory.name)}`
+                        : `/category/${subcategory.slug}`
+                      }
                       className={clsx(
                         'block text-base font-semibold text-gray-900 dark:text-white transition-all duration-300 group-hover/subcategory:scale-105',
                         hoveredSubcategory === subcategory.id 
@@ -469,7 +473,7 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
                           {subcategory.children.map((grandchild) => (
                             <Link
                               key={grandchild.id}
-                              to={`/allsubcategories?category=${grandchild.id}&name=${encodeURIComponent(grandchild.name)}`}
+                              to={`/category/${grandchild.slug}`}
                               className="block text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-blue-400 transition-all duration-200 py-1.5 px-3 rounded-md hover:bg-white/60 dark:hover:bg-slate-600/60 hover:shadow-sm group/grandchild hover:scale-105"
                             >
                               <div className="flex items-center gap-2">

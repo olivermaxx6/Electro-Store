@@ -7,9 +7,9 @@ import os
 import sys
 import django
 
-# Set environment variables - Add your Stripe keys to .env file
-# os.environ['STRIPE_SECRET_KEY'] = 'your_stripe_secret_key_here'
-# os.environ['STRIPE_PUBLISHABLE_KEY'] = 'your_stripe_publishable_key_here'
+# Set environment variables
+os.environ['STRIPE_SECRET_KEY'] = 'your_stripe_secret_key_here'
+os.environ['STRIPE_PUBLISHABLE_KEY'] = 'your_stripe_publishable_key_here'
 
 # Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')

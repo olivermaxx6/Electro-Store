@@ -299,7 +299,7 @@ const Categories: React.FC = () => {
                 {/* Products Grid */}
                 <div className="p-6">
                   {viewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                       {categoryProducts.slice(0, 8).map((backendProduct) => {
                         const product = convertToProductCard(backendProduct);
                         return <ProductCard key={product.id} product={product} />;
@@ -359,7 +359,7 @@ const Categories: React.FC = () => {
                   {categoryProducts.length > (viewMode === 'grid' ? 8 : 6) && (
                     <div className="text-center mt-6">
                       <Link
-                        to={`/category/${category.id}`}
+                        to={`/allsubcategories?category=${category.id}&name=${encodeURIComponent(category.name)}`}
                         className="inline-flex items-center gap-2 px-6 py-3 border border-red-600 dark:border-blue-600 text-red-600 dark:text-blue-400 rounded-lg hover:bg-red-50 dark:hover:bg-blue-900/20 transition-colors font-medium"
                       >
                         View All {categoryProducts.length} Products

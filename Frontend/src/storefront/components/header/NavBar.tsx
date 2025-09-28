@@ -6,6 +6,12 @@ import { useCategoriesWithHierarchy } from '../../hooks/useCategories';
 import CategoryDropdown from './CategoryDropdown';
 import { DropdownProvider } from '../../contexts/DropdownContext';
 
+
+
+
+
+/*NavBar (where categories are showing)*/
+
 const NavBar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -36,7 +42,7 @@ const NavBar: React.FC = () => {
         <div className="container mx-auto px-4 lg:px-6 relative">
           <div className="flex items-center justify-between">
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-1">
+            <div className="hidden lg:flex items-center space-x-1 pl-16 pr-4">
             {categoriesLoading ? (
               <div className="px-6 py-4 text-sm font-semibold text-red-100 dark:text-blue-200">
                 Loading...
@@ -49,7 +55,8 @@ const NavBar: React.FC = () => {
                       key={item.href}
                       to={item.href}
                       className={clsx(
-                        'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                        'relative py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                        item.label === 'Services' ? 'px-8' : 'px-6',
                         isActive(item.href)
                           ? 'text-white'
                           : 'text-red-100 dark:text-blue-200 hover:text-white'
@@ -86,7 +93,8 @@ const NavBar: React.FC = () => {
                       category={category}
                       isActive={isActive(item.href)}
                       className={clsx(
-                        'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                        'relative py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                        item.label === 'Electrical & Lights' ? 'px-8' : 'px-6',
                         isActive(item.href)
                           ? 'text-white'
                           : 'text-red-100 dark:text-blue-200 hover:text-white'
@@ -100,7 +108,8 @@ const NavBar: React.FC = () => {
                     key={item.href}
                     to={item.href}
                     className={clsx(
-                      'relative px-6 py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                      'relative py-4 text-sm font-semibold transition-all duration-300 ease-in-out group',
+                      item.label === 'Electrical & Lights' ? 'px-8' : 'px-6',
                       isActive(item.href)
                         ? 'text-white'
                         : 'text-red-100 dark:text-blue-200 hover:text-white'
@@ -132,7 +141,7 @@ const NavBar: React.FC = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 sm:p-3 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all duration-300 backdrop-blur-sm border border-white/20 shadow-sm"
+            className="lg:hidden p-2 sm:p-3 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all duration-300 backdrop-blur-sm border border-white/20 shadow-sm mr-4"
             aria-label="Toggle mobile menu"
           >
             <div className="relative w-5 h-5 sm:w-6 sm:h-6">

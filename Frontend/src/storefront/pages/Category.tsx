@@ -18,7 +18,7 @@ import EmptyState from '../components/common/EmptyState';
 const SubcategoryCard: React.FC<{ subcategory: any }> = ({ subcategory }) => {
   return (
     <Link 
-      to={`/category/${subcategory.slug}`}
+      to={`/allsubcategories?category=${subcategory.id}&name=${encodeURIComponent(subcategory.name)}`}
       className="group block bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-300"
     >
       <div className="aspect-square bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center relative overflow-hidden">
@@ -114,38 +114,23 @@ const Category: React.FC = () => {
         // Load top-level categories first for better performance
         let allCategories: any[] = [];
         
-        try {
-          // First, try to get top-level categories only
-          const topResponse = await fetch('http://127.0.0.1:8001/api/public/categories/?top=true');
-          if (topResponse.ok) {
-            const topData = await topResponse.json();
-            allCategories = topData.results || topData;
-            console.log('Loaded top-level categories:', allCategories.length);
-          } else {
-            throw new Error('Failed to load top categories');
-          }
-        } catch (error) {
-          console.log('Top categories failed, falling back to all categories...');
-          // Fallback to loading all categories with pagination
-          let nextUrl = 'http://127.0.0.1:8001/api/public/categories/';
+        // Load all categories with pagination
+        const timestamp = new Date().getTime();
+        let nextUrl = `http://127.0.0.1:8001/api/public/categories/?_t=${timestamp}`;
+        
+        while (nextUrl) {
+          const response = await fetch(nextUrl);
           
-          while (nextUrl) {
-            const response = await fetch(nextUrl);
-            console.log('API Response status:', response.status);
-            
-            if (response.ok) {
-              const data = await response.json();
-              console.log('API Response data page:', data);
-              allCategories = [...allCategories, ...(data.results || [])];
-              nextUrl = data.next || null;
-            } else {
-              console.error('API request failed with status:', response.status);
-              break;
-            }
+          if (response.ok) {
+            const data = await response.json();
+            allCategories = [...allCategories, ...(data.results || [])];
+            nextUrl = data.next || null;
+          } else {
+            console.error('API request failed with status:', response.status);
+            break;
           }
         }
         
-        console.log('All categories loaded from API:', allCategories);
         dispatch(setCategories(allCategories));
         setLocalCategories(allCategories);
         
@@ -233,6 +218,8 @@ const Category: React.FC = () => {
   }, [slug, dispatch]);
   
   const currentCategory = categories.find(c => c.slug === slug);
+  
+  const sloganToDisplay = currentCategory?.slogan || `Browse our collection of ${currentCategory?.name?.toLowerCase() || 'products'}`;
   
   // Check if this category has subcategories and should show them instead of products
   const subcategories = currentCategory && currentCategory.id
@@ -410,7 +397,7 @@ const Category: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <TitleUpdater pageTitle={currentCategory?.name || slug || 'Shop'} />
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumbs */}
         <Breadcrumbs className="mb-6" />
         
@@ -424,14 +411,14 @@ const Category: React.FC = () => {
                 : currentCategory?.name || 'Category'
             }
           </h1>
-          <p className="text-gray-600 dark:text-slate-300">
-            {slug === 'deals' 
-              ? 'Discover amazing deals and discounts on our best products'
-              : slug === undefined
-                ? 'Browse our collection of products'
-                : `Browse our collection of ${currentCategory?.name?.toLowerCase() || 'products'}`
-            }
-          </p>
+        <p className="text-gray-600 dark:text-slate-300">
+          {slug === 'deals'
+            ? 'Discover amazing deals and discounts on our best products'
+            : slug === undefined
+              ? 'Browse our collection of products'
+              : sloganToDisplay
+          }
+        </p>
         </div>
         
         <div className="flex flex-col lg:flex-row gap-8">
@@ -808,7 +795,7 @@ const Category: React.FC = () => {
                 {paginatedProducts.length > 0 ? (
                   <div className={`grid gap-6 ${
                     viewMode === 'grid' 
-                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3' 
                       : 'grid-cols-1'
                   }`}>
                     {paginatedProducts.map((product) => (

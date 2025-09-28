@@ -23,9 +23,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('ReviewForm: handleSubmit called', { rating, comment, author });
+    console.log('ReviewForm: currentUser:', currentUser);
+    console.log('ReviewForm: isAuthenticated:', currentUser?.isAuthenticated);
     
     // Check if user is authenticated
     if (!currentUser?.isAuthenticated) {
+      console.log('ReviewForm: User not authenticated, showing error');
       dispatch(addToast({
         message: 'You need to login first to add a review',
         type: 'error',
@@ -83,8 +86,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
           onMouseLeave={() => setHoveredRating(0)}
           className={`transition-colors duration-150 ${
             star <= (hoveredRating || rating)
-              ? 'text-yellow-400'
-              : 'text-gray-300'
+              ? 'text-yellow-400 dark:text-yellow-500'
+              : 'text-gray-300 dark:text-slate-600'
           }`}
         >
           <Star className="w-6 h-6 fill-current" />
@@ -94,30 +97,30 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
   );
 
   return (
-    <div className="p-6 rounded-lg border bg-white border-gray-200">
-      <h3 className="text-lg font-semibold mb-4 text-gray-900">
+    <div className="p-6 rounded-lg border bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700">
+      <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">
         Write a Review
       </h3>
 
       {/* Check if user has already reviewed */}
       {checkingReview ? (
-        <div className="p-4 rounded-lg border bg-gray-50 border-gray-200">
+        <div className="p-4 rounded-lg border bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-slate-600">
           <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="text-sm text-gray-600">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 dark:border-blue-400"></div>
+            <span className="text-sm text-gray-600 dark:text-slate-400">
               Checking if you've already reviewed this product...
             </span>
           </div>
         </div>
       ) : hasReviewed ? (
-        <div className="p-4 rounded-lg border bg-yellow-50 border-yellow-200">
+        <div className="p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
           <div className="flex items-center space-x-2">
-            <CheckCircle className="w-5 h-5 text-yellow-600" />
+            <CheckCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
             <div>
-              <div className="text-sm font-medium text-gray-900">
+              <div className="text-sm font-medium text-gray-900 dark:text-slate-100">
                 Already Reviewed
               </div>
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600 dark:text-slate-400">
                 You have already reviewed this product. Thank you for your feedback!
               </div>
             </div>
@@ -126,26 +129,26 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* User Authentication Status */}
-          <div className="p-4 rounded-lg border bg-blue-50 border-blue-200">
+          <div className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
             <div className="flex items-center space-x-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                 currentUser?.isAuthenticated 
-                  ? 'bg-green-100' 
-                  : 'bg-red-100'
+                  ? 'bg-green-100 dark:bg-green-900/30' 
+                  : 'bg-red-100 dark:bg-red-900/30'
               }`}>
                 <span className={`text-sm font-medium ${
                   currentUser?.isAuthenticated 
-                    ? 'text-green-800' 
-                    : 'text-red-800'
+                    ? 'text-green-800 dark:text-green-400' 
+                    : 'text-red-800 dark:text-red-400'
                 }`}>
                   {currentUser?.isAuthenticated ? '✓' : '!'}
                 </span>
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-gray-900 dark:text-slate-100">
                   {currentUser?.isAuthenticated ? 'Signed in' : 'Not signed in'}
                 </div>
-                <div className="text-xs text-gray-600">
+                <div className="text-xs text-gray-600 dark:text-slate-400">
                   {currentUser?.isAuthenticated 
                     ? `Reviewing as: ${currentUser.name || currentUser.email}`
                     : 'You need to login to submit a review'
@@ -157,12 +160,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
 
         {/* Star Rating */}
         <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700">
+          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
             Rating
           </label>
           <div className="flex items-center space-x-2">
             <StarRating />
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-slate-400">
               {rating > 0 && `${rating} out of 5 stars`}
             </span>
           </div>
@@ -170,7 +173,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
 
         {/* Comment */}
         <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700">
+          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
             Your Review
           </label>
           <textarea
@@ -179,7 +182,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
             placeholder="Share your experience with this product..."
             rows={4}
             required
-            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-red-500 dark:focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400"
           />
         </div>
 
@@ -189,8 +192,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
             disabled={rating === 0 || !comment.trim() || !currentUser?.isAuthenticated || isSubmitting || hasReviewed}
             className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-colors ${
               rating === 0 || !comment.trim() || !currentUser?.isAuthenticated || isSubmitting || hasReviewed
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-primary text-white hover:bg-primary-600'
+                ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-slate-400 cursor-not-allowed'
+                : 'bg-red-600 dark:bg-blue-600 text-white hover:bg-red-700 dark:hover:bg-blue-700'
             }`}
           >
             <Send className="w-4 h-4" />

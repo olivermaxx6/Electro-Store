@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, Mail } from 'lucide-react';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import { useContactInfo } from '../../hooks/useContactInfo';
-import { formatCurrency } from '../../lib/format';
+import { formatCurrency, currencyOptions } from '../../lib/format';
 import { Currency } from '../../lib/types';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
 
@@ -14,6 +14,15 @@ const TrackOrder: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Helper function to get currency object from string
+  const getCurrencyObject = () => {
+    if (settings?.currency) {
+      const currencyObj = currencyOptions.find(curr => curr.code === settings.currency);
+      if (currencyObj) return currencyObj;
+    }
+    return { code: 'GBP', symbol: '£', name: 'British Pound' };
+  };
+  
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderNumber.trim()) return;
@@ -22,7 +31,7 @@ const TrackOrder: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/public/track-order/${orderNumber}/`);
+      const response = await fetch(`http://127.0.0.1:8001/api/public/track-order/${orderNumber}/`);
       
       if (response.ok) {
         const data = await response.json();
@@ -126,9 +135,11 @@ const TrackOrder: React.FC = () => {
                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
                         : trackingInfo.status === 'processing'
                         ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                        : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                        : trackingInfo.status === 'pending'
+                        ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                        : 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
                     } transition-colors duration-300`}>
-                      {trackingInfo.status_display}
+                      {trackingInfo.status_display || trackingInfo.status.charAt(0).toUpperCase() + trackingInfo.status.slice(1)}
                     </span>
                     <div>
                       <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
@@ -163,10 +174,10 @@ const TrackOrder: React.FC = () => {
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-gray-900 dark:text-white">
-                            {formatCurrency(item.total_price, settings?.currency as Currency || 'USD')}
+                            {formatCurrency(item.total_price, getCurrencyObject())}
                           </p>
                           <p className="text-sm text-gray-600 dark:text-gray-300">
-                            {formatCurrency(item.unit_price, settings?.currency as Currency || 'USD')} each
+                            {formatCurrency(item.unit_price, getCurrencyObject())} each
                           </p>
                         </div>
                       </div>
@@ -179,20 +190,20 @@ const TrackOrder: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-300">Subtotal:</span>
-                      <span className="font-medium">{formatCurrency(trackingInfo.subtotal, settings?.currency as Currency || 'USD')}</span>
+                      <span className="font-medium">{formatCurrency(trackingInfo.subtotal, getCurrencyObject())}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-300">Shipping:</span>
-                      <span className="font-medium">{formatCurrency(trackingInfo.shipping_cost, settings?.currency as Currency || 'USD')}</span>
+                      <span className="font-medium">{formatCurrency(trackingInfo.shipping_cost, getCurrencyObject())}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-300">Tax:</span>
-                      <span className="font-medium">{formatCurrency(trackingInfo.tax_amount, settings?.currency as Currency || 'USD')}</span>
+                      <span className="font-medium">{formatCurrency(trackingInfo.tax_amount, getCurrencyObject())}</span>
                     </div>
                     <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-3">
                       <span className="font-semibold text-gray-900 dark:text-white">Total:</span>
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(trackingInfo.total_price, settings?.currency as Currency || 'USD')}
+                        {formatCurrency(trackingInfo.total_price, getCurrencyObject())}
                       </span>
                     </div>
                   </div>
@@ -207,12 +218,12 @@ const TrackOrder: React.FC = () => {
                     <div className="text-gray-600 dark:text-gray-300 transition-colors duration-300">
                       {trackingInfo.shipping_address ? (
                         <div>
-                          <p>{trackingInfo.shipping_address.firstName} {trackingInfo.shipping_address.lastName}</p>
-                          <p>{trackingInfo.shipping_address.address1}</p>
+                          <p>{trackingInfo.shipping_address.firstName || ''} {trackingInfo.shipping_address.lastName || ''}</p>
+                          <p>{trackingInfo.shipping_address.address || trackingInfo.shipping_address.address1 || ''}</p>
                           {trackingInfo.shipping_address.address2 && <p>{trackingInfo.shipping_address.address2}</p>}
-                          <p>{trackingInfo.shipping_address.city}, {trackingInfo.shipping_address.state} {trackingInfo.shipping_address.postcode}</p>
-                          <p>{trackingInfo.shipping_address.email}</p>
-                          <p>{trackingInfo.shipping_address.phone}</p>
+                          <p>{trackingInfo.shipping_address.city || ''}, {trackingInfo.shipping_address.state || ''} {trackingInfo.shipping_address.zipCode || trackingInfo.shipping_address.postcode || ''}</p>
+                          {trackingInfo.shipping_address.email && <p>{trackingInfo.shipping_address.email}</p>}
+                          {trackingInfo.shipping_address.phone && <p>{trackingInfo.shipping_address.phone}</p>}
                         </div>
                       ) : (
                         <p>Address not available</p>
@@ -222,10 +233,10 @@ const TrackOrder: React.FC = () => {
                   <div>
                     <h4 className="font-medium text-gray-900 dark:text-white mb-2 transition-colors duration-300">Shipping Information</h4>
                     <div className="text-gray-600 dark:text-gray-300 transition-colors duration-300">
-                      <p><strong>Method:</strong> {trackingInfo.shipping_name}</p>
-                      <p><strong>Payment:</strong> {trackingInfo.payment_method}</p>
-                      <p><strong>Customer:</strong> {trackingInfo.customer_email}</p>
-                      <p><strong>Phone:</strong> {trackingInfo.customer_phone}</p>
+                      <p><strong>Method:</strong> {trackingInfo.shipping_name || 'Standard Shipping'}</p>
+                      <p><strong>Payment:</strong> {trackingInfo.payment_method || 'Credit Card'}</p>
+                      <p><strong>Customer:</strong> {trackingInfo.customer_email || 'N/A'}</p>
+                      <p><strong>Phone:</strong> {trackingInfo.customer_phone || 'N/A'}</p>
                     </div>
                   </div>
                 </div>

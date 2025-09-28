@@ -2,9 +2,16 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
 
+
+
+
+
+/*Mobile Category Navigation (where categories are showing on mobile)*/
+
 interface Category {
   id: number;
   name: string;
+  slug: string;
   children?: Category[];
 }
 
@@ -99,7 +106,10 @@ const MobileCategoryNavigation: React.FC<MobileCategoryNavigationProps> = ({
             {selectedCategory?.children?.map((subcategory, index) => (
               <div key={subcategory.id}>
                 <Link
-                  to={`/allsubcategories?category=${subcategory.id}&name=${encodeURIComponent(subcategory.name)}`}
+                  to={subcategory.children && subcategory.children.length > 0 
+                    ? `/allsubcategories?category=${subcategory.id}&name=${encodeURIComponent(subcategory.name)}`
+                    : `/category/${subcategory.slug}`
+                  }
                   className="flex items-center justify-between px-4 py-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200"
                   onClick={handleClose}
                 >

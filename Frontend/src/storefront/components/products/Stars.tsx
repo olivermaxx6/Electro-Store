@@ -39,7 +39,7 @@ const Stars: React.FC<StarsProps> = ({
         key={index}
         className={clsx(
           sizeClasses[size],
-          isFilled || isHalfFilled ? 'text-star fill-current' : 'text-gray-300',
+          isFilled || isHalfFilled ? 'text-star fill-current' : 'text-gray-300 dark:text-slate-600',
           className
         )}
         aria-hidden="true"
@@ -54,7 +54,7 @@ const Stars: React.FC<StarsProps> = ({
       </div>
       
       {showCount && count !== undefined && (
-        <span className={`text-gray-500 ${textSizeClasses[size]}`}>
+        <span className={`text-gray-500 dark:text-slate-400 ${textSizeClasses[size]}`}>
           ({count})
         </span>
       )}

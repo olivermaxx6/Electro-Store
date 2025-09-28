@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Settings Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Store Settings API Test</h1>
+    
+    <div class="test-section">
+        <h2>API Response Test</h2>
+        <button onclick="testAPI()">Test Store Settings API</button>
+        <div id="apiResult"></div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = '<p>Testing API...</p>';
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8001/api/public/store-settings/?t=' + Date.now(), {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="test-section success">
+                        <h3>✅ API Test Successful!</h3>
+                        <h4>Store Information:</h4>
+                        <ul>
+                            <li><strong>Store Name:</strong> ${data.store_name || 'Not set'}</li>
+                            <li><strong>Phone:</strong> ${data.phone || 'Not set'}</li>
+                            <li><strong>Email:</strong> ${data.email || 'Not set'}</li>
+                            <li><strong>Address:</strong> ${data.street_address || 'Not set'}</li>
+                            <li><strong>City:</strong> ${data.city || 'Not set'}</li>
+                            <li><strong>Country:</strong> ${data.country || 'Not set'}</li>
+                            <li><strong>Monday-Friday Hours:</strong> ${data.monday_friday_hours || 'Not set'}</li>
+                            <li><strong>Saturday Hours:</strong> ${data.saturday_hours || 'Not set'}</li>
+                            <li><strong>Sunday Hours:</strong> ${data.sunday_hours || 'Not set'}</li>
+                        </ul>
+                        <h4>Raw API Response:</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test-section error">
+                        <h3>❌ API Test Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p>Make sure the backend server is running on http://127.0.0.1:8001</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Auto-run test on page load
+        window.onload = testAPI;
+    </script>
+</body>
+</html>

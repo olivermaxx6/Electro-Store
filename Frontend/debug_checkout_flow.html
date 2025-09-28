@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Checkout Flow Debug</h1>
+    
+    <div class="debug-section">
+        <h2>1. Environment Variables</h2>
+        <div id="env-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>2. Backend Connectivity</h2>
+        <button onclick="testBackend()">Test Backend</button>
+        <div id="backend-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>3. Stripe Configuration</h2>
+        <button onclick="testStripe()">Test Stripe</button>
+        <div id="stripe-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>4. Test Order Creation</h2>
+        <button onclick="testOrderCreation()">Test Order Creation</button>
+        <div id="order-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>5. Console Logs</h2>
+        <div id="console-logs"></div>
+    </div>
+
+    <script>
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function addLog(type, message) {
+            const logsDiv = document.getElementById('console-logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.innerHTML = `<strong>[${new Date().toLocaleTimeString()}] ${type.toUpperCase()}:</strong> ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog('info', args.join(' '));
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog('error', args.join(' '));
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addLog('info', args.join(' '));
+        };
+
+        // Test environment variables
+        function checkEnvironment() {
+            const envDiv = document.getElementById('env-status');
+            const envVars = {
+                'VITE_API_BASE_URL': import.meta.env.VITE_API_BASE_URL,
+                'VITE_STRIPE_PUBLISHABLE_KEY': import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY,
+                'VITE_DEV_MODE': import.meta.env.VITE_DEV_MODE
+            };
+            
+            let html = '<pre>';
+            for (const [key, value] of Object.entries(envVars)) {
+                const status = value ? 'success' : 'error';
+                html += `<span class="${status}">${key}: ${value || 'NOT SET'}</span>\n`;
+            }
+            html += '</pre>';
+            
+            envDiv.innerHTML = html;
+        }
+
+        // Test backend connectivity
+        async function testBackend() {
+            const statusDiv = document.getElementById('backend-status');
+            statusDiv.innerHTML = '<div class="info">Testing backend...</div>';
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8001/api/public/health/', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `<div class="success">✅ Backend is reachable: ${JSON.stringify(data)}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="error">❌ Backend returned error: ${response.status}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Cannot reach backend: ${error.message}</div>`;
+            }
+        }
+
+        // Test Stripe configuration
+        async function testStripe() {
+            const statusDiv = document.getElementById('stripe-status');
+            statusDiv.innerHTML = '<div class="info">Testing Stripe...</div>';
+            
+            try {
+                // Check if Stripe key is available
+                const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+                
+                if (!stripeKey) {
+                    statusDiv.innerHTML = '<div class="error">❌ Stripe publishable key not found in environment variables</div>';
+                    return;
+                }
+                
+                if (!stripeKey.startsWith('pk_')) {
+                    statusDiv.innerHTML = '<div class="error">❌ Invalid Stripe publishable key format</div>';
+                    return;
+                }
+                
+                // Try to load Stripe
+                const { loadStripe } = await import('https://js.stripe.com/v3/');
+                const stripe = await loadStripe(stripeKey);
+                
+                if (stripe) {
+                    statusDiv.innerHTML = '<div class="success">✅ Stripe loaded successfully</div>';
+                } else {
+                    statusDiv.innerHTML = '<div class="error">❌ Failed to load Stripe</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Stripe test failed: ${error.message}</div>`;
+            }
+        }
+
+        // Test order creation
+        async function testOrderCreation() {
+            const statusDiv = document.getElementById('order-status');
+            statusDiv.innerHTML = '<div class="info">Testing order creation...</div>';
+            
+            try {
+                const testOrderData = {
+                    cart_items: [
+                        {
+                            product_id: "1",
+                            name: "Test Product",
+                            price: 10.00,
+                            quantity: 1,
+                            image: ""
+                        }
+                    ],
+                    customer_email: "test@example.com",
+                    customer_name: "Test User",
+                    customer_phone: "1234567890",
+                    shipping_address: {
+                        firstName: "Test",
+                        lastName: "User",
+                        address: "123 Test St",
+                        address2: "",
+                        city: "Test City",
+                        state: "Test State",
+                        zipCode: "12345",
+                        country: "Test Country"
+                    },
+                    billing_address: {
+                        firstName: "Test",
+                        lastName: "User",
+                        address: "123 Test St",
+                        address2: "",
+                        city: "Test City",
+                        state: "Test State",
+                        zipCode: "12345",
+                        country: "Test Country"
+                    },
+                    subtotal: 10.00,
+                    shipping_cost: 5.00,
+                    tax_amount: 1.50,
+                    total_price: 16.50,
+                    shipping_method: "standard"
+                };
+                
+                const response = await fetch('http://127.0.0.1:8001/api/public/create-order-checkout/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testOrderData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `<div class="success">✅ Order creation successful: ${JSON.stringify(data, null, 2)}</div>`;
+                } else {
+                    const errorData = await response.json();
+                    statusDiv.innerHTML = `<div class="error">❌ Order creation failed: ${JSON.stringify(errorData, null, 2)}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Order creation test failed: ${error.message}</div>`;
+            }
+        }
+
+        // Initialize
+        checkEnvironment();
+    </script>
+</body>
+</html>

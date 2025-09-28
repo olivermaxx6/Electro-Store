@@ -4,6 +4,8 @@ import { Filter, SlidersHorizontal, ChevronDown, ChevronUp, Star, Clock, Users }
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
 import TitleUpdater from '../components/common/TitleUpdater';
+import { formatPrice, currencyOptions } from '../../lib/format';
+import { useStoreSettings } from '../hooks/useStoreSettings';
 // @ts-ignore
 import { getServices, getServiceCategories, incrementServiceView, Service, ServiceCategory } from '../../lib/servicesApi';
 
@@ -51,7 +53,8 @@ const ServiceCard: React.FC<{
   service: any; 
   onServiceClick: (service: any) => void;
   viewMode?: 'grid' | 'list';
-}> = ({ service, onServiceClick, viewMode = 'grid' }) => {
+  currency?: any;
+}> = ({ service, onServiceClick, viewMode = 'grid', currency }) => {
   const handleServiceClick = async () => {
     try {
       await incrementServiceView(service.id.toString());
@@ -118,7 +121,7 @@ const ServiceCard: React.FC<{
             {/* Price and Duration */}
             <div className="flex items-center justify-between">
               <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                Starting from ${service.price.toFixed(2)}
+                Starting from {formatPrice(service.price, currency)}
               </div>
               <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                 <Clock className="w-4 h-4 mr-1" />
@@ -187,7 +190,7 @@ const ServiceCard: React.FC<{
             
             {/* Starting Price */}
             <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
-              Starting from ${service.price.toFixed(2)}
+              Starting from {formatPrice(service.price, currency)}
             </div>
           </div>
         </div>
@@ -252,6 +255,14 @@ const ServiceCategoryPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category') || categoryName;
   
+  // Store settings for currency
+  const { settings } = useStoreSettings();
+  
+  // Helper function to get currency object from string
+  const getCurrencyObject = (currencyCode: string) => {
+    return currencyOptions.find(curr => curr.code === currencyCode) || currencyOptions[0];
+  };
+  
   // State
   const [servicesData, setServicesData] = useState<any[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
@@ -270,13 +281,14 @@ const ServiceCategoryPage: React.FC = () => {
   const [ratingFilterOpen, setRatingFilterOpen] = useState(true);
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
 
-  // Price ranges
+  // Price ranges with dynamic currency
+  const currencySymbol = getCurrencyObject(settings?.currency || 'GBP').symbol;
   const priceRanges = [
-    { label: 'Under $50', min: 0, max: 50 },
-    { label: '$50 - $100', min: 50, max: 100 },
-    { label: '$100 - $200', min: 100, max: 200 },
-    { label: '$200 - $500', min: 200, max: 500 },
-    { label: 'Over $500', min: 500, max: null }
+    { label: `Under ${currencySymbol}50`, min: 0, max: 50 },
+    { label: `${currencySymbol}50 - ${currencySymbol}100`, min: 50, max: 100 },
+    { label: `${currencySymbol}100 - ${currencySymbol}200`, min: 100, max: 200 },
+    { label: `${currencySymbol}200 - ${currencySymbol}500`, min: 200, max: 500 },
+    { label: `Over ${currencySymbol}500`, min: 500, max: null }
   ];
 
   // Rating options
@@ -613,6 +625,7 @@ const ServiceCategoryPage: React.FC = () => {
                     service={service}
                     onServiceClick={handleServiceClick}
                     viewMode={viewMode}
+                    currency={getCurrencyObject(settings?.currency || 'GBP')}
                   />
                 ))}
               </div>

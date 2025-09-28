@@ -18,6 +18,7 @@ import Badge from '../components/common/Badge';
 import ReviewForm from '../components/products/ReviewForm';
 import ReviewList from '../components/products/ReviewList';
 import TitleUpdater from '../components/common/TitleUpdater';
+import Placeholder from '../components/common/Placeholder';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -168,9 +169,12 @@ const ProductDetail: React.FC = () => {
 
   const handleReviewSubmit = async (reviewData: { rating: number; comment: string; author: string }) => {
     console.log('ProductDetail: handleReviewSubmit called', { reviewData, productId: id });
+    console.log('ProductDetail: currentUser:', currentUser);
+    console.log('ProductDetail: isAuthenticated:', currentUser?.isAuthenticated);
     
     // Check if user is authenticated
     if (!currentUser?.isAuthenticated) {
+      console.log('ProductDetail: User not authenticated, showing error');
       dispatch(addToast({
         message: 'You need to login first to add a review',
         type: 'error',
