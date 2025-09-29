@@ -82,7 +82,7 @@ if netstat -tulpn 2>/dev/null | grep :5174 > /dev/null; then
     echo -e "${YELLOW}Warning: Port 5174 (admin) in use${NC}"
 fi
 
-# SECTION 2: BACKUP CURRENT SQLITE DATABASE
+# SECTION 2: BACKUP CURRENT DATABASE
 echo -e "\n${YELLOW}=== SECTION 2: Backup Current Database ===${NC}"
 
 # Create backup directory with timestamp
@@ -90,13 +90,8 @@ BACKUP_DIR="$HOME/django_backups/$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 echo "Creating backup directory: $BACKUP_DIR"
 
-# Backup SQLite database
-if [ -f "$BACKEND_DIR/db.sqlite3" ]; then
-    cp "$BACKEND_DIR/db.sqlite3" "$BACKUP_DIR/"
-    echo -e "${GREEN}✅ SQLite database backed up${NC}"
-else
-    echo -e "${YELLOW}⚠️  No SQLite database found to backup${NC}"
-fi
+# Note: This script sets up MySQL database for Electro-Store
+echo -e "${BLUE}ℹ️  Setting up MySQL database for Electro-Store${NC}"
 
 # Create JSON backup of all data
 cd "$BACKEND_DIR"

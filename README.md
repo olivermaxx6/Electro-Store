@@ -144,7 +144,7 @@ cp Frontend/env.example Frontend/.env
 - **Backend Port**: 8001 (configurable in `Backend/core/settings.py`)
 - **Storefront Port**: 5173 (configurable in `Frontend/vite.storefront.config.js`)
 - **Admin Port**: 5174 (configurable in `Frontend/vite.admin.config.js`)
-- **Database**: SQLite (default), PostgreSQL (production)
+- **Database**: MySQL
 - **Authentication**: JWT tokens
 
 ## 🛠️ Development
@@ -285,8 +285,7 @@ taskkill /PID <PID> /F
 
 4. **Database Issues**:
    ```bash
-   # Reset database
-   del Backend\db.sqlite3
+   # Reset database (MySQL)
    python manage.py migrate
    python manage.py seed_admin
    ```

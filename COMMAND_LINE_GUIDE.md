@@ -274,7 +274,6 @@ npm install
 # Reset database
 cd Backend
 .\venv\Scripts\Activate.ps1
-Remove-Item db.sqlite3
 python manage.py migrate
 python manage.py createsuperuser
 ```
@@ -336,7 +335,7 @@ DEBUG=True
 SECRET_KEY=your-secret-key-here
 ALLOWED_HOSTS=localhost,127.0.0.1
 
-# Database (optional - defaults to SQLite)
+# Database (optional - defaults to MySQL)
 # DATABASE_URL=postgresql://user:password@localhost/dbname
 
 # Stripe (for payments)
