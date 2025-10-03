@@ -349,7 +349,10 @@ const ServiceCategoryPage: React.FC = () => {
         service.parentCategory?.toLowerCase() === categoryParam.toLowerCase() ||
         service.category?.toLowerCase() === categoryParam.toLowerCase() ||
         service.parentCategory?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase() ||
-        service.category?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase();
+        service.category?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase() ||
+        // Additional matching for slug format
+        service.parentCategory?.toLowerCase() === categoryName?.toLowerCase().replace(/-/g, ' ') ||
+        service.category?.toLowerCase() === categoryName?.toLowerCase().replace(/-/g, ' ');
       
       if (!matchesCategory) return false;
       

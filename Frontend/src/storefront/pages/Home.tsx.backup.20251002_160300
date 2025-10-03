@@ -3,8 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 import { setProducts, setCategories, setBrands, selectProducts, selectCategories } from '../store/productsSlice';
-// @ts-ignore
-import { productRepo, categoryRepo, brandRepo } from '../lib/repo.js';
+import { productRepo, categoryRepo, brandRepo } from '../lib/repo';
 import { useStore } from '../contexts/StoreContext';
 import { useWebsiteContent } from '../hooks/useWebsiteContent';
 import { useGlobalLoading } from '../hooks/useGlobalLoading';
@@ -205,9 +204,9 @@ const Home: React.FC = () => {
 
     const loadData = async () => {
       const [productsData, categoriesData, brandsData] = await Promise.all([
-        productRepo.findAll(),
-        categoryRepo.findAll(),
-        brandRepo.findAll(),
+        productRepo.getAll(),
+        categoryRepo.getAll(),
+        brandRepo.getAll(),
       ]);
       
       console.log('Loaded categories from API:', categoriesData);
@@ -234,41 +233,99 @@ const Home: React.FC = () => {
     })));
   }
   
-  // Filter for parent categories - simplified approach
+  // Filter for parent categories - comprehensive approach
   const parentCategories = categories.filter(cat => {
     // Debug each category
-    console.log(`🔍 Checking category: ${cat.name}`, {
+    console.log(`Checking category: ${cat.name}`, {
       id: cat.id,
       parent: cat.parent,
       parentId: cat.parentId,
-      parent_id: cat.parent_id
+      parent_id: cat.parent_id, // sometimes it's snake_case
+      isParent: cat.isParent,
+      level: cat.level,
+      depth: cat.depth
     });
     
-    // Simple check: category is a parent if it has no parent
-    const isParent = !cat.parent && !cat.parent_id && !cat.parentId;
+    // Method 1: Check if parent field is null/undefined/0
+    const isParentMethod1 = cat.parent === null || cat.parent === undefined || cat.parent === 0;
+    
+    // Method 2: Check if parentId field is null/undefined/0
+    const isParentMethod2 = cat.parentId === null || cat.parentId === undefined || cat.parentId === 0;
+    
+    // Method 3: Check if parent_id field is null/undefined/0 (snake_case)
+    const isParentMethod3 = cat.parent_id === null || cat.parent_id === undefined || cat.parent_id === 0;
+    
+    // Method 4: Check if isParent field is true
+    const isParentMethod4 = cat.isParent === true;
+    
+    // Method 5: Check if level/depth is 0 or 1 (top level)
+    const isParentMethod5 = cat.level === 0 || cat.level === 1 || cat.depth === 0 || cat.depth === 1;
+    
+    const isParent = isParentMethod1 || isParentMethod2 || isParentMethod3 || isParentMethod4 || isParentMethod5;
     
     if (isParent) {
-      console.log(`✅ Found parent category: ${cat.name}`);
+      console.log(`✅ Found parent category: ${cat.name} (parent: ${cat.parent}, parentId: ${cat.parentId})`);
+    } else {
+      console.log(`❌ Subcategory: ${cat.name} (parent: ${cat.parent}, parentId: ${cat.parentId})`);
     }
     
     return isParent;
   });
   
-  console.log(`📊 Categories Summary:`, {
-    totalCategories: categories.length,
-    parentCategories: parentCategories.length,
-    parentCategoryNames: parentCategories.map(cat => cat.name)
-  });
-  
-  // Additional debugging for the homepage display
-  console.log(`🏠 Homepage Display Debug:`, {
-    showingCategories: parentCategories.length > 0,
-    willShowFallback: parentCategories.length === 0,
-    categoriesFromRedux: categories.length,
-    firstCategory: categories[0] || 'No categories'
-  });
-  
-  // Categories are now fetched through the repo in the main useEffect
+  // Fallback: If no categories in Redux, try to fetch them directly
+  useEffect(() => {
+    if (categories.length === 0) {
+      const fetchCategoriesDirectly = async () => {
+        try {
+          console.log('Fetching categories directly from API...');
+          
+          // Try to fetch only parent categories first
+          try {
+            const topCategoriesResponse = await fetch('http://127.0.0.1:8001/api/public/categories/?top=true');
+            if (topCategoriesResponse.ok) {
+              const topCategoriesData = await topCategoriesResponse.json();
+              const topCategories = topCategoriesData.results || topCategoriesData;
+              console.log('✅ Loaded top categories directly:', topCategories.length);
+              console.log('Top categories:', topCategories);
+              if (topCategories.length > 0) {
+                dispatch(setCategories(topCategories));
+                return; // Exit early if we got top categories
+              }
+            }
+          } catch (error) {
+            console.log('Top categories API failed, trying full categories API...');
+          }
+          
+          // Fallback to fetching all categories
+          let allCategories: any[] = [];
+          let nextUrl = 'http://127.0.0.1:8001/api/public/categories/';
+          
+          while (nextUrl) {
+            const categoriesResponse = await fetch(nextUrl);
+            if (categoriesResponse.ok) {
+              const categoriesData = await categoriesResponse.json();
+              allCategories = [...allCategories, ...(categoriesData.results || [])];
+              nextUrl = categoriesData.next || null;
+            } else {
+              console.error('Categories API request failed with status:', categoriesResponse.status);
+              break;
+            }
+          }
+          
+          console.log('Directly loaded all categories:', allCategories.length);
+          console.log('Sample categories:', allCategories.slice(0, 3));
+          if (allCategories.length > 0) {
+            console.log('First category structure:', allCategories[0]);
+          }
+          dispatch(setCategories(allCategories));
+        } catch (error) {
+          console.error('Failed to fetch categories directly:', error);
+        }
+      };
+      
+      fetchCategoriesDirectly();
+    }
+  }, [categories.length, dispatch]);
   
   // Debug logging
   console.log('Total products loaded:', products.length);

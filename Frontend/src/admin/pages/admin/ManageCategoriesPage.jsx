@@ -46,6 +46,16 @@ function CategoryItem({ category, onSelect, depth = 0, isSelected = false, expan
 
   const isExpanded = expandedCategories.has(category.id);
   const hasChildren = category.children?.length > 0;
+  
+  // Debug logging for expansion state
+  if (category.id === 1) { // Log for first category only to avoid spam
+    console.log(`🔍 Category "${category.name}" (ID: ${category.id}):`, {
+      isExpanded,
+      hasChildren,
+      childrenCount: category.children?.length || 0,
+      expandedCategoriesSize: expandedCategories.size
+    });
+  }
 
   return (
     <div className="group">
@@ -188,6 +198,7 @@ export default function ManageCategoriesPage() {
   const [busy, setBusy] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [userHasCollapsed, setUserHasCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
   const [sortBy, setSortBy] = useState('name');
@@ -417,21 +428,34 @@ export default function ManageCategoriesPage() {
 
   // Expand all categories
   const expandAll = () => {
+    console.log('🔧 Expand All clicked - Total categories:', allCats.length);
     const allCategoryIds = allCats.map(cat => cat.id);
+    console.log('🔧 Category IDs to expand:', allCategoryIds);
     const newSet = new Set(allCategoryIds);
     setExpandedCategories(newSet);
+    setUserHasCollapsed(false); // Reset the flag when user manually expands
     localStorage.setItem('admin_expanded_categories', JSON.stringify(allCategoryIds));
+    localStorage.removeItem('admin_user_has_collapsed'); // Remove the flag
+    console.log('🔧 Expanded categories set:', newSet.size);
   };
 
   // Collapse all categories
   const collapseAll = () => {
+    console.log('🔧 Collapse All clicked');
     setExpandedCategories(new Set());
+    setUserHasCollapsed(true); // Mark that user has manually collapsed
     localStorage.setItem('admin_expanded_categories', JSON.stringify([]));
+    localStorage.setItem('admin_user_has_collapsed', 'true'); // Persist the flag
+    console.log('🔧 All categories collapsed');
   };
 
   // Load expanded state from localStorage on component mount
   useEffect(() => {
     const savedExpanded = localStorage.getItem('admin_expanded_categories');
+    const userHasCollapsedFlag = localStorage.getItem('admin_user_has_collapsed') === 'true';
+    
+    setUserHasCollapsed(userHasCollapsedFlag);
+    
     if (savedExpanded) {
       try {
         const expandedArray = JSON.parse(savedExpanded);
@@ -445,15 +469,18 @@ export default function ManageCategoriesPage() {
     }
   }, []);
 
-  // Auto-expand all categories when they're first loaded
+  // Auto-expand all categories when they're first loaded (only if user hasn't manually collapsed)
   useEffect(() => {
-    if (allCats.length > 0 && expandedCategories.size === 0) {
+    if (allCats.length > 0 && expandedCategories.size === 0 && !userHasCollapsed) {
+      console.log('🔧 Auto-expanding categories on first load');
       const allCategoryIds = allCats.map(cat => cat.id);
       const newSet = new Set(allCategoryIds);
       setExpandedCategories(newSet);
       localStorage.setItem('admin_expanded_categories', JSON.stringify(allCategoryIds));
+    } else if (userHasCollapsed) {
+      console.log('🔧 User has collapsed - skipping auto-expansion');
     }
-  }, [allCats, expandedCategories.size]);
+  }, [allCats, expandedCategories.size, userHasCollapsed]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -827,6 +854,8 @@ export default function ManageCategoriesPage() {
                     localStorage.removeItem('admin_categories');
                     localStorage.removeItem('admin_brands');
                     localStorage.removeItem('admin_expanded_categories');
+                    localStorage.removeItem('admin_user_has_collapsed');
+                    setUserHasCollapsed(false);
                     loadAll();
                   }}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 bg-red-100 dark:bg-red-700 hover:bg-red-200 dark:hover:bg-red-600 rounded-lg transition-colors duration-200"
