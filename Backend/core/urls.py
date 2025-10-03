@@ -23,7 +23,7 @@ urlpatterns = [
     path("checkout/", lambda request: redirect_to_frontend(request, "checkout")),
     path("cart/", lambda request: redirect_to_frontend(request, "cart")),
     path("account/", lambda request: redirect_to_frontend(request, "account")),
-    path("services/", lambda request: redirect_to_frontend(request, "services")),
+    # path("services/", lambda request: redirect_to_frontend(request, "services")),  # Commented out to allow React routing
     path("contact/", lambda request: redirect_to_frontend(request, "contact")),
     path("about/", lambda request: redirect_to_frontend(request, "about")),
     path("track-order/", lambda request: redirect_to_frontend(request, "track-order")),

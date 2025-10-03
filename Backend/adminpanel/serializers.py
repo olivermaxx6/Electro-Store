@@ -327,9 +327,7 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceCategory
         fields = ["id", "name", "slug", "description", "ordering", "is_active", "image", "parent", "parent_name", "children", "depth", "services_count", "created_at"]
-        extra_kwargs = {
-            'parent': {'read_only': True},
-        }
+        extra_kwargs = {}
     
     def get_children(self, obj):
         """Get direct children of this category"""

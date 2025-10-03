@@ -194,7 +194,7 @@ class PublicServiceCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 class PublicServiceViewSet(viewsets.ReadOnlyModelViewSet):
     """Public read-only access to services"""
-    queryset = Service.objects.all().order_by("-created_at")
+    queryset = Service.objects.all().select_related('category').order_by("-created_at")
     serializer_class = ServiceSerializer
     permission_classes = [permissions.AllowAny]
 
