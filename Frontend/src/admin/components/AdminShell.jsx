@@ -9,7 +9,7 @@ export default function AdminShell({ children }) {
 
   const onLogout = () => {
     logout();
-    nav('/admin/sign-in');
+    nav('/sign-in');
   };
 
   return (
@@ -34,8 +34,8 @@ export default function AdminShell({ children }) {
                 </button>
               </>
             ) : (
-              loc.pathname !== '/admin/sign-in' && (
-                <Link to="/admin/sign-in" className="text-sm rounded-xl border px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
+              loc.pathname !== '/sign-in' && (
+                <Link to="/sign-in" className="text-sm rounded-xl border px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
                   Sign In
                 </Link>
               )

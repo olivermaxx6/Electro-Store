@@ -25,8 +25,7 @@ import { useStoreSettings } from '../../hooks/useStoreSettings';
 import { useStore } from '../../contexts/StoreContext';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import ChatModal from '../../components/chat/ChatModal';
-import ChatConnectionStatus from '../../components/chat/ChatConnectionStatus';
-import useChatConnection from '../../hooks/useChatConnection';
+import useCustomerChatStore from '../../store/customerChatStore';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -40,40 +39,54 @@ const Dashboard: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Chat connection hook
+  // Customer chat store
   const {
-    activeConnection,
-    isConnecting,
+    currentRoom,
+    messages,
+    loading,
+    error,
     isConnected,
-    hasError,
-    createConnection,
-    closeConnection,
-    connectionUrl,
-    chatLink
-  } = useChatConnection();
+    initializeCustomerChat,
+    sendMessage,
+    clearError
+  } = useCustomerChatStore();
 
   const handleLogout = () => {
     dispatch(signOut());
     navigate('/');
   };
 
-  // Chat connection handlers
+  // Chat handlers with enhanced error handling
   const handleStartChat = async () => {
     try {
-      if (!isConnected) {
-        await createConnection();
+      console.log('Starting chat...', { isConnected, currentRoom });
+      
+      if (!isConnected || !currentRoom) {
+        console.log('Initializing chat...');
+        const customerInfo = {
+          name: currentUser?.name || currentUser?.username || 'Customer',
+          email: currentUser?.email || 'customer@example.com'
+        };
+        console.log('Customer info:', customerInfo);
+        
+        await initializeCustomerChat(customerInfo);
+        console.log('Chat initialized successfully');
       }
+      
       setIsChatOpen(true);
+      console.log('Chat modal opened');
     } catch (error) {
-      console.error('Failed to create chat connection:', error);
+      console.error('Failed to initialize chat:', error);
+      // Show error to user
+      alert(`Failed to start chat: ${error.message}`);
     }
   };
 
   const handleCopyChatLink = async () => {
-    if (chatLink) {
+    if (currentRoom) {
       try {
+        const chatLink = `${window.location.origin}/user/dashboard?chat=${currentRoom.id}`;
         await navigator.clipboard.writeText(chatLink);
-        // You could add a toast notification here
         console.log('Chat link copied to clipboard');
       } catch (error) {
         console.error('Failed to copy chat link:', error);
@@ -319,20 +332,6 @@ const Dashboard: React.FC = () => {
 
   const renderChat = () => (
     <div className="space-y-6">
-      {/* Chat Connection Status */}
-      {activeConnection && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Chat Connection</h3>
-          <ChatConnectionStatus
-            connection={activeConnection}
-            isConnecting={isConnecting}
-            hasError={hasError}
-            onCopyLink={handleCopyChatLink}
-            onOpenChat={handleOpenChat}
-          />
-        </div>
-      )}
-
       {/* Main Chat Section */}
       <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Chat with Admin</h3>
@@ -344,7 +343,7 @@ const Dashboard: React.FC = () => {
                 <MessageCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Virtual Connection Established
+                Chat Connected
               </h4>
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 You're now connected to our admin team. Click below to start chatting!
@@ -377,11 +376,11 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Room ID:</span>
-                  <span className="font-mono">{activeConnection?.roomId}</span>
+                  <span className="font-mono">{currentRoom?.id}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Connected:</span>
-                  <span>{activeConnection?.createdAt.toLocaleTimeString()}</span>
+                  <span>Messages:</span>
+                  <span>{messages.length}</span>
                 </div>
               </div>
             </div>
@@ -390,17 +389,17 @@ const Dashboard: React.FC = () => {
           <div className="text-center py-8">
             <MessageCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Need help? Create a virtual connection with our admin team
+              Click below to connect with our admin team for support.
             </p>
             <button 
               onClick={handleStartChat}
-              disabled={isConnecting}
+              disabled={loading}
               className="inline-flex items-center px-4 py-2 bg-red-600 dark:bg-blue-600 text-white rounded-lg hover:bg-red-700 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isConnecting ? (
+              {loading ? (
                 <>
                   <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Creating Connection...
+                  Connecting...
                 </>
               ) : (
                 <>
@@ -410,9 +409,15 @@ const Dashboard: React.FC = () => {
               )}
             </button>
             
-            {hasError && (
+            {error && (
               <div className="mt-4 text-sm text-red-600 dark:text-red-400">
-                Failed to create connection. Please try again.
+                {error}
+                <button 
+                  onClick={clearError}
+                  className="ml-2 underline hover:no-underline"
+                >
+                  Dismiss
+                </button>
               </div>
             )}
           </div>

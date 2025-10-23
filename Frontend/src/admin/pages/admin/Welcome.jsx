@@ -8,7 +8,7 @@ export default function Welcome() {
   const nav = useNavigate();
 
   useEffect(() => {
-    if (isAuthed()) nav('/admin/dashboard');
+    if (isAuthed()) nav('/dashboard');
   }, [isAuthed, nav]);
 
   return (
@@ -16,7 +16,7 @@ export default function Welcome() {
       <div className="rounded-2xl border p-8 text-center">
         <h1 className="text-3xl font-bold mb-4">Welcome</h1>
         <p className="mb-6 opacity-80">This is the admin area. Please sign in to continue.</p>
-        <Link to="/admin/sign-in" className="rounded-xl border px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <Link to="/sign-in" className="rounded-xl border px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
           Go to Sign In
         </Link>
       </div>

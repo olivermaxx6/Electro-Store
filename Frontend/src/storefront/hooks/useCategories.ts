@@ -102,3 +102,43 @@ export const useCategoriesWithHierarchy = (): UseCategoriesWithHierarchyReturn =
     refetch: fetchCategories,
   };
 };
+
+export const useAllCategories = (): UseCategoriesReturn => {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_BASE_URL}/categories/`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch categories: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      // Handle paginated response structure
+      const categoriesData = data.results || data;
+      setCategories(categoriesData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch categories');
+      console.error('Error fetching all categories:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  return {
+    categories,
+    loading,
+    error,
+    refetch: fetchCategories,
+  };
+};

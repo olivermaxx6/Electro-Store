@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, User, Clock, CheckCircle, XCircle, MessageSquare, Trash2, AlertTriangle, Wrench, Quote } from 'lucide-react';
-import { ThemeLayout, ThemeCard, SectionHeader } from '@shared/theme';
+import { ThemeLayout, ThemeCard, SectionHeader } from '@theme';
 import { 
   listContacts, markContactAsRead, markContactAsReplied, closeContact, deleteContact,
   listServiceQueries, markServiceQueryAsRead, markServiceQueryAsReplied, closeServiceQuery, deleteServiceQuery
@@ -28,10 +28,19 @@ export default function ContactPage() {
           listContacts(),
           listServiceQueries()
         ]);
-        setContacts(contactsResponse.data.results || contactsResponse.data);
-        setServiceQueries(serviceQueriesResponse.data.results || serviceQueriesResponse.data);
+        // Handle different response structures safely
+        setContacts(contactsResponse?.results || contactsResponse?.data?.results || contactsResponse?.data || contactsResponse || []);
+        setServiceQueries(serviceQueriesResponse?.results || serviceQueriesResponse?.data?.results || serviceQueriesResponse?.data || serviceQueriesResponse || []);
       } catch (err) {
         console.error('Failed to fetch data:', err);
+        console.error('Error details:', {
+          message: err.message,
+          status: err.response?.status,
+          data: err.response?.data
+        });
+        // Set empty arrays as fallback
+        setContacts([]);
+        setServiceQueries([]);
         setError(err.uiMessage || 'Failed to fetch data');
       } finally {
         setLoading(false);
@@ -237,17 +246,28 @@ export default function ContactPage() {
   };
 
   const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now - date;
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (!dateString) return 'Just now';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Just now';
+      }
+      
+      const now = new Date();
+      const diff = now - date;
+      const minutes = Math.floor(diff / (1000 * 60));
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
+      if (minutes < 1) return 'Just now';
+      if (minutes < 60) return `${minutes}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      return `${days}d ago`;
+    } catch (error) {
+      console.warn('Invalid date format:', dateString);
+      return 'Just now';
+    }
   };
 
   const newContactsCount = contacts.filter(contact => contact.status === 'new').length;

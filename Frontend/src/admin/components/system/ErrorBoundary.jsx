@@ -13,7 +13,7 @@ export default class ErrorBoundary extends Component {
             <p className="text-sm opacity-80 mb-3">Reload or sign in again.</p>
             <div className="flex gap-2">
               <button onClick={()=>location.reload()} className="border rounded px-3 py-2">Reload</button>
-              <button onClick={()=>{localStorage.removeItem('auth'); location.replace('/admin/sign-in')}} className="border rounded px-3 py-2">Go to Sign In</button>
+              <button onClick={()=>{localStorage.removeItem('auth'); location.replace('/sign-in')}} className="border rounded px-3 py-2">Go to Sign In</button>
             </div>
             <pre className="mt-3 text-xs opacity-70 max-h-48 overflow-auto">{String(this.state.error)}</pre>
           </div>

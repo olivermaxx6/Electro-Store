@@ -5,7 +5,7 @@ from .models import (
     Brand, Category, Product, ProductImage,
     Service, ServiceImage, ServiceInquiry, ServiceQuery, ServiceCategory,
     Order, OrderItem, Review, ServiceReview, WebsiteContent, StoreSettings,
-    Contact
+    Contact, ChatRoom, ChatMessage
 )
 
 class SafeModelSerializer(serializers.ModelSerializer):
@@ -190,7 +190,7 @@ class CategoryListSerializer(SafeModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ["id", "image", "created_at"]
+        fields = ["id", "image", "is_main", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 class ProductSerializer(SafeModelSerializer):
@@ -199,6 +199,8 @@ class ProductSerializer(SafeModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
     # Read-only images list
     images = ProductImageSerializer(many=True, read_only=True)
+    # Main image field - returns the URL of the main image
+    main_image = serializers.SerializerMethodField()
     technical_specs = serializers.JSONField(required=False)
     # Make discount_rate optional and allow empty values
     discount_rate = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
@@ -215,7 +217,7 @@ class ProductSerializer(SafeModelSerializer):
             "brand", "category",
             "brand_data", "category_data",
             "technical_specs", "view_count",
-            "isNew", "is_top_selling", "images", "created_at",
+            "isNew", "is_top_selling", "images", "main_image", "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -273,6 +275,17 @@ class ProductSerializer(SafeModelSerializer):
             raise serializers.ValidationError("technical_specs must be an object (key/value).")
         # Normalize all values to strings for consistency
         return {str(k): ("" if v[k] is None else str(v[k])) for k in v}
+    
+    def get_main_image(self, obj):
+        """Get the main image URL for the product"""
+        main_image = obj.images.filter(is_main=True).first()
+        if main_image:
+            return main_image.image.url if main_image.image else None
+        # If no main image is set, return the first image
+        first_image = obj.images.first()
+        if first_image:
+            return first_image.image.url if first_image.image else None
+        return None
 
 # --- Orders ---
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -355,10 +368,12 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
 class ServiceImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceImage
-        fields = ["id","image","created_at"]
+        fields = ["id","image","is_main","created_at"]
 
 class ServiceSerializer(serializers.ModelSerializer):
     images = ServiceImageSerializer(many=True, read_only=True)
+    # Main image field - returns the URL of the main image
+    main_image = serializers.SerializerMethodField()
     category = ServiceCategorySerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     
@@ -409,11 +424,22 @@ class ServiceSerializer(serializers.ModelSerializer):
             data['form_fields'] = []
             
         return data
+    
+    def get_main_image(self, obj):
+        """Get the main image URL for the service"""
+        main_image = obj.images.filter(is_main=True).first()
+        if main_image:
+            return main_image.image.url if main_image.image else None
+        # If no main image is set, return the first image
+        first_image = obj.images.first()
+        if first_image:
+            return first_image.image.url if first_image.image else None
+        return None
 
     class Meta:
         model = Service
         fields = [
-            "id","name","description","price","form_fields","created_at","images",
+            "id","name","description","price","form_fields","created_at","images","main_image",
             "rating","review_count","view_count","overview","included_features","process_steps",
             "key_features","contact_info","availability","category","category_id"
         ]
@@ -615,3 +641,74 @@ class ServiceQuerySerializer(SafeModelSerializer):
             "status", "created_at", "updated_at"
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+# --- Chat System ---
+class ChatMessageSerializer(SafeModelSerializer):
+    """Serializer for chat messages"""
+    sender_name = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = ChatMessage
+        fields = [
+            "id", "room", "sender_type", "sender_name", "sender_user",
+            "content", "is_read", "created_at"
+        ]
+        read_only_fields = ["id", "sender_name", "created_at"]
+
+class ChatRoomSerializer(SafeModelSerializer):
+    """Serializer for chat rooms"""
+    messages = ChatMessageSerializer(many=True, read_only=True)
+    display_name = serializers.CharField(source='get_display_name', read_only=True)
+    unread_count = serializers.IntegerField(source='get_unread_count', read_only=True)
+    
+    class Meta:
+        model = ChatRoom
+        fields = [
+            "id", "customer_name", "customer_email", "customer_phone",
+            "customer_session", "user", "status", "display_name", "unread_count",
+            "created_at", "updated_at", "last_message_at", "messages"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "last_message_at"]
+
+class ChatRoomListSerializer(SafeModelSerializer):
+    """Simplified serializer for chat room lists"""
+    display_name = serializers.CharField(source='get_display_name', read_only=True)
+    unread_count = serializers.IntegerField(source='get_unread_count', read_only=True)
+    
+    class Meta:
+        model = ChatRoom
+        fields = [
+            "id", "customer_name", "customer_email", "customer_phone",
+            "status", "display_name", "unread_count",
+            "created_at", "updated_at", "last_message_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "last_message_at"]
+
+class ChatMessageCreateSerializer(SafeModelSerializer):
+    """Serializer for creating chat messages"""
+    
+    class Meta:
+        model = ChatMessage
+        fields = ["room", "content", "sender_type"]
+        
+    def create(self, validated_data):
+        """Create a chat message and update room status"""
+        room = validated_data['room']
+        sender_type = validated_data.get('sender_type', 'customer')
+        
+        # Set sender name based on room info
+        if sender_type == 'customer':
+            validated_data['sender_name'] = room.get_display_name()
+            validated_data['sender_user'] = room.user
+        elif sender_type == 'admin':
+            validated_data['sender_name'] = 'Admin'
+            validated_data['sender_user'] = self.context['request'].user
+        
+        message = super().create(validated_data)
+        
+        # Update room status and last message time
+        room.status = 'waiting' if sender_type == 'customer' else 'active'
+        room.last_message_at = message.created_at
+        room.save()
+        
+        return message

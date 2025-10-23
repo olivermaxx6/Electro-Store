@@ -3,7 +3,16 @@ const API_BASE_URL = 'http://127.0.0.1:8001/api';
 
 // Helper function to get auth token
 const getAuthToken = () => {
-  return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+  // Try to get token from auth store format first
+  const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+  if (authData.access) {
+    return authData.access;
+  }
+  
+  // Fallback to direct token storage
+  return localStorage.getItem('authToken') || 
+         localStorage.getItem('access_token') || 
+         sessionStorage.getItem('authToken');
 };
 
 // Helper function to make API requests
@@ -32,7 +41,19 @@ const apiRequest = async (endpoint, options = {}) => {
       throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
     }
     
-    return await response.json();
+    // Handle empty responses (like DELETE requests that return 204 No Content)
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return { success: true, status: response.status };
+    }
+    
+    // Check if response has content before trying to parse JSON
+    const text = await response.text();
+    if (!text.trim()) {
+      return { success: true, status: response.status };
+    }
+    
+    return JSON.parse(text);
   } catch (error) {
     console.error(`API Error [${endpoint}]:`, error);
     throw error;
@@ -41,11 +62,11 @@ const apiRequest = async (endpoint, options = {}) => {
 
 // Store Settings API
 export const getStoreSettings = async () => {
-  return apiRequest('/store-settings/');
+  return apiRequest('/admin/store-settings/');
 };
 
 export const updateStoreSettings = async (data) => {
-  return apiRequest('/store-settings/', {
+  return apiRequest('/admin/store-settings/', {
     method: 'PUT',
     body: data instanceof FormData ? data : JSON.stringify(data),
   });
@@ -54,59 +75,59 @@ export const updateStoreSettings = async (data) => {
 // Products API
 export const getProducts = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  const endpoint = queryString ? `/products/?${queryString}` : '/products/';
+  const endpoint = queryString ? `/admin/products/?${queryString}` : '/admin/products/';
   return apiRequest(endpoint);
 };
 
 export const getProduct = async (id) => {
-  return apiRequest(`/products/${id}/`);
+  return apiRequest(`/admin/products/${id}/`);
 };
 
 export const createProduct = async (data) => {
-  return apiRequest('/products/', {
+  return apiRequest('/admin/products/', {
     method: 'POST',
     body: data instanceof FormData ? data : JSON.stringify(data),
   });
 };
 
 export const updateProduct = async (id, data) => {
-  return apiRequest(`/products/${id}/`, {
+  return apiRequest(`/admin/products/${id}/`, {
     method: 'PUT',
     body: data instanceof FormData ? data : JSON.stringify(data),
   });
 };
 
 export const deleteProduct = async (id) => {
-  return apiRequest(`/products/${id}/`, {
+  return apiRequest(`/admin/products/${id}/`, {
     method: 'DELETE',
   });
 };
 
 // Categories API
 export const getCategories = async () => {
-  return apiRequest('/categories/');
+  return apiRequest('/admin/categories/');
 };
 
 export const getCategory = async (id) => {
-  return apiRequest(`/categories/${id}/`);
+  return apiRequest(`/admin/categories/${id}/`);
 };
 
 export const createCategory = async (data) => {
-  return apiRequest('/categories/', {
+  return apiRequest('/admin/categories/', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 };
 
 export const updateCategory = async (id, data) => {
-  return apiRequest(`/categories/${id}/`, {
+  return apiRequest(`/admin/categories/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 };
 
 export const deleteCategory = async (id) => {
-  return apiRequest(`/categories/${id}/`, {
+  return apiRequest(`/admin/categories/${id}/`, {
     method: 'DELETE',
   });
 };
@@ -114,16 +135,16 @@ export const deleteCategory = async (id) => {
 // Orders API
 export const getOrders = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  const endpoint = queryString ? `/orders/?${queryString}` : '/orders/';
+  const endpoint = queryString ? `/admin/orders/?${queryString}` : '/admin/orders/';
   return apiRequest(endpoint);
 };
 
 export const getOrder = async (id) => {
-  return apiRequest(`/orders/${id}/`);
+  return apiRequest(`/admin/orders/${id}/`);
 };
 
 export const updateOrder = async (id, data) => {
-  return apiRequest(`/orders/${id}/`, {
+  return apiRequest(`/admin/orders/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -132,16 +153,16 @@ export const updateOrder = async (id, data) => {
 // Users API
 export const getUsers = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  const endpoint = queryString ? `/users/?${queryString}` : '/users/';
+  const endpoint = queryString ? `/admin/users/?${queryString}` : '/admin/users/';
   return apiRequest(endpoint);
 };
 
 export const getUser = async (id) => {
-  return apiRequest(`/users/${id}/`);
+  return apiRequest(`/admin/users/${id}/`);
 };
 
 export const updateUser = async (id, data) => {
-  return apiRequest(`/users/${id}/`, {
+  return apiRequest(`/admin/users/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -150,30 +171,30 @@ export const updateUser = async (id, data) => {
 // Services API
 export const getServices = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  const endpoint = queryString ? `/services/?${queryString}` : '/services/';
+  const endpoint = queryString ? `/admin/services/?${queryString}` : '/admin/services/';
   return apiRequest(endpoint);
 };
 
 export const getService = async (id) => {
-  return apiRequest(`/services/${id}/`);
+  return apiRequest(`/admin/services/${id}/`);
 };
 
 export const createService = async (data) => {
-  return apiRequest('/services/', {
+  return apiRequest('/admin/services/', {
     method: 'POST',
     body: data instanceof FormData ? data : JSON.stringify(data),
   });
 };
 
 export const updateService = async (id, data) => {
-  return apiRequest(`/services/${id}/`, {
+  return apiRequest(`/admin/services/${id}/`, {
     method: 'PUT',
     body: data instanceof FormData ? data : JSON.stringify(data),
   });
 };
 
 export const deleteService = async (id) => {
-  return apiRequest(`/services/${id}/`, {
+  return apiRequest(`/admin/services/${id}/`, {
     method: 'DELETE',
   });
 };
@@ -181,23 +202,23 @@ export const deleteService = async (id) => {
 // Reviews API
 export const getReviews = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  const endpoint = queryString ? `/reviews/?${queryString}` : '/reviews/';
+  const endpoint = queryString ? `/admin/reviews/?${queryString}` : '/admin/reviews/';
   return apiRequest(endpoint);
 };
 
 export const getServiceReviews = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  const endpoint = queryString ? `/service-reviews/?${queryString}` : '/service-reviews/';
+  const endpoint = queryString ? `/admin/service-reviews/?${queryString}` : '/admin/service-reviews/';
   return apiRequest(endpoint);
 };
 
 // Content API
 export const getWebsiteContent = async () => {
-  return apiRequest('/website-content/');
+  return apiRequest('/admin/website-content/');
 };
 
 export const updateWebsiteContent = async (data) => {
-  return apiRequest('/website-content/', {
+  return apiRequest('/admin/website-content/', {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -206,31 +227,93 @@ export const updateWebsiteContent = async (data) => {
 // Contact/Inquiries API
 export const getInquiries = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  const endpoint = queryString ? `/inquiries/?${queryString}` : '/inquiries/';
+  const endpoint = queryString ? `/admin/inquiries/?${queryString}` : '/admin/inquiries/';
   return apiRequest(endpoint);
 };
 
 export const getInquiry = async (id) => {
-  return apiRequest(`/inquiries/${id}/`);
+  return apiRequest(`/admin/inquiries/${id}/`);
 };
 
 export const updateInquiry = async (id, data) => {
-  return apiRequest(`/inquiries/${id}/`, {
+  return apiRequest(`/admin/inquiries/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 };
 
+// Contact Messages API
+export const listContacts = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const endpoint = queryString ? `/admin/contacts/?${queryString}` : '/admin/contacts/';
+  return apiRequest(endpoint);
+};
+
+export const markContactAsRead = async (id) => {
+  return apiRequest(`/admin/contacts/${id}/mark_as_read/`, {
+    method: 'PATCH',
+  });
+};
+
+export const markContactAsReplied = async (id) => {
+  return apiRequest(`/admin/contacts/${id}/mark_as_replied/`, {
+    method: 'PATCH',
+  });
+};
+
+export const closeContact = async (id) => {
+  return apiRequest(`/admin/contacts/${id}/close/`, {
+    method: 'PATCH',
+  });
+};
+
+export const deleteContact = async (id) => {
+  return apiRequest(`/admin/contacts/${id}/`, {
+    method: 'DELETE',
+  });
+};
+
+// Service Queries API
+export const listServiceQueries = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const endpoint = queryString ? `/admin/service-queries/?${queryString}` : '/admin/service-queries/';
+  return apiRequest(endpoint);
+};
+
+export const markServiceQueryAsRead = async (id) => {
+  return apiRequest(`/admin/service-queries/${id}/mark_as_read/`, {
+    method: 'PATCH',
+  });
+};
+
+export const markServiceQueryAsReplied = async (id) => {
+  return apiRequest(`/admin/service-queries/${id}/mark_as_replied/`, {
+    method: 'PATCH',
+  });
+};
+
+export const closeServiceQuery = async (id) => {
+  return apiRequest(`/admin/service-queries/${id}/close/`, {
+    method: 'PATCH',
+  });
+};
+
+export const deleteServiceQuery = async (id) => {
+  return apiRequest(`/admin/service-queries/${id}/`, {
+    method: 'DELETE',
+  });
+};
+
 // Dashboard Statistics API
 export const getDashboardStats = async () => {
-  return apiRequest('/dashboard/stats/');
+  return apiRequest('/admin/dashboard/stats/');
 };
 
 // Authentication API
 export const login = async (email, password) => {
   return apiRequest('/auth/login/', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username: email, password }),
   });
 };
 
@@ -292,6 +375,20 @@ export default {
   getInquiries,
   getInquiry,
   updateInquiry,
+  
+  // Contact Messages
+  listContacts,
+  markContactAsRead,
+  markContactAsReplied,
+  closeContact,
+  deleteContact,
+  
+  // Service Queries
+  listServiceQueries,
+  markServiceQueryAsRead,
+  markServiceQueryAsReplied,
+  closeServiceQuery,
+  deleteServiceQuery,
   
   // Dashboard
   getDashboardStats,

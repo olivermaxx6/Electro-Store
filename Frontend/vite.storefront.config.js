@@ -3,8 +3,12 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({
+    jsxRuntime: 'automatic',
+    jsxImportSource: 'react'
+  })],
   root: 'src/storefront',
+  publicDir: '../../public',
   build: {
     outDir: '../../dist/storefront',
     emptyOutDir: true,
@@ -44,7 +48,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src/storefront'),
-      '@shared': path.resolve(__dirname, 'src'),
+      '@shared': path.resolve(__dirname, 'src/shared'),
+      '@theme': path.resolve(__dirname, 'src/theme'),
+      '@hooks': path.resolve(__dirname, 'src/hooks'),
+      '@styles': path.resolve(__dirname, 'src/styles'),
     }
   }
 })

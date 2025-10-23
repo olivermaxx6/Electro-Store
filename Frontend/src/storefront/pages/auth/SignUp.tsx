@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { signUpWithData } from '../../store/userSlice';
 import ThemeToggle from '../../components/common/ThemeToggle';
+import { LogoImage } from '../../lib/logoUtils';
 
 const SignUp: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -17,9 +18,29 @@ const SignUp: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [storeLogo, setStoreLogo] = useState<string | null>(null);
   
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  // Fetch store logo on component mount
+  useEffect(() => {
+    const fetchStoreLogo = async () => {
+      try {
+        const response = await fetch('/api/public/store-settings/');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.store_logo) {
+            setStoreLogo(data.store_logo);
+          }
+        }
+      } catch (error) {
+        console.log('Could not fetch store logo:', error);
+      }
+    };
+    
+    fetchStoreLogo();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -71,7 +92,32 @@ const SignUp: React.FC = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Registration failed');
+        
+        // Handle specific error cases
+        if (errorData.errors) {
+          // Handle field-specific errors
+          const errorMessages = [];
+          
+          if (errorData.errors.username) {
+            errorMessages.push(`Username: ${errorData.errors.username}`);
+          }
+          if (errorData.errors.email) {
+            errorMessages.push(`Email: ${errorData.errors.email}`);
+          }
+          if (errorData.errors.password) {
+            errorMessages.push(`Password: ${errorData.errors.password}`);
+          }
+          
+          if (errorMessages.length > 0) {
+            setError(errorMessages.join('. '));
+          } else {
+            setError(errorData.detail || 'Registration failed. Please try again.');
+          }
+        } else {
+          setError(errorData.detail || 'Registration failed. Please try again.');
+        }
+        setIsLoading(false);
+        return;
       }
 
       const result = await response.json();
@@ -113,6 +159,7 @@ const SignUp: React.FC = () => {
       
       navigate('/user/dashboard');
     } catch (err) {
+      console.error('Registration error:', err);
       setError('Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -130,7 +177,12 @@ const SignUp: React.FC = () => {
           </Link>
           
           <div className="w-16 h-16 bg-red-600 dark:bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">E</span>
+            <LogoImage 
+              src={storeLogo}
+              alt="Store Logo"
+              className="w-12 h-12 object-contain rounded-full"
+              fallbackText="E"
+            />
           </div>
           
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -280,8 +332,35 @@ const SignUp: React.FC = () => {
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                      Registration Error
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                      <p>{error}</p>
+                    </div>
+                    {error.includes('already exists') && (
+                      <div className="mt-3">
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          Already have an account?{' '}
+                          <Link
+                            to="/user/sign-in"
+                            className="font-medium underline hover:text-red-500 dark:hover:text-red-300"
+                          >
+                            Sign in here
+                          </Link>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

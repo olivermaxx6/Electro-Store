@@ -17,6 +17,7 @@ try:
         WebsiteContentViewSet, StoreSettingsViewSet,
         ContactViewSet, ServiceQueryViewSet
     )
+    from .views_chat import AdminChatRoomViewSet
     # Product management
     router.register(r"admin/products", ProductViewSet, basename="product")
     router.register(r"admin/brands", BrandViewSet, basename="brand")
@@ -43,9 +44,8 @@ try:
     router.register(r"admin/website-content", WebsiteContentViewSet, basename="websitecontent")
     router.register(r"admin/store-settings", StoreSettingsViewSet, basename="storesettings")
     
-    # Chat system COMMENTED OUT - functionality disabled
-    # router.register(r"admin/chat-rooms", ChatRoomViewSet, basename="chatroom")
-    # router.register(r"admin/chat-messages", ChatMessageViewSet, basename="chatmessage")
+    # Chat system endpoints
+    router.register(r"admin/chat-rooms", AdminChatRoomViewSet, basename="admin-chatroom")
     
     # Contact management
     router.register(r"admin/contacts", ContactViewSet, basename="contact")

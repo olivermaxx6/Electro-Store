@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../store/currencyStore';
-import { ThemeLayout, ThemeCard, SectionHeader, ThemeAlert } from '@shared/theme';
+import { ThemeLayout, ThemeCard, SectionHeader, ThemeAlert } from '@theme';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { RefreshCw } from 'lucide-react';
 import { getDashboardStats } from '../../lib/api';
@@ -18,9 +18,9 @@ export default function Dashboard() {
 
   const loadDashboardData = async (retryCount = 0) => {
     try {
-      console.log('🔄 Loading dashboard data...');
-      const { data } = await getDashboardStats();
-      console.log('✅ Dashboard stats loaded successfully:', data);
+      // The API interceptor returns the data directly, not wrapped in { data }
+      const data = await getDashboardStats();
+      
       setStats(data);
       setLastRefresh(Date.now());
       setErr(null); // Clear any previous errors
@@ -29,7 +29,6 @@ export default function Dashboard() {
       
       // If it's a 401 error and we haven't retried yet, try to refresh token and retry
       if (e.response?.status === 401 && retryCount === 0) {
-        console.log('🔄 401 error, attempting token refresh...');
         try {
           // The API interceptor should handle token refresh automatically
           // Let's retry the request once more
@@ -39,7 +38,7 @@ export default function Dashboard() {
           console.error('Token refresh failed:', refreshError);
           setErr('Authentication expired. Please login again.');
           logout();
-          nav('/admin/sign-in');
+          nav('/sign-in');
           return;
         }
       }
@@ -54,6 +53,9 @@ export default function Dashboard() {
           avg_order_value: 0
         },
         sales_by_day: [],
+        weekly_sales: [],
+        user_registrations: [],
+        weekly_user_registrations: [],
         top_products: [],
         inventory: {
           total_products: 0,
@@ -71,8 +73,8 @@ export default function Dashboard() {
       try {
         // First, ensure we have a valid token
         const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+        
         if (!authData.access) {
-          console.error('No access token found');
           setErr('No authentication token found. Please login again.');
           return;
         }
@@ -82,11 +84,11 @@ export default function Dashboard() {
 
         // Try to get user info first to validate token
         const userData = await me();
+        
         if (!userData) {
-          console.error('Failed to get user data - token may be invalid');
           setErr('Authentication failed. Please login again.');
           logout();
-          nav('/admin/sign-in');
+          nav('/sign-in');
           return;
         }
 
@@ -103,19 +105,15 @@ export default function Dashboard() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('📊 Page became visible, refreshing dashboard data...');
         loadDashboardData();
       }
     };
 
     const handleFocus = () => {
-      console.log('📊 Window focused, refreshing dashboard data...');
       loadDashboardData();
     };
 
     const handleOrdersUpdated = (event) => {
-      console.log('📊 Orders updated event received:', event.detail);
-      console.log('📊 Refreshing dashboard data due to order changes...');
       loadDashboardData();
     };
 
@@ -135,11 +133,18 @@ export default function Dashboard() {
   //   authMe().catch(() => logout('session'));
   // }, []);
 
-  // if (!isAuthed()) return null;
-
   return (
     <ThemeLayout>
-        {err && <ThemeAlert message={err} type="error" />}
+        {/* Popup Alert Dialog */}
+        {err && (
+          <ThemeAlert 
+            message={err} 
+            type="error" 
+            onClose={() => setErr(null)}
+            autoClose={true}
+            duration={1000}
+          />
+        )}
         {!stats ? (
           <ThemeCard>
             <div className="text-center py-12">
@@ -147,6 +152,13 @@ export default function Dashboard() {
                 <span className="text-2xl">📊</span>
               </div>
               <div className="text-slate-600 dark:text-slate-400 font-medium">Loading dashboard...</div>
+              {err && (
+                <div className="mt-4 p-4 bg-red-100 dark:bg-red-900 rounded-lg">
+                  <div className="text-red-700 dark:text-red-300 text-sm">
+                    Error: {err}
+                  </div>
+                </div>
+              )}
             </div>
           </ThemeCard>
         ) : (
@@ -168,7 +180,7 @@ export default function Dashboard() {
                   <span className="text-sm font-medium">Refresh</span>
                 </button>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Last updated: {new Date(lastRefresh).toLocaleTimeString()}
+                  Last updated: {lastRefresh ? new Date(lastRefresh).toLocaleTimeString() : 'Never'}
                 </span>
               </div>
             </div>
@@ -282,7 +294,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                      {stats.sales_by_day.length > 0 ? formatAmount(stats.sales_by_day.reduce((sum, day) => sum + day.revenue, 0) / stats.sales_by_day.length) : '$0'}
+                      {stats.sales_by_day.length > 0 ? formatAmount(stats.sales_by_day.reduce((sum, day) => sum + day.revenue, 0) / stats.sales_by_day.length) : formatAmount(0)}
                     </div>
                     <div className="text-xs text-slate-600 dark:text-slate-400">Avg Revenue/Day</div>
                   </div>
@@ -388,7 +400,7 @@ export default function Dashboard() {
                       <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
                         {stats.weekly_sales.length > 0 ? 
                           formatAmount(stats.weekly_sales.reduce((sum, day) => sum + day.revenue, 0) / stats.weekly_sales.length) : 
-                          '$0'
+                          formatAmount(0)
                         }
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400">Avg Revenue/Day</div>

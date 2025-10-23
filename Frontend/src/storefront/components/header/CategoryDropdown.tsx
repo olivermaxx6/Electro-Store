@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { ChevronRight, Sparkles, Zap, ArrowLeft } from 'lucide-react';
+import { ChevronRight, Zap, ArrowLeft } from 'lucide-react';
 import { useDropdown } from '../../contexts/DropdownContext';
 import { createPortal } from 'react-dom';
 
@@ -154,7 +154,7 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('resize', handleResize);
+      window.addEventListener('resize', handleResize, { passive: true });
     }
 
     return () => {
@@ -177,13 +177,10 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
           {category.name}
         </span>
         
-        {/* Enhanced Background Hover Effect - Light/Dark Mode Optimized */}
-        <div className={clsx(
-          'absolute inset-0 rounded-lg transition-all duration-500 ease-out',
-          isActive
-            ? 'bg-gradient-to-r from-white/35 to-white/25 dark:from-blue-400/35 dark:to-blue-400/25 shadow-xl backdrop-blur-sm border border-white/25 dark:border-blue-400/25'
-            : 'bg-transparent group-hover:bg-gradient-to-r group-hover:from-white/25 group-hover:to-white/15 dark:group-hover:from-blue-400/25 dark:group-hover:to-blue-400/15 group-hover:shadow-lg group-hover:backdrop-blur-sm group-hover:border group-hover:border-white/15 dark:group-hover:border-blue-400/15'
-        )} />
+        {/* Active Background Effect Only */}
+        {isActive && (
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-white/35 to-white/25 dark:from-blue-400/35 dark:to-blue-400/25 shadow-xl backdrop-blur-sm border border-white/25 dark:border-blue-400/25" />
+        )}
         
         {/* Active Indicator with Enhanced Animation */}
         {isActive && (
@@ -193,10 +190,6 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
         {/* Enhanced Hover Glow Effect */}
         <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-500 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-blue-400/20 dark:via-blue-300/10 dark:to-blue-400/20" />
         
-        {/* Sparkle Effect on Hover */}
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-          <Sparkles className="w-3 h-3 text-white/90 dark:text-blue-300/90 animate-pulse" />
-        </div>
         
         {/* Subtle Border Glow */}
         <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500 border border-white/25 dark:border-blue-400/25" />
@@ -228,13 +221,10 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
           )}
         </span>
         
-        {/* Enhanced Background Hover Effect - Light/Dark Mode Optimized */}
-        <div className={clsx(
-          'absolute inset-0 rounded-lg transition-all duration-500 ease-out',
-          isActive
-            ? 'bg-gradient-to-r from-white/35 to-white/25 dark:from-blue-400/35 dark:to-blue-400/25 shadow-xl backdrop-blur-sm border border-white/25 dark:border-blue-400/25'
-            : 'bg-transparent group-hover:bg-gradient-to-r group-hover:from-white/25 group-hover:to-white/15 dark:group-hover:from-blue-400/25 dark:group-hover:to-blue-400/15 group-hover:shadow-lg group-hover:backdrop-blur-sm group-hover:border group-hover:border-white/15 dark:group-hover:border-blue-400/15'
-        )} />
+        {/* Active Background Effect Only */}
+        {isActive && (
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-white/35 to-white/25 dark:from-blue-400/35 dark:to-blue-400/25 shadow-xl backdrop-blur-sm border border-white/25 dark:border-blue-400/25" />
+        )}
         
         {/* Active Indicator with Enhanced Animation */}
         {isActive && (
@@ -244,10 +234,6 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
         {/* Enhanced Hover Glow Effect */}
         <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-500 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-blue-400/20 dark:via-blue-300/10 dark:to-blue-400/20" />
         
-        {/* Sparkle Effect on Hover */}
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-          <Sparkles className="w-3 h-3 text-white/90 dark:text-blue-300/90 animate-pulse" />
-        </div>
         
         {/* Subtle Border Glow */}
         <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500 border border-white/25 dark:border-blue-400/25" />
@@ -262,7 +248,7 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
       {isOpen && createPortal(
         <div 
           className={clsx(
-            'absolute bg-white dark:bg-slate-800 shadow-2xl border-t-2 border-red-600 dark:border-blue-600 transition-all duration-500 ease-out z-50 rounded-b-xl overflow-hidden',
+            'absolute bg-white dark:bg-slate-800 shadow-2xl border-t-2 border-red-600 dark:border-blue-600 transition-all duration-500 ease-out z-[60] rounded-b-xl overflow-hidden',
             isOpen ? 'opacity-100 visible translate-y-0 scale-100' : 'opacity-0 invisible -translate-y-4 scale-95'
           )}
           style={{
@@ -297,8 +283,7 @@ const CategoryDropdown: React.FC<CategoryDropdownProps> = ({
               {!showSubcategories && !showHoverStyle && (
                 <h3 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <div className="relative">
-                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-blue-400" />
-                    <Zap className="absolute -top-1 -right-1 w-1.5 h-1.5 sm:w-2 sm:h-2 text-yellow-500 animate-pulse" />
+                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-blue-400" />
                   </div>
               {category.name}
             </h3>

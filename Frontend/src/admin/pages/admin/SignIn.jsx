@@ -18,7 +18,7 @@ export default function SignIn() {
     console.log('[SignIn] Login result:', res);
     if (res.ok) {
       console.log('[SignIn] Login successful, navigating to dashboard');
-      nav('/admin/dashboard');
+      nav('/dashboard');
     } else {
       console.log('[SignIn] Login failed:', res.error);
       setError(res.error?.detail || res.error || 'Invalid credentials');

@@ -8,6 +8,7 @@ import { Currency } from '../lib/types';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import { getProducts } from '../../lib/productsApi';
 import { Product } from '../lib/types';
+import { normalizeImageUrl } from '../utils/imageUtils';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import ProductCard from '../components/products/ProductCard';
 import DualRangeSlider from '../components/filters/DualRangeSlider';
@@ -26,7 +27,7 @@ const SubcategoryCard: React.FC<{ subcategory: any }> = ({ subcategory }) => {
           <img 
             src={subcategory.image} 
             alt={subcategory.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <div className="text-center p-6">
@@ -105,6 +106,87 @@ const Category: React.FC = () => {
     }
   }, [searchParams]);
   
+  // Add CSS for Amazon-style product cards with responsive design
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      
+      .scrollbar-hide {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      
+      /* Mobile touch scrolling */
+      .mobile-scroll {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .mobile-scroll::-webkit-scrollbar {
+        display: none;
+      }
+      
+      /* Ensure proper touch scrolling on mobile */
+      @media (max-width: 768px) {
+        .mobile-scroll {
+          touch-action: pan-x;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+      }
+      
+      /* Tablet specific fixes */
+      @media (min-width: 769px) and (max-width: 1024px) {
+        .mobile-scroll {
+          touch-action: pan-x;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+      }
+      
+      /* Responsive product card dimensions */
+      @media (max-width: 640px) {
+        .product-card {
+          min-height: 400px;
+        }
+      }
+      
+      @media (min-width: 641px) and (max-width: 768px) {
+        .product-card {
+          min-height: 420px;
+        }
+      }
+      
+      @media (min-width: 769px) and (max-width: 1024px) {
+        .product-card {
+          min-height: 450px;
+        }
+      }
+      
+      @media (min-width: 1025px) {
+        .product-card {
+          min-height: 480px;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -174,14 +256,16 @@ const Category: React.FC = () => {
             brandSlug: backendProduct.brand_data?.name?.toLowerCase().replace(/\s+/g, '-') || 'unknown',
             price: backendProduct.price,
             oldPrice: oldPrice,
-            rating: backendProduct.rating,
+            rating: backendProduct.average_rating,
             ratingCount: backendProduct.review_count,
+            average_rating: backendProduct.average_rating,  // Add this for ProductCard compatibility
+            review_count: backendProduct.review_count,     // Add this for ProductCard compatibility
             isNew: backendProduct.isNew || false,
             discountPct: backendProduct.discount_rate || 0,
             discount_rate: backendProduct.discount_rate || 0,
             is_top_selling: backendProduct.is_top_selling || false,
             description: backendProduct.description,
-            images: backendProduct.images.map((img: any) => img.image),
+            images: backendProduct.images.map((img: any) => normalizeImageUrl(img.image)),
             stock: backendProduct.stock || 0,
             inStock: (backendProduct.stock || 0) > 0,
             sku: `SKU-${backendProduct.id}`,
@@ -279,6 +363,27 @@ const Category: React.FC = () => {
     );
   };
 
+  // Calculate exact rating counts
+  const getExactRatingCount = (exactRating: number) => {
+    const count = products.filter(product => {
+      const rating = Math.round(product.average_rating || 0);
+      return rating === exactRating;
+    }).length;
+    
+    // Debug logging to check rating data
+    console.log(`Exact rating count for ${exactRating} stars:`, count);
+    console.log('Products with exact rating', exactRating, ':', products.filter(p => {
+      const rating = Math.round(p.average_rating || 0);
+      return rating === exactRating;
+    }).map(p => ({
+      title: p.title,
+      average_rating: p.average_rating,
+      review_count: p.review_count
+    })));
+    
+    return count;
+  };
+
   const clearAllFilters = () => {
     setSelectedCategories([]);
     setSelectedBrands([]);
@@ -366,12 +471,23 @@ const Category: React.FC = () => {
     );
   }
 
-  // Apply rating filter
+  // Apply rating filter - using exact ratings
   if (selectedRatings.length > 0) {
+    console.log('Applying exact rating filter:', selectedRatings);
+    console.log('Products before rating filter:', filteredProducts.length);
+    
     filteredProducts = filteredProducts.filter(product => {
-      const productRating = Math.floor(product.rating || 0);
-      return selectedRatings.some(rating => productRating >= rating);
+      const productRating = Math.round(product.average_rating || 0);
+      const matches = selectedRatings.includes(productRating);
+      
+      if (matches) {
+        console.log(`Product "${product.title}" matches exact rating filter (${productRating} stars)`);
+      }
+      
+      return matches;
     });
+    
+    console.log('Products after rating filter:', filteredProducts.length);
   }
   
   // Sort products based on current sort option
@@ -569,33 +685,62 @@ const Category: React.FC = () => {
                       <span>Rating</span>
                     </h4>
                     <div className="space-y-3">
-                      {[4, 3, 2, 1].map((rating) => (
-                        <label key={rating} className="flex items-center group cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedRatings.includes(rating)}
-                            onChange={() => handleRatingToggle(rating)}
-                            className="rounded border-gray-300 dark:border-slate-600 text-yellow-600 focus:ring-yellow-500 focus:ring-2 transition-all duration-200"
-                          />
-                          <div className="ml-3 flex items-center space-x-2">
-                            <div className="flex space-x-1">
-                              {[...Array(5)].map((_, i) => (
-                                <div
-                                  key={i}
-                                  className={`w-3 h-3 ${
-                                    i < rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'
-                                  }`}
-                                >
-                                  ★
+                      {[5, 4, 3, 2, 1].map((rating) => {
+                        const count = getExactRatingCount(rating);
+                        const hasProductsWithRatings = products.some(p => (p.average_rating || 0) > 0);
+                        const isSelected = selectedRatings.includes(rating);
+                        
+                        return (
+                          <label key={rating} className={`flex items-center justify-between group cursor-pointer py-2 px-1 rounded-md transition-colors ${!hasProductsWithRatings ? 'opacity-50' : 'hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleRatingToggle(rating)}
+                                disabled={!hasProductsWithRatings}
+                                className="w-4 h-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2 transition-all duration-200 disabled:opacity-50 flex-shrink-0"
+                              />
+                              <div className="ml-3 flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
+                                  {[...Array(5)].map((_, i) => (
+                                    <div
+                                      key={i}
+                                      className={`w-3 h-3 flex items-center justify-center ${
+                                        i < rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'
+                                      }`}
+                                    >
+                                      ★
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                                <span className={`text-sm leading-none transition-colors duration-200 ${
+                                  isSelected 
+                                    ? 'text-blue-600 dark:text-blue-400 font-medium' 
+                                    : 'text-gray-700 dark:text-slate-300 group-hover:text-gray-900 dark:group-hover:text-slate-100'
+                                }`}>
+                                  {rating} Stars
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-sm text-gray-700 dark:text-slate-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors duration-200">
-                              {rating}+ Stars
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium flex items-center justify-center min-w-[24px] h-6 ${
+                              count > 0 
+                                ? 'text-gray-700 dark:text-gray-300 bg-blue-100 dark:bg-blue-900/30' 
+                                : 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-slate-700'
+                            }`}>
+                              {count}
                             </span>
-                          </div>
-                        </label>
-                      ))}
+                          </label>
+                        );
+                      })}
+                      
+                      {/* Show message if no products have ratings */}
+                      {!products.some(p => (p.average_rating || 0) > 0) && (
+                        <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            No products have reviews yet. Rating filters will be available once customers start reviewing products.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -726,7 +871,7 @@ const Category: React.FC = () => {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
                   {subcategories.map((subcategory) => (
                     <SubcategoryCard key={subcategory.id} subcategory={subcategory} />
                   ))}
@@ -777,13 +922,13 @@ const Category: React.FC = () => {
                     <div className="flex border border-gray-300 dark:border-slate-600 rounded-md">
                       <button
                         onClick={() => handleViewChange('grid')}
-                        className={`p-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-300'}`}
+                        className={`p-2 ${viewMode === 'grid' ? 'bg-red-600 dark:bg-blue-600 text-white' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-300'}`}
                       >
                         <Grid className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleViewChange('list')}
-                        className={`p-2 ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-300'}`}
+                        className={`p-2 ${viewMode === 'list' ? 'bg-red-600 dark:bg-blue-600 text-white' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-300'}`}
                       >
                         <List className="w-4 h-4" />
                       </button>
@@ -791,11 +936,11 @@ const Category: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Products Grid */}
+                {/* Products Grid - Amazon Style with Max 4 per Row */}
                 {paginatedProducts.length > 0 ? (
                   <div className={`grid gap-6 ${
                     viewMode === 'grid' 
-                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3' 
+                      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' 
                       : 'grid-cols-1'
                   }`}>
                     {paginatedProducts.map((product) => (

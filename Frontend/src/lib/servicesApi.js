@@ -47,6 +47,11 @@ export const getServiceCategories = async () => {
   return apiRequest('/service-categories/');
 };
 
+// Get service categories that have services
+export const getServiceCategoriesWithServices = async () => {
+  return apiRequest('/service-categories/with-services/');
+};
+
 // Get service reviews
 export const getServiceReviews = async (serviceId, params = {}) => {
   const queryParams = { service: serviceId, ...params };
@@ -148,6 +153,7 @@ export default {
   getServices,
   getService,
   getServiceCategories,
+  getServiceCategoriesWithServices,
   getServiceReviews,
   createServiceReview,
   checkUserServiceReview,

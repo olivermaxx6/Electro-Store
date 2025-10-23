@@ -1,4 +1,4 @@
-@import url('@shared/index.css');
+@import url('../index.css');
 
 /* Admin-specific styles */
 .admin-container {

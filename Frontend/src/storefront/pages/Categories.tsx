@@ -164,8 +164,10 @@ const Categories: React.FC = () => {
       brand: backendProduct.brand_data?.name || 'Unknown',
       price: backendProduct.price,
       oldPrice: oldPrice,
-      rating: backendProduct.rating,
+      rating: backendProduct.average_rating,
       ratingCount: backendProduct.review_count,
+      average_rating: backendProduct.average_rating,  // Add this for ProductCard compatibility
+      review_count: backendProduct.review_count,     // Add this for ProductCard compatibility
       isNew: backendProduct.isNew || false,
       discountPct: backendProduct.discount_rate || 0,
       discount_rate: backendProduct.discount_rate || 0,
@@ -312,9 +314,9 @@ const Categories: React.FC = () => {
                         return (
                           <div key={product.id} className="flex items-center gap-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg hover:shadow-md transition-shadow">
                             <div className="w-20 h-20 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden flex-shrink-0">
-                              {product.image ? (
+                              {product.main_image ? (
                                 <img 
-                                  src={product.image.startsWith('http') ? product.image : `http://localhost:8001${product.image}`}
+                                  src={product.main_image.startsWith('http') ? product.main_image : `http://localhost:8001${product.main_image}`}
                                   alt={product.title}
                                   className="w-full h-full object-cover"
                                 />

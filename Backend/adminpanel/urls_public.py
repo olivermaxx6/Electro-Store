@@ -12,6 +12,7 @@ from .views_public import (
     PaymentIntentViewSet, StripeCheckoutViewSet, StripeCheckoutSessionViewSet,
     CreateOrderAndCheckoutViewSet, PublicOrderDetailViewSet
 )
+from .views_chat import PublicChatRoomViewSet, UserChatRoomViewSet
 from .views_stripe import stripe_webhook, get_payment_intent
 
 router = DefaultRouter()
@@ -26,9 +27,9 @@ router.register(r"service-reviews", PublicServiceReviewViewSet, basename="public
 router.register(r"reviews", PublicReviewViewSet, basename="public-review")
 router.register(r"website-content", PublicWebsiteContentViewSet, basename="public-websitecontent")
 router.register(r"store-settings", PublicStoreSettingsViewSet, basename="public-storesettings")
-# Chat system temporarily disabled to reduce log noise
-# router.register(r"chat-rooms", PublicChatRoomViewSet, basename="public-chatroom")
-# router.register(r"chat-messages", PublicChatMessageViewSet, basename="public-chatmessage")
+# Chat system endpoints
+router.register(r"chat-rooms", PublicChatRoomViewSet, basename="public-chatroom")
+router.register(r"user-chat", UserChatRoomViewSet, basename="user-chatroom")
 router.register(r"contacts", PublicContactViewSet, basename="public-contact")
 router.register(r"service-queries", PublicServiceQueryViewSet, basename="public-servicequery")
 router.register(r"orders", PublicOrderCreateViewSet, basename="public-order")

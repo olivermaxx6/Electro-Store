@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { Filter, SlidersHorizontal, ChevronDown, ChevronUp, Star, Clock, Users } from 'lucide-react';
+import { Filter, SlidersHorizontal, ChevronDown, Star } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
 import TitleUpdater from '../components/common/TitleUpdater';
@@ -20,7 +20,7 @@ const transformServiceData = (apiService: Service) => {
     rating: parseFloat(apiService.rating.toString()),
     reviewCount: apiService.review_count,
     viewCount: apiService.view_count || 0,
-    image: apiService.images?.[0]?.image || null,
+    image: (apiService.images as any[])?.find(img => img.is_main)?.image || apiService.images?.[0]?.image || null,
     features: Array.isArray(apiService.key_features) ? apiService.key_features : [],
     category: apiService.category?.name || 'Uncategorized',
     categoryId: apiService.category?.id || null,
@@ -52,9 +52,8 @@ const normalizeCategoryData = (categories: any[]): ServiceCategory[] => {
 const ServiceCard: React.FC<{ 
   service: any; 
   onServiceClick: (service: any) => void;
-  viewMode?: 'grid' | 'list';
   currency?: any;
-}> = ({ service, onServiceClick, viewMode = 'grid', currency }) => {
+}> = ({ service, onServiceClick, currency }) => {
   const handleServiceClick = async () => {
     try {
       await incrementServiceView(service.id.toString());
@@ -64,139 +63,96 @@ const ServiceCard: React.FC<{
     }
   };
 
-  // Grid view layout (original)
-  if (viewMode === 'grid') {
-    return (
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer">
-        <Link 
-          to={`/service/${service.id}`}
-          onClick={handleServiceClick}
-          className="block"
-        >
-          {/* Service Image */}
-          <div className="relative w-full h-48 overflow-hidden">
-            {service.image ? (
-              <img
-                src={service.image}
-                alt={service.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 bg-white/20 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm text-white/80 font-medium">{service.title}</span>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Service Info */}
-          <div className="p-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              {service.title}
-            </h3>
-            
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-3 line-clamp-2">
-              {service.description}
-            </p>
-            
-            {/* Rating and Reviews */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                <span className="text-sm font-medium text-gray-900 dark:text-white ml-1">
-                  {service.rating.toFixed(1)}
-                </span>
-              </div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                ({service.reviewCount} reviews)
-              </span>
-            </div>
-            
-            {/* Price and Duration */}
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                Starting from {formatPrice(service.price, currency)}
-              </div>
-              <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                <Clock className="w-4 h-4 mr-1" />
-                {service.duration}
-              </div>
-            </div>
-          </div>
-        </Link>
-      </div>
-    );
-  }
-
-  // List view layout (new)
+  // YouTube-style thumbnail layout
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer">
+    <div className="group cursor-pointer p-2">
       <Link 
         to={`/service/${service.id}`}
         onClick={handleServiceClick}
         className="block"
       >
-        <div className="flex flex-col md:flex-row">
-          {/* Left side - Service Image */}
-          <div className="relative w-full md:w-64 h-48 overflow-hidden flex-shrink-0 order-first">
-            {service.image ? (
-              <img
-                src={service.image}
-                alt={service.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <span className="text-lg text-white/80 font-medium">{service.title}</span>
+        {/* YouTube-Style Thumbnail */}
+        <div className="relative w-full aspect-video bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
+          {service.image ? (
+            <img
+              src={service.image}
+              alt={service.title}
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                // If image fails to load, show the YouTube-style fallback
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.innerHTML = `
+                    <div class="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center">
+                      <div class="text-center">
+                        <div class="w-12 h-12 mx-auto mb-2 bg-white/20 rounded-full flex items-center justify-center">
+                          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span class="text-sm text-white font-medium">${service.title}</span>
+                      </div>
+                    </div>
+                  `;
+                }
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-12 h-12 mx-auto mb-2 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
+                <span className="text-sm text-white font-medium">{service.title}</span>
               </div>
-            )}
+            </div>
+          )}
+          
+          {/* Service-Style Price Badge */}
+          <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+            {formatPrice(service.price, currency)}
           </div>
           
-          {/* Right side - Service Info */}
-          <div className="flex-1 p-4 md:p-6">
-            <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              {service.title}
-            </h3>
-            
-            <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-2 md:line-clamp-3 text-sm md:text-base">
-              {service.description}
-            </p>
-            
-            {/* Rating and Reviews */}
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex items-center">
-                <Star className="w-4 h-4 md:w-5 md:h-5 text-yellow-400 fill-current" />
-                <span className="text-sm md:text-base font-medium text-gray-900 dark:text-white ml-1">
-                  {service.rating.toFixed(1)}
-                </span>
-              </div>
-              <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                ({service.reviewCount} reviews)
-              </span>
+          {/* Service-Style Action Button Overlay */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
+            <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
             </div>
-            
-            {/* Starting Price */}
-            <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
-              Starting from {formatPrice(service.price, currency)}
+          </div>
+        </div>
+        
+        {/* Service-Style Info */}
+        <div className="mt-4 px-1">
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm line-clamp-2 group-hover:text-red-600 dark:group-hover:text-blue-400 transition-colors leading-tight mb-2">
+            {service.title}
+          </h3>
+          
+          <div className="mt-2 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
+            <div className="flex items-center">
+              <Star className="w-3 h-3 text-yellow-400 fill-current" />
+              <span className="ml-1">{service.rating.toFixed(1)}</span>
             </div>
+            <span>•</span>
+            <span>{service.reviewCount} reviews</span>
+            <span>•</span>
+            <span>{service.viewCount} views</span>
+          </div>
+          
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-500">
+            {service.duration}
           </div>
         </div>
       </Link>
     </div>
   );
+
 };
 
 // Filter Component
@@ -209,14 +165,21 @@ const FilterSection: React.FC<{
   return (
     <div className="border-b border-gray-200 dark:border-slate-700 pb-4 mb-4">
       <button
-        onClick={onToggle}
-        className="flex items-center justify-between w-full text-left font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle();
+        }}
+        className="flex items-center justify-between w-full text-left font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors py-3 touch-manipulation bg-gray-50 dark:bg-slate-700/50 rounded-lg px-3"
+        type="button"
       >
-        <span>{title}</span>
-        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        <span className="text-base lg:text-sm">{title}</span>
+        <div className={`transform transition-transform duration-200 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
+          <ChevronDown className="w-5 h-5 lg:w-4 lg:h-4" />
+        </div>
       </button>
       {isOpen && (
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 space-y-3 lg:space-y-2 bg-white dark:bg-slate-800 rounded-lg p-3">
           {children}
         </div>
       )}
@@ -231,16 +194,16 @@ const PriceRangeFilter: React.FC<{
   onRangeChange: (range: string) => void;
 }> = ({ priceRanges, selectedRanges, onRangeChange }) => {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 lg:space-y-2">
       {priceRanges.map((range) => (
-        <label key={range.label} className="flex items-center">
+        <label key={range.label} className="flex items-center py-2 lg:py-1 touch-manipulation">
           <input
             type="checkbox"
             checked={selectedRanges.includes(range.label)}
             onChange={() => onRangeChange(range.label)}
-            className="rounded border-gray-300 dark:border-slate-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+            className="w-5 h-5 lg:w-4 lg:h-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 touch-manipulation"
           />
-          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+          <span className="ml-3 lg:ml-2 text-base lg:text-sm text-gray-700 dark:text-gray-300">
             {range.label}
           </span>
         </label>
@@ -251,16 +214,19 @@ const PriceRangeFilter: React.FC<{
 
 // Service Category Page Component
 const ServiceCategoryPage: React.FC = () => {
-  const { categoryName } = useParams<{ categoryName: string }>();
+  const { categoryName, id } = useParams<{ categoryName?: string; id?: string }>();
   const [searchParams] = useSearchParams();
-  const categoryParam = searchParams.get('category') || categoryName;
+  
+  // Determine if we're using ID-based routing (subcategory) or name-based routing
+  const isSubcategoryRoute = !!id;
+  const categoryParam = isSubcategoryRoute ? id : (searchParams.get('category') || categoryName);
   
   // Store settings for currency
   const { settings } = useStoreSettings();
   
   // Helper function to get currency object from string
   const getCurrencyObject = (currencyCode: string) => {
-    return currencyOptions.find(curr => curr.code === currencyCode) || currencyOptions[0];
+    return currencyOptions.find((curr: any) => curr.code === currencyCode) || currencyOptions[0];
   };
   
   // State
@@ -268,7 +234,6 @@ const ServiceCategoryPage: React.FC = () => {
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
@@ -280,6 +245,9 @@ const ServiceCategoryPage: React.FC = () => {
   const [priceFilterOpen, setPriceFilterOpen] = useState(true);
   const [ratingFilterOpen, setRatingFilterOpen] = useState(true);
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
+  
+  // Ref for filter button
+  const filterButtonRef = useRef<HTMLDivElement>(null);
 
   // Price ranges with dynamic currency
   const currencySymbol = getCurrencyObject(settings?.currency || 'GBP').symbol;
@@ -291,12 +259,18 @@ const ServiceCategoryPage: React.FC = () => {
     { label: `Over ${currencySymbol}500`, min: 500, max: null }
   ];
 
-  // Rating options
+  // Rating options with dynamic counts
+  const getRatingFilterCount = (minRating: number) => {
+    return servicesData.filter(service => 
+      service.rating && service.rating >= minRating
+    ).length;
+  };
+
   const ratingOptions = [
-    { label: '4+ Stars', value: '4' },
-    { label: '3+ Stars', value: '3' },
-    { label: '2+ Stars', value: '2' },
-    { label: '1+ Stars', value: '1' }
+    { label: '4+ Stars', value: '4', count: getRatingFilterCount(4) },
+    { label: '3+ Stars', value: '3', count: getRatingFilterCount(3) },
+    { label: '2+ Stars', value: '2', count: getRatingFilterCount(2) },
+    { label: '1+ Stars', value: '1', count: getRatingFilterCount(1) }
   ];
 
   // Sort options
@@ -321,8 +295,8 @@ const ServiceCategoryPage: React.FC = () => {
           getServiceCategories()
         ]);
         
-        const services = servicesResponse.results || servicesResponse;
-        const categoriesRaw = categoriesResponse.results || categoriesResponse;
+        const services = Array.isArray(servicesResponse) ? servicesResponse : (servicesResponse.results || []);
+        const categoriesRaw = Array.isArray(categoriesResponse) ? categoriesResponse : (categoriesResponse.results || []);
         
         const normalizedCategories = normalizeCategoryData(categoriesRaw);
         const transformedServices = services.map((service: Service) => transformServiceData(service));
@@ -341,20 +315,121 @@ const ServiceCategoryPage: React.FC = () => {
     fetchData();
   }, []);
 
+  // Scroll to top when page loads
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'smooth'
+    });
+  }, []);
+
+  // Scroll to top when category changes
+  useEffect(() => {
+    if (categoryParam) {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+    }
+  }, [categoryParam]);
+
+  // Scroll to top when filters change
+  useEffect(() => {
+    if (selectedPriceRanges.length > 0 || selectedRatings.length > 0 || sortBy !== 'name') {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+    }
+  }, [selectedPriceRanges, selectedRatings, sortBy]);
+
+  // Add CSS for YouTube-style thumbnails
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      
+      .aspect-video {
+        aspect-ratio: 16 / 9;
+      }
+      
+      @supports not (aspect-ratio: 16 / 9) {
+        .aspect-video {
+          position: relative;
+          padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        }
+        
+        .aspect-video > * {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Add direct event listener to filter button to bypass any React event issues
+  useEffect(() => {
+    const filterButton = filterButtonRef.current;
+    if (filterButton) {
+      const handleClick = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.log('Direct event listener triggered, current showFilters:', showFilters);
+        setShowFilters(!showFilters);
+      };
+
+      filterButton.addEventListener('click', handleClick, true);
+      filterButton.addEventListener('touchstart', handleClick, true);
+      filterButton.addEventListener('mousedown', handleClick, true);
+
+      return () => {
+        filterButton.removeEventListener('click', handleClick, true);
+        filterButton.removeEventListener('touchstart', handleClick, true);
+        filterButton.removeEventListener('mousedown', handleClick, true);
+      };
+    }
+  }, [showFilters]);
+
   // Filter and sort services
   const filteredAndSortedServices = useMemo(() => {
     let filtered = servicesData.filter(service => {
-      // Filter by category - handle both URL slug format and original category names
-      const matchesCategory = !categoryParam || 
-        service.parentCategory?.toLowerCase() === categoryParam.toLowerCase() ||
-        service.category?.toLowerCase() === categoryParam.toLowerCase() ||
-        service.parentCategory?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase() ||
-        service.category?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase() ||
-        // Additional matching for slug format
-        service.parentCategory?.toLowerCase() === categoryName?.toLowerCase().replace(/-/g, ' ') ||
-        service.category?.toLowerCase() === categoryName?.toLowerCase().replace(/-/g, ' ');
+      // Filter by category - handle both ID-based and name-based routing
+      if (!categoryParam) return true;
       
-      if (!matchesCategory) return false;
+      if (isSubcategoryRoute) {
+        // ID-based routing: match by category ID
+        const matchesCategory = service.categoryId === parseInt(categoryParam) || 
+                               service.parentCategoryId === parseInt(categoryParam);
+        if (!matchesCategory) return false;
+      } else {
+        // Name-based routing: match by category name
+        const matchesCategory = 
+          service.parentCategory?.toLowerCase() === categoryParam.toLowerCase() ||
+          service.category?.toLowerCase() === categoryParam.toLowerCase() ||
+          service.parentCategory?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase() ||
+          service.category?.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase() ||
+          // Additional matching for slug format
+          service.parentCategory?.toLowerCase() === categoryName?.toLowerCase().replace(/-/g, ' ') ||
+          service.category?.toLowerCase() === categoryName?.toLowerCase().replace(/-/g, ' ');
+        if (!matchesCategory) return false;
+      }
       
       // Filter by price range
       if (selectedPriceRanges.length > 0) {
@@ -407,10 +482,13 @@ const ServiceCategoryPage: React.FC = () => {
   }, [servicesData, categoryParam, selectedPriceRanges, selectedRatings, sortBy]);
 
   // Get category information
-  const currentCategory = categories.find(cat => 
-    cat.name.toLowerCase() === categoryParam?.toLowerCase() ||
-    cat.name.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase()
-  );
+  // Find current category based on routing type
+  const currentCategory = isSubcategoryRoute 
+    ? categories.find(cat => cat.id === parseInt(categoryParam || '0'))
+    : categories.find(cat => 
+        cat.name.toLowerCase() === categoryParam?.toLowerCase() ||
+        cat.name.toLowerCase().replace(/\s+/g, '-') === categoryName?.toLowerCase()
+      );
 
   const handleServiceClick = () => {
     // Service click is handled in the ServiceCard component
@@ -486,33 +564,85 @@ const ServiceCategoryPage: React.FC = () => {
         </div>
 
         {/* Mobile Filter Toggle */}
-        <div className="lg:hidden mb-6">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+        <div className="lg:hidden mb-8" onClick={(e) => e.stopPropagation()}>
+          {/* Filter Section Header */}
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Filter Services
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Refine your search by price, rating, and more
+            </p>
+          </div>
+          
+          <div
+            ref={filterButtonRef}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+              console.log('Filter button clicked, current showFilters:', showFilters);
+              setShowFilters(!showFilters);
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="w-full flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-xl text-blue-900 dark:text-blue-100 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 transition-all duration-200 touch-manipulation cursor-pointer shadow-sm hover:shadow-md"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowFilters(!showFilters);
+              }
+            }}
+            style={{ pointerEvents: 'auto' }}
           >
-            <SlidersHorizontal className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && (
-              <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {selectedPriceRanges.length + selectedRatings.length + (sortBy !== 'name' ? 1 : 0)}
-              </span>
-            )}
-          </button>
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal className="w-5 h-5" />
+              <span className="font-medium">Filters</span>
+              {hasActiveFilters && (
+                <span className="bg-blue-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
+                  {selectedPriceRanges.length + selectedRatings.length + (sortBy !== 'name' ? 1 : 0)}
+                </span>
+              )}
+            </div>
+            <div className={`transform transition-transform duration-200 ${showFilters ? 'rotate-180' : 'rotate-0'}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Separator */}
+        <div className="lg:hidden mb-8">
+          <div className="h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent"></div>
         </div>
 
         <div className="flex gap-8">
           {/* Filters Sidebar */}
           <div className={`${showFilters ? 'block' : 'hidden'} lg:block w-full lg:w-80 flex-shrink-0`}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 sticky top-8">
+            <div className="bg-gradient-to-b from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 rounded-xl border-2 border-gray-200 dark:border-slate-700 p-4 lg:p-6 sticky top-8 shadow-lg">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Filters
-                </h2>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Filter Services
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Refine your search
+                  </p>
+                </div>
                 {hasActiveFilters && (
                   <button
                     onClick={clearAllFilters}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                    className="text-base lg:text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors py-2 px-3 lg:py-1 lg:px-2 touch-manipulation bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30"
                   >
                     Clear All
                   </button>
@@ -538,17 +668,22 @@ const ServiceCategoryPage: React.FC = () => {
                 isOpen={ratingFilterOpen}
                 onToggle={() => setRatingFilterOpen(!ratingFilterOpen)}
               >
-                <div className="space-y-2">
+                <div className="space-y-3 lg:space-y-2">
                   {ratingOptions.map((option) => (
-                    <label key={option.value} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedRatings.includes(option.value)}
-                        onChange={() => handleRatingChange(option.value)}
-                        className="rounded border-gray-300 dark:border-slate-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
-                      />
-                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                        {option.label}
+                    <label key={option.value} className="flex items-center justify-between py-2 lg:py-1 touch-manipulation">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedRatings.includes(option.value)}
+                          onChange={() => handleRatingChange(option.value)}
+                          className="w-5 h-5 lg:w-4 lg:h-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 touch-manipulation"
+                        />
+                        <span className="ml-3 lg:ml-2 text-base lg:text-sm text-gray-700 dark:text-gray-300">
+                          {option.label}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-600 px-2 py-1 rounded-full">
+                        {option.count}
                       </span>
                     </label>
                   ))}
@@ -561,17 +696,17 @@ const ServiceCategoryPage: React.FC = () => {
                 isOpen={sortFilterOpen}
                 onToggle={() => setSortFilterOpen(!sortFilterOpen)}
               >
-                <div className="space-y-2">
+                <div className="space-y-3 lg:space-y-2">
                   {sortOptions.map((option) => (
-                    <label key={option.value} className="flex items-center">
+                    <label key={option.value} className="flex items-center py-2 lg:py-1 touch-manipulation">
                       <input
                         type="radio"
                         name="sort"
                         checked={sortBy === option.value}
                         onChange={() => setSortBy(option.value)}
-                        className="border-gray-300 dark:border-slate-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        className="w-5 h-5 lg:w-4 lg:h-4 border-gray-300 dark:border-slate-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 touch-manipulation"
                       />
-                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="ml-3 lg:ml-2 text-base lg:text-sm text-gray-700 dark:text-gray-300">
                         {option.label}
                       </span>
                     </label>
@@ -588,49 +723,16 @@ const ServiceCategoryPage: React.FC = () => {
               <div className="text-gray-600 dark:text-gray-300">
                 <span className="font-medium">{filteredAndSortedServices.length}</span> services found
               </div>
-              
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-lg transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
             </div>
 
-            {/* Services Grid/List */}
+            {/* Services Grid */}
             {filteredAndSortedServices.length > 0 ? (
-              <div className={
-                viewMode === 'grid' 
-                  ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-                  : 'space-y-4'
-              }>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                 {filteredAndSortedServices.map((service) => (
                   <ServiceCard
                     key={service.id}
                     service={service}
                     onServiceClick={handleServiceClick}
-                    viewMode={viewMode}
                     currency={getCurrencyObject(settings?.currency || 'GBP')}
                   />
                 ))}
@@ -648,7 +750,7 @@ const ServiceCategoryPage: React.FC = () => {
                 </p>
                 <button
                   onClick={clearAllFilters}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium touch-manipulation"
                 >
                   Clear All Filters
                 </button>

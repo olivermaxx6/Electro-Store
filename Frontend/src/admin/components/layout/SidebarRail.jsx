@@ -3,18 +3,18 @@ import { LayoutDashboard, Package, Wrench, MessagesSquare, ShoppingCart, Users, 
 import SidebarItem from './SidebarItem';
 
 const links = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/manage-categories', label: 'Manage Categories', icon: Package },
-  { to: '/admin/products', label: 'Product Management', icon: Package },
-  { to: '/admin/services', label: 'Services Management', icon: Wrench },
-  { to: '/admin/orders', label: 'Order Management', icon: ShoppingCart },
-  { to: '/admin/users', label: 'User Management', icon: Users },
-  { to: '/admin/content', label: 'Website Content', icon: FileText },
-  { to: '/admin/reviews', label: 'Product Reviews', icon: Star },
-  { to: '/admin/service-reviews', label: 'Service Reviews', icon: Star },
-  { to: '/admin/chat', label: 'Customer Chat', icon: MessageCircle },
-  { to: '/admin/contact', label: 'Contact Messages', icon: Mail },
-  { to: '/admin/settings', label: 'Store Settings', icon: Settings },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/manage-categories', label: 'Manage Categories', icon: Package },
+  { to: '/products', label: 'Product Management', icon: Package },
+  { to: '/services', label: 'Services Management', icon: Wrench },
+  { to: '/orders', label: 'Order Management', icon: ShoppingCart },
+  { to: '/users', label: 'User Management', icon: Users },
+  { to: '/content', label: 'Website Content', icon: FileText },
+  { to: '/reviews', label: 'Product Reviews', icon: Star },
+  { to: '/service-reviews', label: 'Service Reviews', icon: Star },
+  { to: '/chat', label: 'Customer Chat', icon: MessageCircle },
+  { to: '/contact', label: 'Contact Messages', icon: Mail },
+  { to: '/settings', label: 'Store Settings', icon: Settings },
 ];
 
 export default function SidebarRail({ collapsed }) {

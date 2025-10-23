@@ -7,10 +7,14 @@ import FooterColumns from '../components/footer/FooterColumns';
 import BottomBar from '../components/footer/BottomBar';
 import StoreSettingsInitializer from '../components/common/StoreSettingsInitializer';
 import TitleUpdater from '../components/common/TitleUpdater';
+import ScrollToTop from '../components/common/ScrollToTop';
 
 const Layout: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900">
+      {/* Scroll to top on route change */}
+      <ScrollToTop />
+      
       {/* Initialize store settings and update title */}
       <StoreSettingsInitializer />
       <TitleUpdater />

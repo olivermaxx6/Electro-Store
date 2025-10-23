@@ -1330,17 +1330,18 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f" Created service: {service.name}")
                 
-                # Add service image using German.png if available, else fallback to anime.jpg
+                # Add service image using available image files
+                # Use proper Django file handling to ensure correct upload paths and filenames
                 if german_path and os.path.exists(german_path):
                     with open(german_path, 'rb') as f:
-                        service_image = ServiceImage.objects.create(service=service)
-                        service_image.image.save('German.png', File(f), save=True)
-                        self.stdout.write(f"   Added German.png image to {service.name}")
+                        django_file = File(f, name=os.path.basename(german_path))
+                        service_image = ServiceImage.objects.create(service=service, image=django_file)
+                        self.stdout.write(f"   Added service image to {service.name}")
                 elif anime_path and os.path.exists(anime_path):
                     with open(anime_path, 'rb') as f:
-                        service_image = ServiceImage.objects.create(service=service)
-                        service_image.image.save('anime.jpg', File(f), save=True)
-                        self.stdout.write(f"   Added image to {service.name}")
+                        django_file = File(f, name=os.path.basename(anime_path))
+                        service_image = ServiceImage.objects.create(service=service, image=django_file)
+                        self.stdout.write(f"   Added service image to {service.name}")
             
             services.append(service)
         

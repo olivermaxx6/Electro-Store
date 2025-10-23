@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeTextarea } from '@shared/theme';
+import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeTextarea } from '@theme';
 import { listBrands, listTopCategories, createBrand, deleteBrand, createCategory, deleteCategory, updateContent, getContent } from '../../lib/api';
 import DealCountdown from '../../components/DealCountdown';
 
@@ -59,11 +59,12 @@ export default function ContentPage() {
         getContent()
       ]);
       
-      setBrands(brandsRes.data.results || brandsRes.data || []);
-      setCategories(categoriesRes.data.results || categoriesRes.data || []);
+      // Handle different response structures safely
+      setBrands(brandsRes?.results || brandsRes?.data?.results || brandsRes?.data || brandsRes || []);
+      setCategories(categoriesRes?.results || categoriesRes?.data?.results || categoriesRes?.data || categoriesRes || []);
       
       // Load actual content data from API
-      const contentData = contentRes.data;
+      const contentData = contentRes?.data || contentRes || {};
       console.log('Loaded content data:', contentData);
       setContent(prev => ({
         ...prev,
@@ -99,6 +100,10 @@ export default function ContentPage() {
         status: err.response?.status,
         data: err.response?.data
       });
+      
+      // Set empty arrays as fallback to prevent further errors
+      setBrands([]);
+      setCategories([]);
       
       // More specific error messages
       let errorMessage = 'Failed to load content data.';
@@ -180,7 +185,7 @@ export default function ContentPage() {
       
       // Call the API to save content
       const result = await updateContent(formData);
-      console.log('Save result:', result.data);
+      console.log('Save result:', result);
       
       setMsg({ kind: 'success', text: 'Content saved successfully! Updated on storefront.' });
       
@@ -292,12 +297,14 @@ export default function ContentPage() {
             <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Content Management</h1>
           </div>
 
-          {/* Alert Messages */}
+          {/* Popup Alert Messages */}
           {msg && (
             <ThemeAlert 
               message={msg.text} 
               type={msg.kind === 'success' ? 'success' : 'error'}
               onClose={() => setMsg(null)}
+              autoClose={true}
+              duration={1000}
             />
           )}
 

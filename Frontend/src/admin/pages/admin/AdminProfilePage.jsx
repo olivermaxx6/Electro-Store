@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ThemeCard, ThemeInput, ThemeButton, ThemeAlert } from '@shared/theme';
+import { ThemeCard, ThemeInput, ThemeButton, ThemeAlert } from '@theme';
 import { User, Mail, Phone, MapPin, Shield, Save, Camera, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../store/authStore';
 

@@ -20,7 +20,27 @@ const apiRequest = async (endpoint, options = {}) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: 'Network error' }));
-      throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+      const errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
+      const error = new Error(errorMessage);
+      
+      // Ensure error has response data
+      error.response = { 
+        data: errorData, 
+        status: response.status,
+        statusText: response.statusText
+      };
+      
+      // Also add the data directly to the error for easier access
+      error.data = errorData;
+      error.status = response.status;
+      
+      console.error(`Products API Error [${endpoint}]:`, {
+        message: errorMessage,
+        status: response.status,
+        data: errorData
+      });
+      
+      throw error;
     }
     
     return await response.json();
@@ -45,8 +65,8 @@ export const getProductReviews = async (productId, params = {}) => {
 };
 
 // Create product review
-export const createProductReview = async (productId, reviewData) => {
-  return apiRequest(`/products/${productId}/reviews/`, {
+export const createProductReview = async (reviewData) => {
+  return apiRequest(`/reviews/`, {
     method: 'POST',
     body: JSON.stringify(reviewData),
   });
@@ -59,7 +79,7 @@ export const checkUserProductReview = async (productId) => {
 
 // Increment product view count
 export const incrementProductView = async (productId) => {
-  return apiRequest(`/products/${productId}/view/`, {
+  return apiRequest(`/products/${productId}/increment_view/`, {
     method: 'POST',
   });
 };

@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Home, ShoppingBag } from 'lucide-react';
 import LoadingScreen from '../components/common/LoadingScreen';
+import { useDropdown } from '../contexts/DropdownContext';
+import { useAllCategories } from '../hooks/useCategories';
 
 interface Category {
   id: number;
@@ -95,7 +97,7 @@ const CategorySection: React.FC<{
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
       // Initial check
       handleScroll();
     }
@@ -188,9 +190,8 @@ const CategorySection: React.FC<{
 const AllSubcategories: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { activeDropdown } = useDropdown();
+  const { categories, loading, error } = useAllCategories();
 
   // Add CSS to hide scrollbars and ensure proper container behavior
   useEffect(() => {
@@ -208,9 +209,21 @@ const AllSubcategories: React.FC = () => {
         overflow-y: hidden;
         scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        overscroll-behavior-x: contain;
       }
       .horizontal-scroll-container::-webkit-scrollbar {
         display: none;
+      }
+      
+      /* Mobile and tablet specific fixes */
+      @media (max-width: 1024px) {
+        .horizontal-scroll-container {
+          touch-action: pan-x;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -223,48 +236,22 @@ const AllSubcategories: React.FC = () => {
   const categoryId = searchParams.get('category');
   const categoryName = searchParams.get('name');
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch ALL categories from public backend
-        let allCategories: any[] = [];
-        let nextUrl = 'http://127.0.0.1:8001/api/public/categories/';
-        
-        while (nextUrl) {
-          const categoriesResponse = await fetch(nextUrl);
-          if (categoriesResponse.ok) {
-            const categoriesData = await categoriesResponse.json();
-            allCategories = [...allCategories, ...(categoriesData.results || [])];
-            nextUrl = categoriesData.next || null;
-          } else {
-            console.error('Categories API request failed with status:', categoriesResponse.status);
-            throw new Error(`Failed to load categories: ${categoriesResponse.status} ${categoriesResponse.statusText}`);
-          }
-        }
-        
-        setCategories(allCategories);
-        
-      } catch (err) {
-        console.error('Failed to load data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [categoryId]);
-
   // Get the parent category
   const parentCategory = categories.find(cat => cat.id === parseInt(categoryId || '0'));
 
-  // Get all subcategories for this parent category, excluding "Electrical"
+  // Debug logging
+  useEffect(() => {
+    if (categories.length > 0) {
+      console.log('AllSubcategories: Loaded categories:', categories.length);
+      console.log('AllSubcategories: Parent category:', parentCategory);
+      console.log('AllSubcategories: Subcategories:', categories.filter(cat => cat.parent === parseInt(categoryId || '0')));
+    }
+  }, [categories, categoryId, parentCategory]);
+
+  // Get all subcategories for this parent category
   const getSubcategories = () => {
     if (!categoryId) return [];
-    return categories.filter(cat => cat.parent === parseInt(categoryId) && cat.name !== 'Electrical');
+    return categories.filter(cat => cat.parent === parseInt(categoryId));
   };
 
   // Get grandchild categories for a specific subcategory
@@ -363,21 +350,23 @@ const AllSubcategories: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
-        <div className="mb-6">
-          <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-            >
-              <Home className="w-4 h-4 mr-1" />
-              Home
-            </button>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900 dark:text-white font-medium">
-              {categoryName || parentCategory.name}
-            </span>
-          </nav>
-        </div>
+        {!activeDropdown && (
+          <div className="mb-6">
+            <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                <Home className="w-4 h-4 mr-1" />
+                Home
+              </button>
+              <ChevronRight className="w-4 h-4" />
+              <span className="text-gray-900 dark:text-white font-medium">
+                {categoryName || parentCategory.name}
+              </span>
+            </nav>
+          </div>
+        )}
 
         {/* 1. Parent Category Header */}
         <div className="mb-8">
@@ -387,6 +376,11 @@ const AllSubcategories: React.FC = () => {
           <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
             {getCategoryDescription()}
           </p>
+          {subcategories.length > 0 && (
+            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+              Browse {subcategories.length} subcategor{subcategories.length === 1 ? 'y' : 'ies'} below
+            </div>
+          )}
         </div>
 
         {/* Main Content Layout */}
@@ -395,7 +389,7 @@ const AllSubcategories: React.FC = () => {
           <div className="w-full xl:w-80 flex-shrink-0">
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-6 xl:sticky xl:top-8">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Subcategories
+                {parentCategory?.name} Subcategories
               </h2>
               <div className="space-y-4">
                 {subcategories.map((subcategory) => {
@@ -455,14 +449,20 @@ const AllSubcategories: React.FC = () => {
         {/* No subcategories message */}
         {subcategories.length === 0 && (
           <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-200 dark:bg-slate-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">📂</span>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              No subcategories found
+            </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-4">
-              No subcategories found for {categoryName || parentCategory.name}
+              The category "{categoryName || parentCategory?.name}" doesn't have any subcategories yet.
             </p>
             <button 
               onClick={() => navigate('/categories')}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
             >
-              Back to Categories
+              Browse All Categories
             </button>
           </div>
         )}

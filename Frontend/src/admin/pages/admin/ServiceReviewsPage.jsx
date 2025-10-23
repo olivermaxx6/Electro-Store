@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ThemeLayout, ThemeCard, ThemeButton, ThemeAlert, ThemeSelect } from '@shared/theme';
+import { ThemeLayout, ThemeCard, ThemeButton, ThemeAlert, ThemeSelect } from '@theme';
 import { listServiceReviews, deleteServiceReview, markServiceReviewVerified, markServiceReviewUnverified } from '../../lib/api';
 
 export default function ServiceReviewsPage() {
@@ -23,14 +23,27 @@ export default function ServiceReviewsPage() {
       if (filterVerified !== '') params.verified = filterVerified;
       
       const response = await listServiceReviews(params);
-      const data = response.data;
+      console.log('ServiceReviewsPage: Response received:', response);
       
-      setReviews(data.results || data);
-      setHasNext(!!data.next);
-      setHasPrev(!!data.previous);
+      // Handle different response structures safely
+      const data = response?.data || response || {};
+      console.log('ServiceReviewsPage: Data received:', data);
+      
+      setReviews(data?.results || data || []);
+      setHasNext(!!data?.next);
+      setHasPrev(!!data?.previous);
       
     } catch (err) {
       console.error('Failed to load service reviews:', err);
+      console.error('Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      // Set safe fallback values
+      setReviews([]);
+      setHasNext(false);
+      setHasPrev(false);
       setError('Failed to load service reviews. Please try again.');
     } finally {
       setLoading(false);
@@ -47,17 +60,32 @@ export default function ServiceReviewsPage() {
     }
 
     try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      
       await deleteServiceReview(id);
       setSuccess('Review deleted successfully');
       await loadReviews();
     } catch (err) {
       console.error('Failed to delete review:', err);
+      console.error('Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
       setError('Failed to delete review. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleToggleVerified = async (review) => {
     try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      
       if (review.verified) {
         await markServiceReviewUnverified(review.id);
         setSuccess('Review marked as unverified');
@@ -68,7 +96,14 @@ export default function ServiceReviewsPage() {
       await loadReviews();
     } catch (err) {
       console.error('Failed to update review verification:', err);
+      console.error('Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
       setError('Failed to update review verification. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

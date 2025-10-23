@@ -52,8 +52,8 @@ export default function TopBar({ collapsed, title = 'Dashboard' }) {
             </div>
 
             {/* Logout Button */}
-            <button
-              onClick={() => logout()}
+            <Link
+              to="/admin/sign-out"
               className="group relative rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 hover:border-red-300 dark:hover:border-red-500 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 dark:hover:from-red-900/20 dark:hover:to-pink-900/20 transition-all duration-300 hover:shadow-md hover:scale-105 active:scale-95"
               title={`Logout${user?.username ? ` (${user.username})` : ''}`}
             >
@@ -65,7 +65,7 @@ export default function TopBar({ collapsed, title = 'Dashboard' }) {
                   Logout
                 </span>
               </div>
-            </button>
+            </Link>
           </div>
         </div>
       </header>

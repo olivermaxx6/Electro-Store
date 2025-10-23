@@ -54,8 +54,8 @@ const DualRangeSlider: React.FC<DualRangeSliderProps> = ({
 
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove, { passive: true });
+      document.addEventListener('mouseup', handleMouseUp, { passive: true });
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);

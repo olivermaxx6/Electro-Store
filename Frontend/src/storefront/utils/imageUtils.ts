@@ -3,6 +3,23 @@
  */
 
 /**
+ * Normalizes image URLs to relative paths for consistent frontend usage
+ * @param imageUrl - The image URL (can be relative or absolute)
+ * @returns The normalized relative URL
+ */
+export const normalizeImageUrl = (imageUrl: string | null | undefined): string | null => {
+  if (!imageUrl) return null;
+  
+  // If it's already a relative URL, return as is
+  if (!imageUrl.startsWith('http')) {
+    return imageUrl;
+  }
+  
+  // If it's a full URL, extract just the path
+  return imageUrl.replace('http://127.0.0.1:8001', '');
+};
+
+/**
  * Converts a relative image URL to a full URL
  * @param imageUrl - The image URL (can be relative or absolute)
  * @returns The full URL for the image

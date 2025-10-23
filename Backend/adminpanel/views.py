@@ -17,7 +17,7 @@ from .models import (
     Contact
 )
 from .serializers import (
-    BrandSerializer, CategorySerializer, ProductSerializer, ProductImageSerializer,
+    BrandSerializer, CategorySerializer, CategoryListSerializer, ProductSerializer, ProductImageSerializer,
     ServiceSerializer, ServiceImageSerializer, ServiceInquirySerializer, ServiceQuerySerializer, ServiceCategorySerializer,
     OrderSerializer, ReviewSerializer, ServiceReviewSerializer, WebsiteContentSerializer, StoreSettingsSerializer,
     AdminUserSerializer, ContactSerializer
@@ -37,6 +37,46 @@ class BrandViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["name"]
 
+    def list(self, request, *args, **kwargs):
+        """Cached list view for brands to improve performance"""
+        from django.core.cache import cache
+        
+        # Create cache key based on query parameters
+        cache_key = f"admin_brands_{hash(str(request.query_params))}"
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Get data and cache it
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        
+        # Cache for 2 minutes (shorter than public cache since admin data changes more frequently)
+        cache.set(cache_key, data, 120)
+        return Response(data)
+
+    def create(self, request, *args, **kwargs):
+        """Create brand with cache invalidation"""
+        response = super().create(request, *args, **kwargs)
+        
+        # Clear cache after creating
+        from django.core.cache import cache
+        cache.clear()
+        
+        return response
+
+    def update(self, request, *args, **kwargs):
+        """Update brand with cache invalidation"""
+        response = super().update(request, *args, **kwargs)
+        
+        # Clear cache after updating
+        from django.core.cache import cache
+        cache.clear()
+        
+        return response
+
     def destroy(self, request, *args, **kwargs):
         """Custom destroy method to handle ProtectedError when brand has products"""
         instance = self.get_object()
@@ -52,6 +92,11 @@ class BrandViewSet(viewsets.ModelViewSet):
             
             # Safe to delete
             self.perform_destroy(instance)
+            
+            # Clear cache after deleting
+            from django.core.cache import cache
+            cache.clear()
+            
             return Response(status=status.HTTP_204_NO_CONTENT)
             
         except ProtectedError as e:
@@ -73,6 +118,32 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["parent"]
+
+    def get_serializer_class(self):
+        """Use lightweight serializer for list views to improve performance"""
+        if self.action == 'list':
+            return CategoryListSerializer
+        return super().get_serializer_class()
+
+    def list(self, request, *args, **kwargs):
+        """Cached list view for categories to improve performance"""
+        from django.core.cache import cache
+        
+        # Create cache key based on query parameters
+        cache_key = f"admin_categories_{hash(str(request.query_params))}"
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Get data and cache it
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        
+        # Cache for 2 minutes (shorter than public cache since admin data changes more frequently)
+        cache.set(cache_key, data, 120)
+        return Response(data)
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -115,7 +186,22 @@ class CategoryViewSet(viewsets.ModelViewSet):
         ser = self.get_serializer(data=data)
         ser.is_valid(raise_exception=True)
         self.perform_create(ser)
+        
+        # Clear cache after creating
+        from django.core.cache import cache
+        cache.clear()
+        
         return Response(ser.data, status=201)
+
+    def update(self, request, *args, **kwargs):
+        """Update category with cache invalidation"""
+        response = super().update(request, *args, **kwargs)
+        
+        # Clear cache after updating
+        from django.core.cache import cache
+        cache.clear()
+        
+        return response
 
     def destroy(self, request, *args, **kwargs):
         """Custom destroy method to handle ProtectedError when category has products"""
@@ -201,23 +287,19 @@ class ProductViewSet(viewsets.ModelViewSet):
         """Upload one or more images (.jpg/.png) for a product"""
         product = self.get_object()
         files = request.FILES.getlist("images")
+        log.info(f"Received {len(files)} files for product {pk}")
+        log.info(f"Files: {[f.name for f in files]}")
         if not files:
             return Response({"detail": "No images provided."}, status=400)
         created = []
         try:
             with transaction.atomic():
                 for f in files:
-                    img = ProductImage(product=product, image=f)
-                    # Validate extension; if invalid, return 400 (not 500)
-                    try:
-                        img.full_clean()
-                    except DjangoValidationError as e:
-                        raise serializers.ValidationError({"detail": e.message_dict.get("image", ["Invalid image"])[0]})
-                    img.save()
+                    img = ProductImage.objects.create(product=product, image=f, is_main=False)
                     created.append(img)
         except Exception as e:
             log.error("Upload images failed: %s", e, exc_info=True)
-            return Response({"detail": "Failed to upload images."}, status=400)
+            return Response({"detail": f"Failed to upload images: {str(e)}"}, status=400)
         return Response(ProductImageSerializer(created, many=True).data, status=201)
 
     @action(detail=True, methods=["delete"], url_path=r"images/(?P<img_id>\d+)")
@@ -229,6 +311,30 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Image not found."}, status=404)
         img.delete()
         return Response(status=204)
+
+    @action(detail=True, methods=["post"], url_path="set-main-image")
+    def set_main_image(self, request, pk=None):
+        """Set a specific image as the main image for a product"""
+        product = self.get_object()
+        image_id = request.data.get('image_id')
+        
+        if not image_id:
+            return Response({"detail": "image_id is required."}, status=400)
+        
+        try:
+            # Get the image
+            image = product.images.get(id=image_id)
+        except ProductImage.DoesNotExist:
+            return Response({"detail": "Image not found."}, status=404)
+        
+        # Set all images to not main first
+        product.images.update(is_main=False)
+        
+        # Set the selected image as main
+        image.is_main = True
+        image.save()
+        
+        return Response({"detail": "Main image updated successfully."}, status=200)
 
     @action(detail=False, methods=['get'], permission_classes=[])
     def top_selling(self, request):
@@ -309,7 +415,7 @@ class ServiceCategoryViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class ServiceViewSet(viewsets.ModelViewSet):
-    queryset = Service.objects.all().order_by("-created_at")
+    queryset = Service.objects.all().select_related('category').prefetch_related('images').order_by("-created_at")
     serializer_class = ServiceSerializer
     permission_classes = [IsAdmin]
 
@@ -329,8 +435,48 @@ class ServiceViewSet(viewsets.ModelViewSet):
         file = request.FILES.get("image")
         if not file:
             return Response({"detail":"image file required"}, status=400)
-        img = ServiceImage.objects.create(service=service, image=file)
-        return Response(ServiceImageSerializer(img).data, status=201)
+        
+        try:
+            # Check if this should be the main image (first image for the service)
+            is_main = request.data.get('is_main', False)
+            if is_main == 'true' or is_main is True:
+                # Set all other images to not main
+                ServiceImage.objects.filter(service=service).update(is_main=False)
+                is_main = True
+            elif not service.images.exists():
+                # If this is the first image, make it main by default
+                is_main = True
+            else:
+                is_main = False
+            
+            img = ServiceImage.objects.create(service=service, image=file, is_main=is_main)
+            return Response(ServiceImageSerializer(img).data, status=201)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+
+    @action(detail=True, methods=["post"], url_path="set-main-image")
+    def set_main_image(self, request, pk=None):
+        """Set a specific image as the main image for a service"""
+        service = self.get_object()
+        image_id = request.data.get('image_id')
+        
+        if not image_id:
+            return Response({"detail": "image_id is required."}, status=400)
+        
+        try:
+            # Get the image
+            image = service.images.get(id=image_id)
+        except ServiceImage.DoesNotExist:
+            return Response({"detail": "Image not found."}, status=404)
+        
+        # Set all images to not main first
+        service.images.update(is_main=False)
+        
+        # Set the selected image as main
+        image.is_main = True
+        image.save()
+        
+        return Response({"detail": "Main image updated successfully."}, status=200)
 
 class ServiceImageDestroyView(mixins.DestroyModelMixin, viewsets.GenericViewSet):
     queryset = ServiceImage.objects.all()
@@ -678,9 +824,26 @@ class ServiceReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ServiceReviewSerializer
     permission_classes = [IsAdmin]
     
+    @action(detail=True, methods=['post'])
+    def verify(self, request, pk=None):
+        """Mark a service review as verified"""
+        review = self.get_object()
+        review.verified = True
+        review.save()
+        return Response({'status': 'marked as verified'})
+    
+    @action(detail=True, methods=['post'])
+    def unverify(self, request, pk=None):
+        """Mark a service review as unverified"""
+        review = self.get_object()
+        review.verified = False
+        review.save()
+        return Response({'status': 'marked as unverified'})
+    
+    # Keep the old method names for backward compatibility
     @action(detail=True, methods=['patch'])
     def mark_verified(self, request, pk=None):
-        """Mark a service review as verified"""
+        """Mark a service review as verified (backward compatibility)"""
         review = self.get_object()
         review.verified = True
         review.save()
@@ -688,7 +851,7 @@ class ServiceReviewViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['patch'])
     def mark_unverified(self, request, pk=None):
-        """Mark a service review as unverified"""
+        """Mark a service review as unverified (backward compatibility)"""
         review = self.get_object()
         review.verified = False
         review.save()

@@ -21,14 +21,16 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 django.setup()
 
 # Import consumers after Django is set up
-from adminpanel.consumers import ChatConsumer, AdminChatConsumer
+from adminpanel.enhanced_consumers import EnhancedChatConsumer, EnhancedAdminChatConsumer
+from adminpanel.realtime_consumer import AdminRealtimeConsumer
 from adminpanel.jwt_ws_auth import JWTAuthMiddleware
 
 django_asgi_app = get_asgi_application()
 
 websocket_urlpatterns = [
-    re_path(r"^ws/chat/(?P<room_id>[\w-]+)/$", ChatConsumer.as_asgi()),
-    re_path(r"^ws/admin/chat/$", AdminChatConsumer.as_asgi()),
+    re_path(r"^ws/chat/(?P<room_id>[\w-]+)/$", EnhancedChatConsumer.as_asgi()),
+    re_path(r"^ws/admin/chat/$", EnhancedAdminChatConsumer.as_asgi()),
+    re_path(r"^ws/admin/realtime/$", AdminRealtimeConsumer.as_asgi()),
 ]
 
 application = ProtocolTypeRouter({

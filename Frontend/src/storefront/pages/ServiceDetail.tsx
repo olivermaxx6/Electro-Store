@@ -19,7 +19,7 @@ const transformServiceData = (apiService: Service) => ({
   rating: parseFloat(apiService.rating.toString()),
   reviewCount: apiService.review_count,
   viewCount: apiService.view_count || 0,
-  image: apiService.images?.[0]?.image || null,
+  image: (apiService.images as any[])?.find(img => img.is_main)?.image || apiService.images?.[0]?.image || null,
   category: apiService.category?.name || 'Uncategorized',
   features: apiService.key_features || [],
   detailedDescription: apiService.overview || apiService.description,
@@ -116,6 +116,58 @@ const ServiceDetail: React.FC = () => {
 
     fetchService();
   }, [id]);
+
+  // Add CSS for responsive service images
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .aspect-video {
+        aspect-ratio: 16 / 9;
+      }
+      
+      @supports not (aspect-ratio: 16 / 9) {
+        .aspect-video {
+          position: relative;
+          padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        }
+        
+        .aspect-video > * {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+      }
+      
+      /* Responsive service image sizing */
+      @media (max-width: 640px) {
+        .service-image-container {
+          max-width: 100%;
+          margin: 0 auto;
+        }
+      }
+      
+      @media (min-width: 641px) and (max-width: 1024px) {
+        .service-image-container {
+          max-width: 500px;
+          margin: 0 auto;
+        }
+      }
+      
+      @media (min-width: 1025px) {
+        .service-image-container {
+          max-width: 600px;
+          margin: 0 auto;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   // Loading state
   if (loading) {
@@ -335,23 +387,50 @@ const ServiceDetail: React.FC = () => {
                 </div>
               </div>
 
-               {/* Service Image */}
-               <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
-                 {service.image ? (
-                   <img 
-                     src={service.image} 
-                     alt={service.title}
-                     className="w-full h-auto object-cover"
-                     style={{ width: '750px', height: '590px' }}
-                   />
-                 ) : (
-                   <div className="w-full flex items-center justify-center" style={{ width: '750px', height: '590px' }}>
-                     <div className="text-gray-400 dark:text-gray-500 text-center">
-                       <div className="text-6xl mb-2">🖼️</div>
-                       <div className="text-lg">No image available</div>
+               {/* Service Card */}
+               <div className="w-full bg-gradient-to-br from-red-50 to-red-100 dark:from-blue-50 dark:to-blue-100 border-2 border-red-200 dark:border-blue-200 rounded-lg overflow-hidden">
+                 <div className="aspect-video w-full max-w-md mx-auto">
+                   {service.image ? (
+                     <div className="w-full h-full flex items-center justify-center p-4 sm:p-6 lg:p-8">
+                       <img 
+                         src={service.image} 
+                         alt={service.title}
+                         className="w-full h-full object-contain"
+                         onError={(e) => {
+                           // If image fails to load, show the design card
+                           const target = e.target as HTMLImageElement;
+                           target.style.display = 'none';
+                           const parent = target.parentElement;
+                           if (parent) {
+                             parent.innerHTML = `
+                               <div class="w-full h-full flex items-center justify-center">
+                                 <div class="text-center">
+                                   <div class="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto mb-2 sm:mb-4 bg-red-500 dark:bg-blue-500 rounded-full flex items-center justify-center">
+                                     <svg class="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                     </svg>
+                                   </div>
+                                   <span class="text-sm sm:text-base lg:text-lg text-red-700 dark:text-blue-700 font-medium">${service.title}</span>
+                                 </div>
+                               </div>
+                             `;
+                           }
+                         }}
+                       />
                      </div>
-                   </div>
-                 )}
+                   ) : (
+                     <div className="w-full h-full flex items-center justify-center">
+                       <div className="text-center">
+                         <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto mb-2 sm:mb-4 bg-red-500 dark:bg-blue-500 rounded-full flex items-center justify-center">
+                           <svg className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                           </svg>
+                         </div>
+                         <span className="text-sm sm:text-base lg:text-lg text-red-700 dark:text-blue-700 font-medium">{service.title}</span>
+                       </div>
+                     </div>
+                   )}
+                 </div>
                </div>
             </div>
 

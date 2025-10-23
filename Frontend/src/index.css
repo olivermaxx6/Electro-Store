@@ -358,6 +358,26 @@
     }
   }
 
+  @keyframes slideInRight {
+    0% {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
   @keyframes slideUp {
     0% {
       opacity: 0;
@@ -369,6 +389,11 @@
     }
   }
 
+  @keyframes shrink {
+    from { width: 100%; }
+    to { width: 0%; }
+  }
+
   .animate-slide-up {
     animation: slideUp 0.6s ease-out forwards;
     opacity: 0;
@@ -376,6 +401,10 @@
     animation-fill-mode: forwards;
     position: relative;
     z-index: 1;
+  }
+
+  .animate-shrink {
+    animation: shrink linear forwards;
   }
 
   /* Ensure banners stay visible after animation */
@@ -401,6 +430,63 @@
 
   /* Fix for any wide elements that might cause overflow */
   .overflow-x-hidden {
+  }
+
+  /* Mobile Menu Enhancements */
+  .mobile-menu-overlay {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .mobile-menu-panel {
+    animation: slideInRight 0.4s ease-out;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Z-index hierarchy for proper layering */
+  .navbar-container {
+    z-index: 50;
+  }
+
+  .dropdown-menu {
+    z-index: 60;
+  }
+
+  .mobile-menu {
+    z-index: 45;
+  }
+
+  /* Mobile-specific improvements */
+  @media (max-width: 768px) {
+    .mobile-menu-item {
+      font-size: 1rem;
+      padding: 0.875rem 1rem;
+      min-height: 48px; /* Better touch target */
+    }
+    
+    .mobile-submenu-item {
+      font-size: 0.9rem;
+      padding: 0.75rem 1rem;
+      min-height: 44px; /* Better touch target */
+    }
+
+    /* Improve touch interactions */
+    .mobile-menu-item:active,
+    .mobile-submenu-item:active {
+      transform: scale(0.98);
+    }
+  }
+
+  /* Tablet-specific improvements */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .mobile-menu-item {
+      font-size: 1.1rem;
+      padding: 1rem;
+    }
+    
+    .mobile-submenu-item {
+      font-size: 1rem;
+      padding: 0.875rem 1rem;
+    }
   }
 }
 

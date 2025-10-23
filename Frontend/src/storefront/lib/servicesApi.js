@@ -47,6 +47,11 @@ export const getServiceCategories = async () => {
   return apiRequest('/service-categories/');
 };
 
+// Get service categories that have services
+export const getServiceCategoriesWithServices = async () => {
+  return apiRequest('/service-categories/with-services/');
+};
+
 // Get service reviews (flat endpoint expects service id as a query param)
 export const getServiceReviews = async (serviceId, params = {}) => {
   const query = new URLSearchParams({ ...params, service: String(serviceId) }).toString();

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Heart, ShoppingCart, User } from 'lucide-react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { selectCartItemCount } from '../../store/cartSlice';
 import { selectWishlistCount } from '../../store/wishlistSlice';
 import { selectCurrentUser } from '../../store/userSlice';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
+import { LogoImage } from '../../lib/logoUtils';
 
 const MainHeader: React.FC = () => {
-  const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   
   const currentUser = useSelector(selectCurrentUser);
@@ -34,19 +34,12 @@ const MainHeader: React.FC = () => {
 
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            {storeSettings?.store_logo ? (
-              <img 
-                src={storeSettings.store_logo} 
-                alt={storeSettings.store_name || 'Store'} 
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-red-600 dark:bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">
-                  {storeSettings?.store_name ? storeSettings.store_name.charAt(0).toUpperCase() : 'S'}
-                </span>
-              </div>
-            )}
+            <LogoImage 
+              src={storeSettings?.store_logo}
+              alt={storeSettings?.store_name || 'Store'}
+              className="w-8 h-8 rounded-full object-cover"
+              fallbackText={storeSettings?.store_name ? storeSettings.store_name.charAt(0).toUpperCase() : 'S'}
+            />
             <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               {storeSettings?.store_name || 'Store'}<span className="text-red-600 dark:text-blue-400">.</span>
             </span>

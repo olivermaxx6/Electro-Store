@@ -175,18 +175,17 @@ def validate_image_ext(file):
         raise ValidationError("Only .jpg and .png images are allowed.")
 
 def product_image_path(instance, filename):
-    ext = os.path.splitext(filename)[1].lower()
-    new_name = f"{uuid4()}{ext}"
-    
-    # Save all product images in the "Selling products" folder
-    # Assets/images/products/Selling products/<uuid>.<ext>
-    return f"Assets/images/products/Selling products/{new_name}"
+    """Upload path for product images"""
+    import adminpanel.upload_paths
+    return adminpanel.upload_paths.product_image_path(instance, filename)
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
     image = models.ImageField(upload_to=product_image_path, validators=[validate_image_ext])
+    is_main = models.BooleanField(default=False, help_text="Mark this as the main product image")
     created_at = models.DateTimeField(auto_now_add=True)
-    class Meta: ordering = ["-created_at"]
+    class Meta: 
+        ordering = ["-is_main", "-created_at"]
     def __str__(self): return f"Image for {self.product_id}"
 
 # --- Orders ---
@@ -431,6 +430,7 @@ class Service(models.Model):
 class ServiceImage(models.Model):
     service = models.ForeignKey(Service, related_name="images", on_delete=models.CASCADE)
     image = models.ImageField(upload_to="services/")
+    is_main = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
 class ServiceInquiry(models.Model):
@@ -566,51 +566,84 @@ class StoreSettings(models.Model):
     saturday_hours = models.CharField(max_length=100, blank=True, help_text="Saturday hours (e.g., '10:00 AM - 4:00 PM')")
     sunday_hours = models.CharField(max_length=100, blank=True, help_text="Sunday hours (e.g., 'Closed')")
 
-# --- Chat System - COMMENTED OUT ---
-# class ChatRoom(models.Model):
-#     """Represents a chat conversation between a customer and admin"""
-#     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-#     customer_name = models.CharField(max_length=200, blank=True)
-#     customer_email = models.EmailField(blank=True)
-#     customer_phone = models.CharField(max_length=50, blank=True)
-#     customer_session = models.CharField(max_length=40, blank=True, help_text="Django session key for anonymous customers")
-#     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_rooms', help_text="Authenticated user (optional)")
-#     status = models.CharField(max_length=20, choices=[
-#         ('active', 'Active'),
-#         ('closed', 'Closed'),
-#         ('waiting', 'Waiting for Response')
-#     ], default='active')
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-#     last_message_at = models.DateTimeField(auto_now=True)
-#     
-#     class Meta:
-#         ordering = ['-last_message_at']
-#     
-#     def __str__(self):
-#         return f"Chat {self.id} - {self.customer_name or 'Anonymous'}"
+# --- Chat System ---
+class ChatRoom(models.Model):
+    """Represents a chat conversation between a customer and admin"""
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    customer_name = models.CharField(max_length=200, blank=True)
+    customer_email = models.EmailField(blank=True)
+    customer_phone = models.CharField(max_length=50, blank=True)
+    customer_session = models.CharField(max_length=40, blank=True, help_text="Django session key for anonymous customers")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_rooms', help_text="Authenticated user (optional)")
+    status = models.CharField(max_length=20, choices=[
+        ('active', 'Active'),
+        ('closed', 'Closed'),
+        ('waiting', 'Waiting for Response')
+    ], default='active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_message_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-last_message_at']
+        # Ensure one active room per user/session
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user'],
+                condition=models.Q(status__in=['active', 'waiting']),
+                name='unique_active_user_room'
+            ),
+            models.UniqueConstraint(
+                fields=['customer_session'],
+                condition=models.Q(status__in=['active', 'waiting'], user__isnull=True),
+                name='unique_active_session_room'
+            )
+        ]
+    
+    def __str__(self):
+        return f"Chat {self.id} - {self.customer_name or 'Anonymous'}"
+    
+    def get_display_name(self):
+        """Get display name for the customer"""
+        if self.customer_name:
+            return self.customer_name
+        elif self.user:
+            if self.user.first_name and self.user.last_name:
+                return f"{self.user.first_name} {self.user.last_name}"
+            elif self.user.first_name:
+                return self.user.first_name
+            elif self.user.username:
+                return self.user.username
+            else:
+                return self.user.email
+        else:
+            return 'Anonymous'
+    
+    def get_unread_count(self):
+        """Get count of unread messages from customer"""
+        return self.messages.filter(sender_type='customer', is_read=False).count()
 
-# class ChatMessage(models.Model):
-#     """Individual messages within a chat room"""
-#     SENDER_CHOICES = [
-#         ('customer', 'Customer'),
-#         ('admin', 'Admin'),
-#         ('system', 'System')
-#     ]
-#     
-#     room = models.ForeignKey(ChatRoom, related_name='messages', on_delete=models.CASCADE)
-#     sender_type = models.CharField(max_length=10, choices=SENDER_CHOICES)
-#     sender_name = models.CharField(max_length=200, blank=True)  # For display purposes
-#     sender_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='sent_messages', help_text="User who sent the message (if authenticated)")
-#     content = models.TextField()
-#     is_read = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     
-#     class Meta:
-#         ordering = ['created_at']
-#     
-#     def __str__(self):
-#         return f"{self.sender_type}: {self.content[:50]}..."
+class ChatMessage(models.Model):
+    """Individual messages within a chat room"""
+    SENDER_CHOICES = [
+        ('customer', 'Customer'),
+        ('admin', 'Admin'),
+        ('system', 'System')
+    ]
+    
+    room = models.ForeignKey(ChatRoom, related_name='messages', on_delete=models.CASCADE)
+    sender_type = models.CharField(max_length=10, choices=SENDER_CHOICES)
+    sender_name = models.CharField(max_length=200, blank=True)  # For display purposes
+    sender_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='sent_messages', help_text="User who sent the message (if authenticated)")
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"{self.sender_type}: {self.content[:50]}..."
 
 # --- Contact Form ---
 class Contact(models.Model):

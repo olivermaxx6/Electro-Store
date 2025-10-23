@@ -1,5 +1,5 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../store/authStore';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import AuthGuard from '../components/AuthGuard';
 
 import Dashboard from '../pages/admin/Dashboard';
 import ProductsPage from '../pages/admin/ProductsPage';
@@ -14,28 +14,8 @@ import SettingsPage from '../pages/admin/SettingsPage';
 import AdminProfilePage from '../pages/admin/AdminProfilePage';
 import ChatPage from '../pages/admin/ChatPage';
 import ContactPage from '../pages/admin/ContactPage';
-
-function Private({ children }){
-  const { token, user, isAuthed } = useAuth();
-  const location = useLocation();
-
-  // Debug authentication state
-  console.log('[AUTH] Private component - token:', !!token, 'user:', user, 'isAuthed:', isAuthed());
-  
-  // More robust auth check - handle cases where user might not have is_staff property
-  const isAuthenticated = isAuthed() && user;
-  
-  console.log('[AUTH] isAuthenticated:', isAuthenticated);
-  
-  if (!isAuthenticated) {
-    // Only redirect if we're not already on sign-in page
-    if (location.pathname !== '/admin/sign-in') {
-      console.log('[AUTH] Redirecting to sign-in from:', location.pathname);
-      return <Navigate to="/admin/sign-in" replace state={{ from: location }} />;
-    }
-  }
-  return children;
-}
+import InquiriesPage from '../pages/admin/InquiriesPage';
+import Welcome from '../pages/admin/Welcome';
 
 function Smoke(){ return <div style={{padding:16}}>🔧 Router OK — {new Date().toLocaleTimeString()}</div> }
 
@@ -44,21 +24,24 @@ export default function AdminRoutes(){
     <Routes>
       <Route path="smoke" element={<Smoke/>} />
 
-      <Route path="dashboard" element={<Private><Dashboard/></Private>} />
-      <Route path="manage-categories" element={<Private><ManageCategoriesPage/></Private>} />
-      <Route path="products" element={<Private><ProductsPage/></Private>} />
-      <Route path="services" element={<Private><ServicesPage/></Private>} />
-      <Route path="orders" element={<Private><OrdersPage/></Private>} />
-      <Route path="users" element={<Private><UsersPage/></Private>} />
-      <Route path="content" element={<Private><ContentPage/></Private>} />
-      <Route path="reviews" element={<Private><ReviewsPage/></Private>} />
-      <Route path="service-reviews" element={<Private><ServiceReviewsPage/></Private>} />
-      <Route path="settings" element={<Private><SettingsPage/></Private>} />
-      <Route path="profile" element={<Private><AdminProfilePage/></Private>} />
-      <Route path="chat" element={<Private><ChatPage/></Private>} />
-      <Route path="contact" element={<Private><ContactPage/></Private>} />
+      {/* Protected routes with AuthGuard */}
+      <Route path="dashboard" element={<AuthGuard><Dashboard/></AuthGuard>} />
+      <Route path="manage-categories" element={<AuthGuard><ManageCategoriesPage/></AuthGuard>} />
+      <Route path="products" element={<AuthGuard><ProductsPage/></AuthGuard>} />
+      <Route path="services" element={<AuthGuard><ServicesPage/></AuthGuard>} />
+      <Route path="orders" element={<AuthGuard><OrdersPage/></AuthGuard>} />
+      <Route path="users" element={<AuthGuard><UsersPage/></AuthGuard>} />
+      <Route path="content" element={<AuthGuard><ContentPage/></AuthGuard>} />
+      <Route path="reviews" element={<AuthGuard><ReviewsPage/></AuthGuard>} />
+      <Route path="service-reviews" element={<AuthGuard><ServiceReviewsPage/></AuthGuard>} />
+      <Route path="settings" element={<AuthGuard><SettingsPage/></AuthGuard>} />
+      <Route path="profile" element={<AuthGuard><AdminProfilePage/></AuthGuard>} />
+      <Route path="chat" element={<AuthGuard><ChatPage/></AuthGuard>} />
+      <Route path="contact" element={<AuthGuard><ContactPage/></AuthGuard>} />
+      <Route path="inquiries" element={<AuthGuard><InquiriesPage/></AuthGuard>} />
+      <Route path="welcome" element={<AuthGuard><Welcome/></AuthGuard>} />
 
-      <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

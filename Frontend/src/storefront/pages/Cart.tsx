@@ -32,13 +32,13 @@ const Cart: React.FC = () => {
         setIsLoadingProducts(true);
         
         // Always fetch fresh product data to ensure we have current prices and stock
-        const productsData = await productRepo.getAll();
+        const productsData = await productRepo.findAll();
         dispatch(setProducts(productsData));
         
         // Validate cart items against current product data
         if (cartItemCount > 0) {
-          const validProductIds = productsData.map(p => p.id);
-          const invalidItems = cartItems.filter(item => !validProductIds.includes(item.productId));
+          const validProductIds = productsData.map(p => Number(p.id));
+          const invalidItems = cartItems.filter(item => !validProductIds.includes(Number(item.productId)));
           const errors: string[] = [];
           
           if (invalidItems.length > 0) {
@@ -49,7 +49,7 @@ const Cart: React.FC = () => {
           
           // Check for stock issues
           cartItems.forEach(cartItem => {
-            const product = productsData.find(p => p.id === cartItem.productId);
+            const product = productsData.find(p => Number(p.id) === Number(cartItem.productId));
             if (product && product.stock && cartItem.qty > product.stock) {
               errors.push(`${product.title}: Quantity reduced from ${cartItem.qty} to ${product.stock} due to limited stock.`);
             }
@@ -70,7 +70,7 @@ const Cart: React.FC = () => {
   
   // Enhanced product matching with stock validation
   const cartProducts = cartItems.map(cartItem => {
-    const product = products.find(p => p.id === cartItem.productId);
+    const product = products.find(p => Number(p.id) === Number(cartItem.productId));
     if (!product) return null;
     
     // Ensure quantity doesn't exceed available stock

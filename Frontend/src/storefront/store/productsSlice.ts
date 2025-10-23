@@ -93,13 +93,11 @@ export const selectFilteredProducts = (state: { products: ProductsState }) => {
   const { items, filters, sortBy, searchQuery } = state.products;
   let filtered = [...items];
   
-  // Apply search filter
+  // Apply search filter - only search product titles
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
     filtered = filtered.filter(product =>
-      product.title.toLowerCase().includes(query) ||
-      product.brand?.toLowerCase().includes(query) ||
-      product.category.toLowerCase().includes(query)
+      product.title.toLowerCase().includes(query)
     );
   }
   
@@ -118,7 +116,7 @@ export const selectFilteredProducts = (state: { products: ProductsState }) => {
   // Apply rating filter
   if (filters.rating) {
     filtered = filtered.filter(product => 
-      product.rating && product.rating >= filters.rating!
+      product.average_rating && product.average_rating >= filters.rating!
     );
   }
   

@@ -5,6 +5,7 @@ import AdminLayout from './components/layout/AdminLayout';
 import ErrorBoundary from './components/system/ErrorBoundary';
 import { useAuth } from './store/authStore';
 import SignIn from './pages/admin/SignIn';
+import SignOut from './pages/admin/SignOut';
 
 function App() {
   const { init } = useAuth();
@@ -19,15 +20,16 @@ function App() {
     <ErrorBoundary>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
-          {/* Sign-in route without AdminLayout */}
-          <Route path="/admin/sign-in" element={<SignIn />} />
+          {/* Sign-in and sign-out routes without AdminLayout */}
+          <Route path="/sign-in" element={<SignIn />} />
+          <Route path="/admin/sign-out" element={<SignOut />} />
           
           {/* All other admin routes with AdminLayout */}
-          <Route path="/admin/*" element={<AdminLayout><AdminRoutes /></AdminLayout>} />
+          <Route path="/*" element={<AdminLayout><AdminRoutes /></AdminLayout>} />
           
           {/* Default redirects */}
-          <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>
     </ErrorBoundary>

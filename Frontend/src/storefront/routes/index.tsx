@@ -104,6 +104,10 @@ export const router = createBrowserRouter([
         element: <ServiceDetail />,
       },
       {
+        path: 'services/subcategory/:id',
+        element: <ServiceCategoryPage />,
+      },
+      {
         path: 'services/:categoryName',
         element: <ServiceCategoryPage />,
       },

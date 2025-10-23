@@ -1,21 +1,38 @@
+#!/usr/bin/env python
+"""
+Django Development Server Launcher
+Forces Django to run on 127.0.0.1:8001 in development
+"""
+
 import os
 import sys
 import subprocess
+from pathlib import Path
 
-# Set Stripe environment variables if not already set
-if not os.getenv("STRIPE_SECRET_KEY"):
-    os.environ["STRIPE_SECRET_KEY"] = "your_stripe_secret_key_here"
+def main():
+    # Get the backend directory (parent of scripts)
+    backend_dir = Path(__file__).parent.parent
+    os.chdir(backend_dir)
+    
+    # Set environment variables to ensure port 8001
+    os.environ.setdefault('DJANGO_DEV_HOST', '127.0.0.1')
+    os.environ.setdefault('DJANGO_DEV_PORT', '8001')
+    
+    # Build the command
+    cmd = [sys.executable, 'manage.py', 'runserver', '127.0.0.1:8001']
+    
+    print("Starting Django development server on 127.0.0.1:8001...")
+    print(f"Command: {' '.join(cmd)}")
+    print("Press Ctrl+C to stop the server")
+    print("-" * 50)
+    
+    try:
+        subprocess.run(cmd, check=True)
+    except KeyboardInterrupt:
+        print("\nServer stopped by user")
+    except subprocess.CalledProcessError as e:
+        print(f"Error starting server: {e}")
+        sys.exit(1)
 
-if not os.getenv("STRIPE_PUBLISHABLE_KEY"):
-    os.environ["STRIPE_PUBLISHABLE_KEY"] = "your_stripe_publishable_key_here"
-
-# Get host and port from environment variables with defaults
-host = os.getenv("DJANGO_DEV_HOST", "127.0.0.1")
-port = os.getenv("DJANGO_DEV_PORT", "8001")
-addr = f"{host}:{port}"
-
-print(f"Starting Django development server on {addr}...")
-print(f"Stripe Secret Key: {os.getenv('STRIPE_SECRET_KEY', 'NOT SET')[:20]}...")
-
-# Run Django development server using custom runserver command (enforces port policy)
-subprocess.check_call([sys.executable, "manage.py", "runserver", addr])
+if __name__ == '__main__':
+    main()

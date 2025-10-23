@@ -32,7 +32,7 @@ export default function SignInPage() {
       if (result.ok) {
         // Safe redirect - check if there's a from location, otherwise go to dashboard
         const from = location.state?.from?.pathname;
-        nav(from && from !== '/admin/sign-in' ? from : '/admin/dashboard', { replace: true });
+        nav(from && from !== '/sign-in' ? from : '/dashboard', { replace: true });
       } else {
         setMsg(result.error?.detail || 'Login failed');
       }

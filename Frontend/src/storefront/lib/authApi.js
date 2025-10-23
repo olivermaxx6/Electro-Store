@@ -69,6 +69,16 @@ export const registerUser = async (userData) => {
     return response;
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Enhanced error handling for registration
+    if (error.message.includes('username already exists')) {
+      throw new Error('A user with this username already exists. Please choose a different username.');
+    } else if (error.message.includes('email address already exists')) {
+      throw new Error('A user with this email address already exists. Please use a different email or try signing in.');
+    } else if (error.message.includes('already exists')) {
+      throw new Error('A user with this information already exists. Please check your details or try signing in.');
+    }
+    
     throw error;
   }
 };

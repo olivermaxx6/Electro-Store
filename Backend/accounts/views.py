@@ -63,7 +63,12 @@ def register(request):
             "message": "User created successfully",
             "user": UserSerializer(user).data
         }, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Return detailed error messages
+    return Response({
+        "detail": "Registration failed. Please check the errors below.",
+        "errors": serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

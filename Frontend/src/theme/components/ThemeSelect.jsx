@@ -41,8 +41,8 @@ export default function ThemeSelect({
         {...props}
       >
         <option value="">{placeholder}</option>
-        {options.map(option => (
-          <option key={option.value || option.id} value={option.value || option.id}>
+        {options.map((option, index) => (
+          <option key={option.value || option.id || index} value={option.value || option.id}>
             {option.label || option.name}
           </option>
         ))}

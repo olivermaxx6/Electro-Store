@@ -88,13 +88,13 @@ const cartSlice = createSlice({
     },
     
     // New action to validate and clean cart items
-    validateCartItems: (state, action: PayloadAction<{ validProducts: string[]; userId?: string }>) => {
+    validateCartItems: (state, action: PayloadAction<{ validProducts: number[]; userId?: string }>) => {
       const { validProducts, userId = 'guest' } = action.payload;
       
       if (state.userCarts[userId]) {
         // Remove items for products that no longer exist or are invalid
         state.userCarts[userId].items = state.userCarts[userId].items.filter(
-          item => validProducts.includes(item.productId)
+          item => validProducts.includes(Number(item.productId))
         );
       }
     },
@@ -137,7 +137,7 @@ export const selectCartTotal = (userId: string = 'guest') => (state: { cart: Car
   const { items: products } = state.products;
   
   return items.reduce((total, cartItem) => {
-    const product = products.find(p => p.id === cartItem.productId);
+    const product = products.find(p => Number(p.id) === Number(cartItem.productId));
     return total + (product ? product.price * cartItem.qty : 0);
   }, 0);
 };

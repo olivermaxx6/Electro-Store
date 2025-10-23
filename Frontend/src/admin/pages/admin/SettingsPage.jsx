@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Card from '../../components/ui/Card';
 import FormRow from '../../components/ui/FormRow';
-import { ThemeLayout, ThemeCard, ThemeInput, ThemeSelect, ThemeButton, ThemeAlert, FormSection } from '@shared/theme';
+import { ThemeLayout, ThemeCard, ThemeInput, ThemeSelect, ThemeButton, ThemeAlert, FormSection } from '@theme';
 import { useCurrency, currencyOptions } from '../../store/currencyStore';
 import { getStoreSettings, updateStoreSettings } from '../../lib/api';
 import FaviconUpdater from '../../components/common/FaviconUpdater';
@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [msg, setMsg] = useState(null);
   const [storeLogoFile, setStoreLogoFile] = useState(null);
   const [aboutUsFile, setAboutUsFile] = useState(null);
   const [faviconFile, setFaviconFile] = useState(null);
@@ -25,12 +26,18 @@ export default function SettingsPage() {
       const response = await getStoreSettings();
       console.log('[SETTINGS] API Response:', response);
       
-      const { data } = response;
-      console.log('[SETTINGS] Settings data:', data);
+      // The API returns the data directly, not wrapped in a 'data' property
+      const settingsData = response;
+      console.log('[SETTINGS] Settings data:', settingsData);
       
-      setData(data);
-      // Update local currency store to match backend
-      setCurrency(data.currency);
+      // Validate that we received valid settings data
+      if (!settingsData || typeof settingsData !== 'object') {
+        throw new Error('Invalid settings data received from server');
+      }
+      
+      setData(settingsData);
+      // Update local currency store to match backend (with fallback)
+      setCurrency(settingsData.currency || 'GBP');
       console.log('[SETTINGS] Settings loaded successfully');
     } catch (err) {
       console.error('[SETTINGS] Error loading settings:', err);
@@ -65,23 +72,23 @@ export default function SettingsPage() {
     
     // Validate tax rate is not negative
     if (parseFloat(data.tax_rate) < 0) {
-      alert('Tax rate cannot be negative. Please enter a value of 0 or greater.');
+      setMsg({ kind: 'error', text: 'Tax rate cannot be negative. Please enter a value of 0 or greater.' });
       return;
     }
     
     // Validate shipping rates are not negative
     if (parseFloat(data.shipping_rate) < 0) {
-      alert('Shipping rate cannot be negative. Please enter a value of 0 or greater.');
+      setMsg({ kind: 'error', text: 'Shipping rate cannot be negative. Please enter a value of 0 or greater.' });
       return;
     }
     
     if (parseFloat(data.standard_shipping_rate || 0) < 0) {
-      alert('Standard shipping rate cannot be negative. Please enter a value of 0 or greater.');
+      setMsg({ kind: 'error', text: 'Standard shipping rate cannot be negative. Please enter a value of 0 or greater.' });
       return;
     }
     
     if (parseFloat(data.express_shipping_rate || 0) < 0) {
-      alert('Express shipping rate cannot be negative. Please enter a value of 0 or greater.');
+      setMsg({ kind: 'error', text: 'Express shipping rate cannot be negative. Please enter a value of 0 or greater.' });
       return;
     }
     
@@ -128,11 +135,11 @@ export default function SettingsPage() {
       setAboutUsFile(null);
       setFaviconFile(null);
       
-      alert('Settings saved successfully!');
+      setMsg({ kind: 'success', text: 'Settings saved successfully!' });
     } catch (err) {
       setError(err.message || 'Failed to save settings');
       console.error('Error saving settings:', err);
-      alert('Failed to save settings: ' + (err.message || 'Unknown error'));
+      setMsg({ kind: 'error', text: 'Failed to save settings: ' + (err.message || 'Unknown error') });
     } finally {
       setLoading(false);
     }
@@ -174,6 +181,18 @@ export default function SettingsPage() {
   return (
     <ThemeLayout>
       <FaviconUpdater faviconUrl={data?.favicon} />
+      
+      {/* Popup Alert Dialog */}
+      {msg && (
+        <ThemeAlert 
+          message={msg.text} 
+          type={msg.kind} 
+          onClose={() => setMsg(null)}
+          autoClose={true}
+          duration={1000}
+        />
+      )}
+      
       <form onSubmit={save} className="space-y-8">
         <FormSection title="Store Settings" icon="🏪" color="primary">
           <div className="space-y-6">

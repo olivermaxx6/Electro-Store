@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeSelect, ThemeTextarea } from '@shared/theme';
+import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeSelect, ThemeTextarea } from '@theme';
 import { useCurrency } from '../../store/currencyStore';
 import { listServiceCategories, getServiceCategoryTree, createServiceCategory, updateServiceCategory, deleteServiceCategory, listServices, createService as createServiceAPI, updateService, deleteService as deleteServiceAPI, api } from '../../lib/api';
+import { apiRequest } from '../../lib/apiInterceptor';
 import { useAuth } from '../../store/authStore';
 
 // Recursive component to display hierarchical categories
@@ -160,13 +161,83 @@ export default function ServicesPage() {
     console.log('[ServicesPage] Categories updated:', categories);
   }, [categories]);
 
+  useEffect(() => {
+    console.log('[ServicesPage] Services updated:', services);
+    console.log('[ServicesPage] Services count:', services.length);
+  }, [services]);
+
+  // Scroll to edit form when editing state changes
+  useEffect(() => {
+    if (editing) {
+      console.log('[ServicesPage] Editing state changed, scrolling to form...');
+      setTimeout(() => {
+        const editForm = document.getElementById('edit-service-form');
+        if (editForm) {
+          editForm.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+          console.log('[ServicesPage] Scrolled to edit form via useEffect');
+        } else {
+          console.warn('[ServicesPage] Edit form not found for scrolling in useEffect');
+        }
+      }, 200);
+    }
+  }, [editing]);
+
+  // Scroll to category edit form when editingCategory state changes
+  useEffect(() => {
+    if (editingCategory) {
+      console.log('[ServicesPage] EditingCategory state changed, scrolling to form...');
+      setTimeout(() => {
+        const editForm = document.getElementById('edit-category-form');
+        if (editForm) {
+          editForm.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+          console.log('[ServicesPage] Scrolled to category edit form via useEffect');
+        } else {
+          console.warn('[ServicesPage] Category edit form not found for scrolling in useEffect');
+        }
+      }, 200);
+    }
+  }, [editingCategory]);
+
+  // Helper function to build tree structure from flat list
+  const buildCategoryTree = (flatList) => {
+    const categoryMap = new Map();
+    const rootCategories = [];
+    
+    // First pass: create a map of all categories
+    flatList.forEach(category => {
+      categoryMap.set(category.id, { ...category, children: [] });
+    });
+    
+    // Second pass: build the tree structure
+    flatList.forEach(category => {
+      const categoryNode = categoryMap.get(category.id);
+      if (category.parent && categoryMap.has(category.parent)) {
+        // This is a child category
+        categoryMap.get(category.parent).children.push(categoryNode);
+      } else {
+        // This is a root category
+        rootCategories.push(categoryNode);
+      }
+    });
+    
+    return rootCategories;
+  };
+
   // Helper function to flatten category tree for dropdowns
   const flattenCategories = (categories, level = 0) => {
     let flattened = [];
     categories.forEach(category => {
       flattened.push({
         ...category,
-        displayName: '  '.repeat(level) + category.name,
+        displayName: '  '.repeat(level) + category.name + ` (Level ${level})`,
         level: level
       });
       if (category.children && category.children.length > 0) {
@@ -183,15 +254,36 @@ export default function ServicesPage() {
 
   // Helper function to get root categories (categories with no parent)
   const getRootCategories = () => {
+    console.log('[ServicesPage] getRootCategories - categories:', categories);
+    console.log('[ServicesPage] getRootCategories - categories length:', categories.length);
+    console.log('[ServicesPage] getRootCategories - categories type:', typeof categories);
+    console.log('[ServicesPage] getRootCategories - is array:', Array.isArray(categories));
+    
+    if (!Array.isArray(categories)) {
+      console.log('[ServicesPage] getRootCategories - categories is not an array, returning empty array');
+      return [];
+    }
+    
     // The tree endpoint returns root categories directly, so we don't need to filter
     // Add extra safety checks to ensure we have valid categories with IDs
-    return categories.filter(category => 
-      category && 
-      category.id && 
-      category.name && 
-      typeof category.id !== 'undefined' &&
-      category.id !== null
-    );
+    const rootCategories = categories.filter(category => {
+      const isValid = category && 
+        category.id && 
+        category.name && 
+        typeof category.id !== 'undefined' &&
+        category.id !== null;
+      
+      if (!isValid) {
+        console.log('[ServicesPage] getRootCategories - filtering out invalid category:', category);
+      }
+      
+      return isValid;
+    });
+    
+    console.log('[ServicesPage] getRootCategories - filtered root categories:', rootCategories);
+    console.log('[ServicesPage] getRootCategories - root categories count:', rootCategories.length);
+    
+    return rootCategories;
   };
 
   // Helper function to get subcategories of a specific parent category
@@ -380,31 +472,74 @@ export default function ServicesPage() {
   const loadCategories = async () => {
     try {
       console.log('[ServicesPage] Loading categories tree from API...');
-      console.log('[ServicesPage] API endpoint: /api/admin/service-categories/tree/');
-      console.log('[ServicesPage] Auth token exists:', !!authStore.token);
-      console.log('[ServicesPage] Auth token:', authStore.token ? 'Present' : 'Missing');
-      const response = await getServiceCategoryTree();
-      console.log('[ServicesPage] Categories tree response:', response);
+      console.log('[ServicesPage] User authenticated:', authStore.isAuthed());
       
-      // Handle different response structures - axios wraps the response in .data
+      // Check authentication before making API calls
+      if (!authStore.isAuthed()) {
+        console.error('[ServicesPage] User not authenticated - cannot load categories');
+        setMsg('Please log in to access service categories');
+        setLoading(false);
+        return;
+      }
+      
+      let response;
+      try {
+        response = await getServiceCategoryTree();
+        console.log('[ServicesPage] Categories tree response:', response);
+      } catch (treeError) {
+        console.warn('[ServicesPage] Tree endpoint failed, falling back to list endpoint:', treeError);
+        console.error('[ServicesPage] Tree error details:', {
+          message: treeError.message,
+          status: treeError.response?.status,
+          data: treeError.response?.data
+        });
+        // Check if it's an authentication error
+        if (treeError.message?.includes('Authentication') || treeError.message?.includes('401')) {
+          console.error('[ServicesPage] Authentication failed - user needs to log in');
+          setMsg('Authentication failed. Please log in again.');
+          setLoading(false);
+          return;
+        }
+        // Fallback to regular list endpoint
+        response = await listServiceCategories();
+        console.log('[ServicesPage] Categories list response (fallback):', response);
+      }
+      
+      // Handle different response structures - apiRequest returns raw JSON, not axios-style .data
       let categoriesData = [];
       
-      if (Array.isArray(response.data)) {
+      console.log('[ServicesPage] Processing response data...');
+      
+      if (Array.isArray(response)) {
         // Direct array response
-        categoriesData = response.data;
-      } else if (response.data && Array.isArray(response.data.results)) {
+        categoriesData = response;
+      } else if (response && Array.isArray(response.results)) {
         // Paginated response with results array
-        categoriesData = response.data.results;
-      } else if (response.data && typeof response.data === 'object') {
+        categoriesData = response.results;
+      } else if (response && typeof response === 'object') {
         // Single object response - wrap in array
-        categoriesData = [response.data];
+        categoriesData = [response];
       } else {
         // Fallback to empty array
         categoriesData = [];
       }
       
+      // If we got a flat list instead of a tree, build the tree structure
+      if (Array.isArray(categoriesData) && categoriesData.length > 0 && !categoriesData[0].children) {
+        console.log('[ServicesPage] Building tree structure from flat list...');
+        categoriesData = buildCategoryTree(categoriesData);
+      }
+      
       console.log('[ServicesPage] Categories tree data to set:', categoriesData);
       console.log('[ServicesPage] Is categoriesData an array?', Array.isArray(categoriesData));
+      console.log('[ServicesPage] Categories data structure:', JSON.stringify(categoriesData, null, 2));
+      
+      // Additional debugging for the first few categories
+      if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+        console.log('[ServicesPage] First category structure:', JSON.stringify(categoriesData[0], null, 2));
+        console.log('[ServicesPage] First category has children?', !!categoriesData[0].children);
+        console.log('[ServicesPage] First category children count:', categoriesData[0].children?.length || 0);
+      }
       
       setCategories(categoriesData);
       setLoading(false);
@@ -468,11 +603,21 @@ export default function ServicesPage() {
       
       console.log('[ServicesPage] Category created response:', response);
       const newCategory = response.data; // Extract data from axios response
+      
+      // Update the local state to add the new category
       setCategories(prev => [newCategory, ...prev]);
       resetCategoryForm();
       setShowCategoryForm(false);
       clearValidationErrors();
+      
+      // Show success message
       setMsg({ kind: 'success', text: 'Category created successfully!' });
+      
+      // Refresh the categories list to ensure we have the latest data
+      setTimeout(() => {
+        loadCategories();
+      }, 1000);
+      
     } catch (err) {
       console.error('[ServicesPage] Failed to create category:', err);
       setMsg({ kind: 'error', text: 'Failed to create category.' });
@@ -489,8 +634,23 @@ export default function ServicesPage() {
     try {
       console.log('[ServicesPage] Deleting category:', categoryId);
       await deleteServiceCategory(categoryId);
+      
+      // Update the local state to remove the deleted category
       setCategories(prev => prev.filter(c => c.id !== categoryId));
+      
+      // Clear editing state if the deleted category was being edited
+      if (editingCategory && editingCategory.id === categoryId) {
+        setEditingCategory(null);
+      }
+      
+      // Show success message
       setMsg({ kind: 'success', text: 'Category deleted successfully!' });
+      
+      // Refresh the categories list to ensure we have the latest data
+      setTimeout(() => {
+        loadCategories();
+      }, 1000);
+      
     } catch (err) {
       console.error('[ServicesPage] Failed to delete category:', err);
       setMsg({ kind: 'error', text: 'Failed to delete category.' });
@@ -500,6 +660,7 @@ export default function ServicesPage() {
   };
 
   const startEditCategory = (category) => {
+    console.log('[ServicesPage] Starting edit for category:', category);
     setEditingCategory(category);
     setECategoryName(category.name || '');
     setECategoryDescription(category.description || '');
@@ -508,6 +669,22 @@ export default function ServicesPage() {
     setECategoryImage(null); // Reset image for new upload
     setECategoryIsActive(category.is_active !== false); // Set is_active state
     setShowCategoryForm(false); // Hide the add form when editing
+    console.log('[ServicesPage] Edit state set, editing category:', category.id);
+    
+    // Scroll to edit form after a short delay to ensure it's rendered
+    setTimeout(() => {
+      const editForm = document.getElementById('edit-category-form');
+      if (editForm) {
+        editForm.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+        console.log('[ServicesPage] Scrolled to category edit form');
+      } else {
+        console.warn('[ServicesPage] Category edit form not found for scrolling');
+      }
+    }, 100);
   };
 
   const updateCategory = async (e) => {
@@ -552,11 +729,20 @@ export default function ServicesPage() {
       console.log('[ServicesPage] Updating category:', editingCategory.id, 'to:', eCategoryName.trim());
       const updatedCategory = await updateServiceCategory(editingCategory.id, formData);
       
+      // Update the local state with the updated category
       setCategories(prev => prev.map(c => c.id === editingCategory.id ? updatedCategory : c));
       setEditingCategory(null);
       resetCategoryEditForm();
       clearValidationErrors();
+      
+      // Show success message
       setMsg({ kind: 'success', text: 'Category updated successfully!' });
+      
+      // Refresh the categories list to ensure we have the latest data
+      setTimeout(() => {
+        loadCategories();
+      }, 1000);
+      
     } catch (err) {
       console.error('[ServicesPage] Failed to update category:', err);
       setMsg({ kind: 'error', text: 'Failed to update category.' });
@@ -582,38 +768,36 @@ export default function ServicesPage() {
   const loadServices = async () => {
     try {
       console.log('[ServicesPage] Loading services from API...');
-      console.log('[ServicesPage] API endpoint: /api/admin/services/');
-      console.log('[ServicesPage] Auth token exists:', !!authStore.token);
-      console.log('[ServicesPage] Auth token:', authStore.token ? 'Present' : 'Missing');
-      const response = await listServices();
-      console.log('[ServicesPage] Services response type:', typeof response);
-      console.log('[ServicesPage] Services response:', response);
-      console.log('[ServicesPage] Services response.data:', response.data);
-      console.log('[ServicesPage] Services response.data.results:', response.data?.results);
-      console.log('[ServicesPage] Is response.data an array?', Array.isArray(response.data));
-      console.log('[ServicesPage] Is response.data.results an array?', Array.isArray(response.data?.results));
-      console.log('[ServicesPage] Response status:', response.status || 'No status');
-      console.log('[ServicesPage] Response headers:', response.headers || 'No headers');
+      console.log('[ServicesPage] User authenticated:', authStore.isAuthed());
       
-      // Handle different response structures - axios wraps the response in .data
+      // Check authentication before making API calls
+      if (!authStore.isAuthed()) {
+        console.error('[ServicesPage] User not authenticated - cannot load services');
+        setMsg('Please log in to access services');
+        return;
+      }
+      
+      const response = await listServices();
+      console.log('[ServicesPage] Services response:', response);
+      
+      // Handle different response structures - apiRequest returns raw JSON, not axios-style .data
       let servicesData = [];
       
-      if (Array.isArray(response.data)) {
+      console.log('[ServicesPage] Processing services response data...');
+      
+      if (Array.isArray(response)) {
         // Direct array response
-        servicesData = response.data;
-      } else if (response.data && Array.isArray(response.data.results)) {
+        servicesData = response;
+      } else if (response && Array.isArray(response.results)) {
         // Paginated response with results array
-        servicesData = response.data.results;
-      } else if (response.data && typeof response.data === 'object') {
+        servicesData = response.results;
+      } else if (response && typeof response === 'object') {
         // Single object response - wrap in array
-        servicesData = [response.data];
+        servicesData = [response];
       } else {
         // Fallback to empty array
         servicesData = [];
       }
-      
-      console.log('[ServicesPage] Services data to set:', servicesData);
-      console.log('[ServicesPage] Is servicesData an array?', Array.isArray(servicesData));
       
       setServices(servicesData);
       console.log('[ServicesPage] Services set successfully, count:', servicesData.length);
@@ -709,10 +893,19 @@ export default function ServicesPage() {
         }
       }
       
+      // Update the local state to add the new service
       setServices(prev => [newService, ...prev]);
       resetNewForm();
       clearValidationErrors();
+      
+      // Show success message
       setMsg({ kind: 'success', text: 'Service created successfully!' });
+      
+      // Refresh the services list to ensure we have the latest data
+      setTimeout(() => {
+        loadServices();
+      }, 1000);
+      
     } catch (err) {
       console.error('[ServicesPage] Failed to create service:', err);
       setMsg({ kind: 'error', text: `Failed to create service: ${err.message || 'Unknown error'}` });
@@ -782,29 +975,68 @@ export default function ServicesPage() {
       const response = await updateService(editing.id, formData);
       console.log('[ServicesPage] Service updated response:', response);
       
-      let updatedService = response.data;
+      // Handle response format - apiRequest returns raw JSON, not wrapped in .data
+      let updatedService = response;
+      if (response && response.data) {
+        updatedService = response.data;
+      }
+      
+      // Validate that we have a valid service response
+      if (!updatedService || !updatedService.id) {
+        throw new Error('Invalid service response from server');
+      }
       
       // Upload new image separately if provided
-      if (eImage && updatedService.id) {
+      if (eImage && updatedService && updatedService.id) {
         try {
           const imageFormData = new FormData();
           imageFormData.append('image', eImage);
-          const imageResponse = await api.post(`/api/admin/services/${updatedService.id}/images/`, imageFormData);
-          console.log('[ServicesPage] Image uploaded:', imageResponse.data);
+          const imageResponse = await apiRequest(`/admin/services/${updatedService.id}/images/`, {
+            method: 'POST',
+            body: imageFormData
+          });
+          console.log('[ServicesPage] Image uploaded:', imageResponse);
           // Update the service with the new image
-          updatedService.images = [...(updatedService.images || []), imageResponse.data];
+          if (imageResponse && imageResponse.id) {
+            updatedService.images = [...(updatedService.images || []), imageResponse];
+          }
         } catch (imageErr) {
           console.error('[ServicesPage] Failed to upload image:', imageErr);
           // Don't fail the entire operation if image upload fails
         }
       }
       
-      setServices(prev => prev.map(s => s.id === editing.id ? updatedService : s));
-      setEditing(updatedService);
+      // Ensure the updated service has all required properties
+      const finalService = {
+        ...updatedService,
+        id: updatedService.id,
+        name: updatedService.name || eName.trim(),
+        description: updatedService.description || eDescription.trim(),
+        price: updatedService.price || parseFloat(ePrice),
+        category: updatedService.category || { id: parseInt(eCategoryId) },
+        images: updatedService.images || []
+      };
+      
+      // Update the local state with the updated service
+      setServices(prev => prev.map(s => s.id === editing.id ? finalService : s));
+      setEditing(finalService);
       clearValidationErrors();
+      
+      // Show success message
       setMsg({ kind: 'success', text: 'Service updated successfully!' });
+      
+      // Refresh the services list to ensure we have the latest data
+      setTimeout(() => {
+        loadServices();
+      }, 1000);
+      
     } catch (err) {
       console.error('[ServicesPage] Failed to update service:', err);
+      console.error('[ServicesPage] Error details:', {
+        message: err.message,
+        stack: err.stack,
+        response: err.response
+      });
       setMsg({ kind: 'error', text: `Failed to update service: ${err.message || 'Unknown error'}` });
     } finally {
       setBusy(false);
@@ -820,11 +1052,22 @@ export default function ServicesPage() {
       console.log('[ServicesPage] Deleting service with API...');
       await deleteServiceAPI(serviceId);
       
+      // Update the local state to remove the deleted service
       setServices(prev => prev.filter(s => s.id !== serviceId));
+      
+      // Clear editing state if the deleted service was being edited
       if (editing && editing.id === serviceId) {
         setEditing(null);
       }
+      
+      // Show success message
       setMsg({ kind: 'success', text: 'Service deleted successfully!' });
+      
+      // Refresh the services list to ensure we have the latest data
+      setTimeout(() => {
+        loadServices();
+      }, 1000);
+      
     } catch (err) {
       console.error('[ServicesPage] Failed to delete service:', err);
       setMsg({ kind: 'error', text: `Failed to delete service: ${err.message || 'Unknown error'}` });
@@ -834,6 +1077,7 @@ export default function ServicesPage() {
   };
 
   const startEdit = (service) => {
+    console.log('[ServicesPage] Starting edit for service:', service);
     setEditing(service);
     setEName(service.name || '');
     setEDescription(service.description || '');
@@ -853,6 +1097,22 @@ export default function ServicesPage() {
     setEContactPhone(service.contact_info?.phone || '');
     setEContactEmail(service.contact_info?.email || '');
     setEAvailability(service.availability || '');
+    console.log('[ServicesPage] Edit state set, editing service:', service.id);
+    
+    // Scroll to edit form after a short delay to ensure it's rendered
+    setTimeout(() => {
+      const editForm = document.getElementById('edit-service-form');
+      if (editForm) {
+        editForm.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+        console.log('[ServicesPage] Scrolled to edit form');
+      } else {
+        console.warn('[ServicesPage] Edit form not found for scrolling');
+      }
+    }, 100);
   };
 
   const cancelEdit = () => {
@@ -933,14 +1193,29 @@ export default function ServicesPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Service Categories</h2>
               </div>
-              <ThemeButton 
-                onClick={() => setShowCategoryForm(!showCategoryForm)}
-                variant="primary" 
-                icon="➕"
-                className="whitespace-nowrap min-w-fit flex-shrink-0"
-              >
-                {showCategoryForm ? 'Cancel' : 'Add Category'}
-              </ThemeButton>
+              <div className="flex gap-2">
+                <ThemeButton 
+                  onClick={() => {
+                    setMsg(null);
+                    loadCategories();
+                    loadServices();
+                  }}
+                  variant="secondary" 
+                  icon="🔄"
+                  className="whitespace-nowrap min-w-fit flex-shrink-0 px-3"
+                  title="Refresh Categories"
+                >
+                  Refresh
+                </ThemeButton>
+                <ThemeButton 
+                  onClick={() => setShowCategoryForm(!showCategoryForm)}
+                  variant="primary" 
+                  icon="➕"
+                  className="whitespace-nowrap min-w-fit flex-shrink-0"
+                >
+                  {showCategoryForm ? 'Cancel' : 'Add Category'}
+                </ThemeButton>
+              </div>
             </div>
 
             {/* Add Category Form */}
@@ -1062,7 +1337,7 @@ export default function ServicesPage() {
 
             {/* Edit Category Form */}
             {editingCategory && (
-              <form onSubmit={updateCategory} className="space-y-4 mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-700">
+              <form id="edit-category-form" onSubmit={updateCategory} className="space-y-4 mb-6 p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl border-2 border-amber-300 dark:border-amber-600 shadow-xl hover:shadow-2xl transition-all duration-500 animate-pulse">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
                     <span className="text-white text-sm">✏️</span>
@@ -1555,21 +1830,38 @@ export default function ServicesPage() {
 
           {/* Manage Services */}
           <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
-                <span className="text-white text-lg">📋</span>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+                  <span className="text-white text-lg">📋</span>
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Manage Services</h2>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Manage Services</h2>
+              <ThemeButton 
+                onClick={() => {
+                  setMsg(null);
+                  loadServices();
+                  loadCategories();
+                }}
+                variant="secondary" 
+                icon="🔄"
+                className="min-w-fit flex-shrink-0 px-3"
+                title="Refresh Services"
+              >
+                Refresh
+              </ThemeButton>
             </div>
 
+
             <div className="space-y-4">
+              
               {services.map(service => (
                 <div key={service.id} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600 hover:shadow-md transition-all duration-300">
                   <div className="flex items-start gap-4">
                     {/* Service Image */}
                     <div className="flex-shrink-0">
                       <img 
-                        src={service.image} 
+                        src={service.main_image || service.image} 
                         alt={service.name}
                         className="w-20 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-600"
                       />
@@ -1644,7 +1936,8 @@ export default function ServicesPage() {
 
           {/* Edit Service */}
           {editing && (
-            <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
+            <section id="edit-service-form" className="rounded-3xl border-2 border-amber-300 dark:border-amber-600 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 shadow-xl hover:shadow-2xl transition-all duration-500 p-6 animate-pulse">
+              {console.log('[ServicesPage] Rendering edit form for service:', editing)}
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
                   <span className="text-white text-lg">✏️</span>
@@ -1935,9 +2228,9 @@ export default function ServicesPage() {
                     Service Image
                   </label>
                   <div className="flex items-center gap-4">
-                    {editing.image && (
+                    {editing.main_image && (
                       <img 
-                        src={editing.image} 
+                        src={editing.main_image} 
                         alt="Current" 
                         className="w-20 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-600"
                       />

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, MessageCircle, User } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import useChatApiStore from '../../../store/chatApiStore';
+import useCustomerChatStore from '../../store/customerChatStore';
 import { selectCurrentUser } from '../../store/userSlice';
 
 interface Message {
@@ -34,7 +34,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
     retryConnection,
     clearError,
     updateCustomerInfo
-  } = useChatApiStore();
+  } = useCustomerChatStore();
   const currentUser = useSelector(selectCurrentUser);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -49,6 +49,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
     if (isOpen) {
       console.log('Chat modal opened. Current user:', currentUser);
       console.log('Current room:', currentRoom);
+      console.log('isConnected:', isConnected);
+      console.log('messages:', messages);
+      console.log('loading:', loading);
+      console.log('error:', error);
       
       if (!currentRoom) {
         // Create new chat room
@@ -103,7 +107,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
     if (!newMessage.trim() || !currentRoom || loading) return;
 
     try {
-      await sendMessage(currentRoom.id, newMessage);
+      await sendMessage(newMessage);
       setNewMessage('');
       setIsTyping(true);
 
@@ -113,12 +117,24 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
       }, 2000);
     } catch (error) {
       console.error('Failed to send message:', error);
+      // Show error to user
+      alert(`Failed to send message: ${error.message}`);
     }
   };
 
   const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!dateString) return 'Just now';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Just now';
+      }
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      console.warn('Invalid date format:', dateString);
+      return 'Just now';
+    }
   };
 
   if (!isOpen) return null;

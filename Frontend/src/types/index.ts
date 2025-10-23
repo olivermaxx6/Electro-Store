@@ -23,6 +23,7 @@ export type Product = {
   specs?: Record<string, string>;
   description?: string;
   images?: string[];
+  main_image?: string; // Main product image URL
   stock?: number;
   inStock?: boolean;
   sku?: string;

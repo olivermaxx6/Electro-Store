@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create a separate API instance for auth store
 const authApi = axios.create({
-  baseURL: 'http://127.0.0.1:8001',  // Direct connection to backend
+  baseURL: '/api',  // Use proxy for backend connection
   timeout: 30000,
   withCredentials: false,
 });
@@ -20,7 +20,7 @@ authApi.interceptors.response.use(
       try {
         const refreshToken = JSON.parse(localStorage.getItem('auth') || '{}').refresh;
         if (refreshToken) {
-          const response = await axios.post('http://127.0.0.1:8001/api/auth/refresh/', {
+          const response = await axios.post('/api/auth/refresh/', {
             refresh: refreshToken
           });
           
@@ -41,7 +41,7 @@ authApi.interceptors.response.use(
         localStorage.removeItem('auth');
         localStorage.removeItem('access_token');
         delete authApi.defaults.headers.common.Authorization;
-        window.location.href = '/admin/sign-in';
+        window.location.href = '/sign-in';
       }
     }
     
@@ -59,9 +59,22 @@ const initializeTokenRefresh = () => {
 export const useAuth = create((set, get) => ({
   user: JSON.parse(localStorage.getItem('auth') || '{}').user || null,
   token: JSON.parse(localStorage.getItem('auth') || '{}').access || null,
+  refreshToken: JSON.parse(localStorage.getItem('auth') || '{}').refresh || null,
   loading: false,
 
-  isAuthed: () => !!get().token,
+  isAuthed: () => {
+    const token = get().token;
+    if (!token) return false;
+    
+    // Check if token is expired (basic check)
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+      return payload.exp > now;
+    } catch {
+      return false;
+    }
+  },
 
   // Initialize auth header if token exists
   init: () => {
@@ -76,6 +89,7 @@ export const useAuth = create((set, get) => ({
     // Update the store state with current token
     set({ 
       token: token,
+      refreshToken: authData.refresh || null,
       user: authData.user || null
     });
     
@@ -105,7 +119,12 @@ export const useAuth = create((set, get) => ({
       localStorage.setItem('auth', JSON.stringify(authData));
       // Also store ACCESS token directly for WebSocket connections
       localStorage.setItem('access_token', data.access);
-      set({ token: data.access, user: data.user, loading: false });
+      set({ 
+        token: data.access, 
+        refreshToken: data.refresh,
+        user: data.user, 
+        loading: false 
+      });
       
       // Set authorization header for future requests
       authApi.defaults.headers.common.Authorization = `Bearer ${data.access}`;
@@ -169,10 +188,49 @@ export const useAuth = create((set, get) => ({
     }
   },
 
+  refreshAccessToken: async () => {
+    const { refreshToken } = get();
+    if (!refreshToken) {
+      console.log('[AUTH] No refresh token available');
+      return false;
+    }
+
+    try {
+      console.log('[AUTH] Attempting to refresh access token...');
+      const response = await axios.post('/api/auth/refresh/', {
+        refresh: refreshToken
+      });
+
+      const { access } = response.data;
+      
+      // Update stored auth data
+      const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+      authData.access = access;
+      localStorage.setItem('auth', JSON.stringify(authData));
+      localStorage.setItem('access_token', access);
+      
+      // Update store state
+      set({ token: access });
+      
+      // Update API headers
+      authApi.defaults.headers.common.Authorization = `Bearer ${access}`;
+      
+      console.log('[AUTH] Access token refreshed successfully');
+      return true;
+    } catch (error) {
+      console.error('[AUTH] Token refresh failed:', error);
+      // Clear auth data on refresh failure
+      get().logout();
+      return false;
+    }
+  },
+
   logout: () => {
+    console.log('[AUTH] Logging out user...');
     localStorage.removeItem('auth');
     localStorage.removeItem('access_token');
     delete authApi.defaults.headers.common.Authorization;
-    set({ token: null, user: null });
+    set({ token: null, user: null, refreshToken: null });
+    console.log('[AUTH] User logged out successfully');
   },
 }));

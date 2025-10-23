@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import Card from '../../components/ui/Card';
-import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeSelect, FormSection } from '@shared/theme';
+import { ThemeLayout, ThemeCard, ThemeInput, ThemeButton, ThemeAlert, ThemeSelect, FormSection } from '@theme';
 import {
   listBrands, listTopCategories, listSubcategories,
   createCategory, updateCategory, deleteCategory,
   createBrand, updateBrand, deleteBrand,
 } from '../../lib/api';
 import { api } from '../../lib/api';
+import { useOptimizedData } from '../../hooks/useOptimizedData';
 
 // Enhanced tree building function for 3-level hierarchy
 function buildHierarchyTree(categories) {
+  console.log('🔍 Building hierarchy tree from categories:', categories.length);
+  
   const byParent = new Map();
   categories.forEach(c => {
     const pid = c.parent ?? c.parent_id ?? null;
@@ -19,19 +22,22 @@ function buildHierarchyTree(categories) {
   });
   
   const roots = byParent.get('root') || byParent.get(null) || [];
+  console.log('🔍 Root categories found:', roots.length);
   
   const attach = (node) => ({
     ...node,
-    level: node.depth || 0,
-    levelName: node.level_name || (node.parent ? 'Child Category' : 'Parent Category'),
+    level: node.depth || (node.parent ? (node.parent.parent ? 2 : 1) : 0),
+    levelName: node.level_name || (node.parent ? (node.parent.parent ? 'Grandchild Category' : 'Child Category') : 'Parent Category'),
     children: (byParent.get(node.id) || []).map(attach),
   });
   
-  return roots.map(attach);
+  const tree = roots.map(attach);
+  console.log('🔍 Built tree structure:', tree);
+  return tree;
 }
 
 // Component for rendering individual category items
-function CategoryItem({ category, onSelect, depth = 0, isSelected = false, expandedCategories, onToggleExpand }) {
+function CategoryItem({ category, onSelect, depth = 0, isSelected = false, expandedCategories, onToggleExpand, scrollToEditSection }) {
   const levelIcons = {
     0: '📁', // Parent
     1: '📂', // Child
@@ -107,7 +113,7 @@ function CategoryItem({ category, onSelect, depth = 0, isSelected = false, expan
           <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-700">
             {category.image ? (
               <img 
-                src={category.image} 
+                src={category.image.startsWith('http') ? category.image : `${category.image}`} 
                 alt={category.name}
                 className="w-full h-full object-cover rounded-lg"
               />
@@ -167,9 +173,94 @@ function CategoryItem({ category, onSelect, depth = 0, isSelected = false, expan
 }
 
 export default function ManageCategoriesPage() {
-  // Data state
+  
+  // Simple data for categories and brands - using direct API calls like ContentPage
   const [allCats, setAllCats] = useState([]);
   const [allBrands, setAllBrands] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(null);
+  const [brandsError, setBrandsError] = useState(null);
+
+  // Load data function with better error handling and performance
+  const loadData = async () => {
+    try {
+      setCategoriesLoading(true);
+      setBrandsLoading(true);
+      setCategoriesError(null);
+      setBrandsError(null);
+
+      console.log('🚀 Starting data load...');
+      const startTime = performance.now();
+
+      // Load brands and categories in parallel with timeout
+      const [brandsRes, categoriesRes] = await Promise.all([
+        Promise.race([
+          listBrands(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Brands request timeout')), 10000))
+        ]),
+        Promise.race([
+          api.get('/admin/categories/'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Categories request timeout')), 15000))
+        ])
+      ]);
+      
+      const endTime = performance.now();
+      console.log(`🚀 Data loaded in ${(endTime - startTime).toFixed(2)}ms`);
+      
+      // Handle different response structures safely
+      const brands = brandsRes?.results || brandsRes?.data?.results || brandsRes?.data || brandsRes || [];
+      const categories = categoriesRes?.results || categoriesRes?.data?.results || categoriesRes?.data || categoriesRes || [];
+      
+      setAllBrands(brands);
+      setAllCats(categories);
+      
+      console.log(`✅ Loaded ${brands.length} brands and ${categories.length} categories`);
+      
+      // Debug: Log grandchild categories
+      const grandchildCats = categories.filter(cat => cat.level === 2);
+      console.log('🔍 Grandchild categories found:', grandchildCats);
+      console.log('🔍 Categories with ID 527 or 529:', categories.filter(cat => cat.id === 527 || cat.id === 529));
+    } catch (err) {
+      console.error('❌ Failed to load data:', err);
+      setCategoriesError(err);
+      setBrandsError(err);
+    } finally {
+      setCategoriesLoading(false);
+      setBrandsLoading(false);
+    }
+  };
+
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Refresh functions for compatibility
+  const refreshCategories = () => loadData();
+  const refreshBrands = () => loadData();
+  const refreshCategoriesImmediate = () => loadData();
+  const refreshBrandsImmediate = () => loadData();
+
+  // Optimistic update functions for compatibility
+  const addCategoryOptimistic = (newCategory) => {
+    setAllCats(prev => [...prev, newCategory]);
+  };
+  const updateCategoryOptimistic = (id, updates) => {
+    setAllCats(prev => prev.map(cat => cat.id === id ? { ...cat, ...updates } : cat));
+  };
+  const removeCategoryOptimistic = (id) => {
+    setAllCats(prev => prev.filter(cat => cat.id !== id));
+  };
+  const addBrandOptimistic = (newBrand) => {
+    setAllBrands(prev => [...prev, newBrand]);
+  };
+  const updateBrandOptimistic = (id, updates) => {
+    setAllBrands(prev => prev.map(brand => brand.id === id ? { ...brand, ...updates } : brand));
+  };
+  const removeBrandOptimistic = (id) => {
+    setAllBrands(prev => prev.filter(brand => brand.id !== id));
+  };
 
   // Form states for adding new items
   const [newCatName, setNewCatName] = useState('');
@@ -189,9 +280,9 @@ export default function ManageCategoriesPage() {
   const [editBrandId, setEditBrandId] = useState('');
   const [editName, setEditName] = useState('');
   const [editSlogan, setEditSlogan] = useState('');
-  const [editBrandImage, setEditBrandImage] = useState(null);
-  const [editSubImage, setEditSubImage] = useState(null);
   const [editCurrentImage, setEditCurrentImage] = useState(null);
+  const [editSubImage, setEditSubImage] = useState(null);
+  const [editBrandImage, setEditBrandImage] = useState(null);
 
   // UI state
   const [msg, setMsg] = useState(null);
@@ -203,9 +294,58 @@ export default function ManageCategoriesPage() {
   const [filterLevel, setFilterLevel] = useState('all');
   const [sortBy, setSortBy] = useState('name');
 
+  // Refs for scroll targets
+  const editCategoryRef = useRef(null);
+  const editSubcategoryRef = useRef(null);
+  const editGrandchildRef = useRef(null);
+  const editBrandRef = useRef(null);
+
+  // Real-time refresh function
+  const refreshData = async () => {
+    try {
+      // Force immediate refresh without debounce for better UX
+      await loadData();
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    }
+  };
+
+  // Scroll to edit section function
+  const scrollToEditSection = (section) => {
+    setTimeout(() => {
+      let targetRef = null;
+      switch (section) {
+        case 'category':
+          targetRef = editCategoryRef.current;
+          break;
+        case 'subcategory':
+          targetRef = editSubcategoryRef.current;
+          break;
+        case 'grandchild':
+          targetRef = editGrandchildRef.current;
+          break;
+        case 'brand':
+          targetRef = editBrandRef.current;
+          break;
+        default:
+          return;
+      }
+      
+      if (targetRef) {
+        targetRef.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    }, 100); // Small delay to ensure DOM is updated
+  };
+
   // Derived data with filtering and sorting
   const filteredCats = useMemo(() => {
-    let filtered = allCats;
+    // Ensure allCats is always an array
+    const safeAllCats = Array.isArray(allCats) ? allCats : [];
+    let filtered = safeAllCats;
     
     // Apply search filter
     if (searchTerm) {
@@ -221,21 +361,23 @@ export default function ManageCategoriesPage() {
       filtered = filtered.filter(cat => cat.level === level);
     }
     
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'level':
-          return a.level - b.level;
-        case 'children':
-          return b.children_count - a.children_count;
-        case 'id':
-          return a.id - b.id;
-        default:
-          return 0;
-      }
-    });
+    // Apply sorting - ensure filtered is still an array before sorting
+    if (Array.isArray(filtered)) {
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case 'name':
+            return a.name.localeCompare(b.name);
+          case 'level':
+            return a.level - b.level;
+          case 'children':
+            return b.children_count - a.children_count;
+          case 'id':
+            return a.id - b.id;
+          default:
+            return 0;
+        }
+      });
+    }
     
     return filtered;
   }, [allCats, searchTerm, filterLevel, sortBy]);
@@ -264,24 +406,24 @@ export default function ManageCategoriesPage() {
     console.log('Category counts calculated:', counts);
     console.log('Tree structure:', tree);
     console.log('Filtered categories:', filteredCats.length);
-    console.log('All categories:', allCats.length);
+    console.log('All categories:', (Array.isArray(allCats) ? allCats : []).length);
     
     return counts;
   }, [tree, filteredCats, allCats]);
   
-  const parentCats = useMemo(() => allCats.filter(c => c.level === 0), [allCats]);
-  const childCats = useMemo(() => allCats.filter(c => c.level === 1), [allCats]);
-  const grandchildCats = useMemo(() => allCats.filter(c => c.level === 2), [allCats]);
+  const parentCats = useMemo(() => (Array.isArray(allCats) ? allCats : []).filter(c => c.level === 0), [allCats]);
+  const childCats = useMemo(() => (Array.isArray(allCats) ? allCats : []).filter(c => c.level === 1), [allCats]);
+  const grandchildCats = useMemo(() => (Array.isArray(allCats) ? allCats : []).filter(c => c.level === 2), [allCats]);
 
   // Helper function to get categories that can have children
   const getEligibleParents = useMemo(() => {
-    return allCats.filter(cat => cat.can_have_children);
+    return (Array.isArray(allCats) ? allCats : []).filter(cat => cat.can_have_children);
   }, [allCats]);
 
   // Helper function to get subcategories by parent
   const subcatsByParent = useMemo(() => {
     const map = new Map();
-    allCats.forEach(c => {
+    (Array.isArray(allCats) ? allCats : []).forEach(c => {
       if (c.parent) {
         if (!map.has(c.parent)) map.set(c.parent, []);
         map.get(c.parent).push(c);
@@ -290,124 +432,7 @@ export default function ManageCategoriesPage() {
     return map;
   }, [allCats]);
 
-  const loadAll = async () => {
-    try {
-      // Get ALL categories with hierarchical data
-      let allCategories = [];
-      let nextUrl = '/admin/categories/';
-      
-      while (nextUrl) {
-        try {
-          const catRes = await api.get(nextUrl);
-          const categoriesData = catRes.data.results || catRes.data;
-          if (Array.isArray(categoriesData)) {
-            allCategories = [...allCategories, ...categoriesData];
-            nextUrl = catRes.data.next || null;
-          } else if (categoriesData) {
-            // Handle single object response
-            allCategories = [categoriesData];
-            nextUrl = null;
-          } else {
-            // Handle empty response
-            nextUrl = null;
-          }
-        } catch (pageError) {
-          // If a specific page fails (like page=2 when it doesn't exist), 
-          // stop pagination and use what we have
-          console.warn(`Failed to load page ${nextUrl}:`, pageError);
-          // Don't break here, just stop pagination
-          nextUrl = null;
-        }
-      }
-      
-      const cats = Array.isArray(allCategories) ? allCategories.map(c => ({
-        id: c.id, 
-        name: c.name, 
-        slogan: c.slogan || '',
-        parent: c.parent ?? null,
-        depth: c.depth || 0,
-        level: c.level || 0,
-        level_name: c.level_name || (c.parent ? 'Child Category' : 'Parent Category'),
-        full_path: c.full_path || c.name,
-        can_have_children: c.can_have_children !== false,
-        children_count: c.children_count || 0,
-        children: c.children || []
-      })) : [];
-      
-      // Debug logging
-      console.log('Loaded categories from API:', cats.length);
-      console.log('Parent categories:', cats.filter(c => c.level === 0));
-      console.log('All categories:', cats);
-      
-      // Only proceed if we have categories from API
-      if (cats.length > 0) {
-        const brandRes = await listBrands();
-        const brands = brandRes.data.results || brandRes.data || [];
-        setAllCats(cats);
-        setAllBrands(Array.isArray(brands) ? brands : []);
-        
-        // Save to localStorage as backup
-        localStorage.setItem('admin_categories', JSON.stringify(cats));
-        localStorage.setItem('admin_brands', JSON.stringify(Array.isArray(brands) ? brands : []));
-        return; // Success, exit early
-      } else {
-        console.warn('No categories loaded from API, falling back to localStorage');
-      }
-    } catch (err) {
-      console.error('Failed to load categories/brands:', err);
-      
-      let errorMessage = 'Failed to load categories/brands';
-      if (err.response?.status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'Access denied. You may not have admin permissions.';
-      } else if (err.response?.status === 404) {
-        errorMessage = 'API endpoint not found. Please check if the server is running correctly.';
-      } else if (err.response?.status >= 500) {
-        errorMessage = 'Server error. Please try again later.';
-      } else if (err.response?.status === 0) {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setMsg({ kind: 'error', text: errorMessage });
-      
-      // Load from localStorage as fallback
-      const savedCats = localStorage.getItem('admin_categories');
-      const savedBrands = localStorage.getItem('admin_brands');
-      
-      console.log('API failed, loading from localStorage');
-      console.log('Saved categories from localStorage:', savedCats ? JSON.parse(savedCats).length : 'none');
-      
-      if (savedCats) {
-        try {
-          const parsedCats = JSON.parse(savedCats);
-          console.log('Loaded from localStorage:', parsedCats.length, 'categories');
-          console.log('Parent categories from localStorage:', parsedCats.filter(c => c.level === 0));
-          setAllCats(parsedCats);
-        } catch (parseError) {
-          console.error('Failed to parse saved categories:', parseError);
-          setAllCats([]);
-        }
-      } else {
-        setAllCats([]);
-      }
-      
-      if (savedBrands) {
-        try {
-          setAllBrands(JSON.parse(savedBrands));
-        } catch (parseError) {
-          console.error('Failed to parse saved brands:', parseError);
-          setAllBrands([]);
-        }
-      } else {
-        setAllBrands([]);
-      }
-    }
-  };
-
-  useEffect(() => { loadAll(); }, []);
+  // Data fetching is now handled automatically by useOptimizedData hooks
 
   const broadcast = () => window.dispatchEvent(new CustomEvent('taxonomy:updated'));
 
@@ -428,8 +453,8 @@ export default function ManageCategoriesPage() {
 
   // Expand all categories
   const expandAll = () => {
-    console.log('🔧 Expand All clicked - Total categories:', allCats.length);
-    const allCategoryIds = allCats.map(cat => cat.id);
+    console.log('🔧 Expand All clicked - Total categories:', (Array.isArray(allCats) ? allCats : []).length);
+    const allCategoryIds = (Array.isArray(allCats) ? allCats : []).map(cat => cat.id);
     console.log('🔧 Category IDs to expand:', allCategoryIds);
     const newSet = new Set(allCategoryIds);
     setExpandedCategories(newSet);
@@ -471,9 +496,9 @@ export default function ManageCategoriesPage() {
 
   // Auto-expand all categories when they're first loaded (only if user hasn't manually collapsed)
   useEffect(() => {
-    if (allCats.length > 0 && expandedCategories.size === 0 && !userHasCollapsed) {
+    if ((Array.isArray(allCats) ? allCats : []).length > 0 && expandedCategories.size === 0 && !userHasCollapsed) {
       console.log('🔧 Auto-expanding categories on first load');
-      const allCategoryIds = allCats.map(cat => cat.id);
+      const allCategoryIds = (Array.isArray(allCats) ? allCats : []).map(cat => cat.id);
       const newSet = new Set(allCategoryIds);
       setExpandedCategories(newSet);
       localStorage.setItem('admin_expanded_categories', JSON.stringify(allCategoryIds));
@@ -513,26 +538,58 @@ export default function ManageCategoriesPage() {
   }, []);
 
   const onPickCategory = (cat) => {
+    console.log('🔍 Picking category:', cat);
+    console.log('🔍 Category level:', cat.level);
+    console.log('🔍 Category parent:', cat.parent);
     setSelectedCategory(cat);
-    setEditMode(cat.level === 0 ? 'category' : cat.level === 1 ? 'subcategory' : 'grandchild');
     
+    // Determine edit mode based on category level
+    let editMode = 'category';
+    if (cat.level === 1) {
+      editMode = 'subcategory';
+    } else if (cat.level === 2) {
+      editMode = 'grandchild';
+    }
+    console.log('🔍 Setting edit mode to:', editMode);
+    setEditMode(editMode);
+    
+    // Set up edit state based on category level
     if (cat.level === 0) {
+      // Parent category
       setEditCatId(String(cat.id));
+      setEditSubParentId('');
+      setEditSubId('');
     } else if (cat.level === 1) {
+      // Child category
+      setEditCatId('');
       setEditSubParentId(String(cat.parent));
       setEditSubId(String(cat.id));
-    } else {
+    } else if (cat.level === 2) {
       // Grandchild category
-      const parentCat = allCats.find(c => c.id === cat.parent);
-      setEditSubParentId(String(parentCat?.parent || ''));
+      setEditCatId('');
+      setEditSubParentId(String(cat.parent));
       setEditSubId(String(cat.id));
     }
     
+    // Set common edit fields
     setEditName(cat.name);
     setEditSlogan(cat.slogan || '');
     setEditCurrentImage(cat.image);
+    
+    // Scroll to the appropriate edit section
+    const section = cat.level === 0 ? 'category' : cat.level === 1 ? 'subcategory' : 'grandchild';
+    scrollToEditSection(section);
     setEditSubImage(null);
     setMsg(null);
+    
+    console.log('🔍 Edit state set:', {
+      editMode,
+      editCatId: cat.level === 0 ? String(cat.id) : '',
+      editSubParentId: cat.level > 0 ? String(cat.parent) : '',
+      editSubId: cat.level > 0 ? String(cat.id) : '',
+      editName: cat.name,
+      editSlogan: cat.slogan || ''
+    });
   };
 
   const onPickBrand = (brand) => {
@@ -542,6 +599,9 @@ export default function ManageCategoriesPage() {
     setEditCurrentImage(brand.image);
     setEditBrandImage(null);
     setMsg(null);
+    
+    // Scroll to brand edit section
+    scrollToEditSection('brand');
   };
 
   const showError = (err, fallback = 'Something went wrong') => {
@@ -576,6 +636,11 @@ export default function ManageCategoriesPage() {
       errorMessage = err.message;
     }
     
+    // Handle specific category deletion constraint errors
+    if (errorMessage.includes('product(s) are using this category')) {
+      errorMessage = `⚠️ Cannot delete category: ${errorMessage}\n\nTo delete this category:\n1. Go to Products page\n2. Find products using this category\n3. Either delete those products or reassign them to another category\n4. Then try deleting the category again`;
+    }
+    
     console.error('Final error message:', errorMessage);
     setMsg({ kind: 'error', text: errorMessage });
   };
@@ -595,8 +660,16 @@ export default function ManageCategoriesPage() {
     if (!name) return setMsg({ kind: 'error', text: 'Please enter a category name.' });
     try {
       setBusy(true);
-      await createCategory({ name, slogan });
-      await loadAll();
+      const response = await createCategory({ name, slogan });
+      
+      // Optimistically update local state immediately
+      if (response) {
+        addCategoryOptimistic(response);
+      }
+      
+      // Then refresh to get the latest data from server
+      await refreshData();
+      
       setNewCatName('');
       setNewCatSlogan('');
       broadcast();
@@ -616,6 +689,14 @@ export default function ManageCategoriesPage() {
     if (!parent) return setMsg({ kind: 'error', text: 'Please select a parent category first.' });
     if (!name) return setMsg({ kind: 'error', text: 'Please enter a subcategory name.' });
     
+    // Check if this will be a grandchild category (level 2) and require image
+    const parentCategory = (Array.isArray(allCats) ? allCats : []).find(cat => cat.id === parent);
+    const willBeGrandchild = parentCategory && parentCategory.level === 1;
+    
+    if (willBeGrandchild && !newSubImage) {
+      return setMsg({ kind: 'error', text: 'Image is required for grandchild categories (level 2). Please upload an image.' });
+    }
+    
     try {
       setBusy(true);
       
@@ -628,15 +709,25 @@ export default function ManageCategoriesPage() {
       }
       
       await createCategory(formData);
-      await loadAll();
       setNewSubName('');
       setNewSubSlogan('');
       setNewSubParentId('');
       setNewSubImage(null);
       broadcast();
+      await refreshData();
       setMsg({ kind: 'success', text: 'Subcategory added.' });
     } catch (err) {
-      showError(err, 'Failed to add subcategory.');
+      console.error('[ManageCategoriesPage] Failed to add subcategory:', err);
+      
+      // Handle specific error types
+      if (err.response?.data?.error_type === 'duplicate_image') {
+        setMsg({ 
+          kind: 'error', 
+          text: 'Duplicate Image: This image already exists for this category. Please upload a different image.' 
+        });
+      } else {
+        showError(err, 'Failed to add subcategory.');
+      }
     } finally { setBusy(false); }
   };
 
@@ -656,13 +747,23 @@ export default function ManageCategoriesPage() {
       }
       
       await createBrand(formData);
-      await loadAll();
+      await refreshData();
       setNewBrandName('');
       setNewBrandImage(null);
       broadcast();
       setMsg({ kind: 'success', text: 'Brand added.' });
     } catch (err) {
-      setMsg({ kind: 'error', text: err.uiMessage || 'Failed to add brand.' });
+      console.error('[ManageCategoriesPage] Failed to add brand:', err);
+      
+      // Handle specific error types
+      if (err.response?.data?.error_type === 'duplicate_image') {
+        setMsg({ 
+          kind: 'error', 
+          text: 'Duplicate Image: This image already exists for this brand. Please upload a different image.' 
+        });
+      } else {
+        setMsg({ kind: 'error', text: err.uiMessage || 'Failed to add brand.' });
+      }
     } finally { setBusy(false); }
   };
 
@@ -680,12 +781,28 @@ export default function ManageCategoriesPage() {
       } else if (editMode === 'subcategory' || editMode === 'grandchild') {
         if (!editSubId) return setMsg({ kind: 'error', text: 'Pick a subcategory to edit.' });
         
+        // Note: Image is optional for editing existing grandchild categories
+        // Only require image when creating new grandchild categories
+        
         const formData = new FormData();
         formData.append('name', editName);
         formData.append('slogan', editSlogan);
+        
+        // For subcategory and grandchild categories, we need to maintain the parent relationship
+        if ((editMode === 'subcategory' || editMode === 'grandchild') && editSubParentId) {
+          formData.append('parent', editSubParentId);
+        }
+        
         if (editSubImage) {
           formData.append('image', editSubImage);
         }
+        
+        console.log('🔍 Updating category with formData:', {
+          name: editName,
+          slogan: editSlogan,
+          parent: (editMode === 'subcategory' || editMode === 'grandchild') ? editSubParentId : undefined,
+          hasImage: !!editSubImage
+        });
         
         await updateCategory(editSubId, formData);
       } else {
@@ -700,7 +817,14 @@ export default function ManageCategoriesPage() {
         await updateBrand(editBrandId, formData);
       }
       
-      await loadAll();
+      // Optimistically update local state immediately
+      if (editMode === 'category' && editCatId) {
+        updateCategoryOptimistic(editCatId, { name: editName, slogan: editSlogan });
+      } else if ((editMode === 'subcategory' || editMode === 'grandchild') && editSubId) {
+        updateCategoryOptimistic(editSubId, { name: editName, slogan: editSlogan });
+      } else if (editMode === 'brand' && editBrandId) {
+        updateBrandOptimistic(editBrandId, { name: editName });
+      }
       
       // Update the selected category with the new data
       if (selectedCategory) {
@@ -712,18 +836,42 @@ export default function ManageCategoriesPage() {
         }));
       }
       
+      // Then refresh to get the latest data from server
       broadcast();
+      await refreshData();
       setMsg({ kind: 'success', text: 'Changes saved.' });
       
       // Reset edit image states
       setEditBrandImage(null);
       setEditSubImage(null);
     } catch (err) { 
-      showError(err, 'Failed to save changes.'); 
+      console.error('[ManageCategoriesPage] Failed to save changes:', err);
+      
+      // Handle specific error types
+      if (err.response?.data?.error_type === 'duplicate_image') {
+        setMsg({ 
+          kind: 'error', 
+          text: 'Duplicate Image: This image already exists. Please upload a different image.' 
+        });
+      } else {
+        showError(err, 'Failed to save changes.');
+      }
     } finally { setBusy(false); }
   };
 
   // === Delete Edit ===
+  // Check if category can be safely deleted
+  const canDeleteCategory = async (categoryId) => {
+    try {
+      // Get products using this category
+      const products = await listProducts({ category: categoryId });
+      return products.length === 0;
+    } catch (error) {
+      console.warn('Could not check category usage:', error);
+      return false; // Err on the side of caution
+    }
+  };
+
   const deleteEdit = async () => {
     setMsg(null);
     try {
@@ -731,15 +879,45 @@ export default function ManageCategoriesPage() {
       
       if (editMode === 'category') {
         if (!editCatId) return setMsg({ kind: 'error', text: 'Pick a category to delete.' });
+        
+        // Check if category can be safely deleted
+        const canDelete = await canDeleteCategory(editCatId);
+        if (!canDelete) {
+          setMsg({ 
+            kind: 'error', 
+            text: '⚠️ Cannot delete this category because it has products associated with it.\n\nTo delete this category:\n1. Go to Products page\n2. Find products using this category\n3. Either delete those products or reassign them to another category\n4. Then try deleting the category again'
+          });
+          return;
+        }
+        
         if (!confirm('Delete Category and all its Subcategories?')) return;
         console.log('Deleting category with ID:', editCatId);
+        
+        // Optimistically remove from local state immediately
+        removeCategoryOptimistic(editCatId);
+        
         await deleteCategory(editCatId);
         setEditCatId(''); 
         setEditName('');
       } else if (editMode === 'subcategory' || editMode === 'grandchild') {
         if (!editSubId) return setMsg({ kind: 'error', text: 'Pick a subcategory to delete.' });
+        
+        // Check if subcategory can be safely deleted
+        const canDelete = await canDeleteCategory(editSubId);
+        if (!canDelete) {
+          setMsg({ 
+            kind: 'error', 
+            text: '⚠️ Cannot delete this subcategory because it has products associated with it.\n\nTo delete this subcategory:\n1. Go to Products page\n2. Find products using this subcategory\n3. Either delete those products or reassign them to another category\n4. Then try deleting the subcategory again'
+          });
+          return;
+        }
+        
         if (!confirm('Delete this Subcategory?')) return;
         console.log('Deleting subcategory with ID:', editSubId);
+        
+        // Optimistically remove from local state immediately
+        removeCategoryOptimistic(editSubId);
+        
         await deleteCategory(editSubId);
         setEditSubId(''); 
         setEditName('');
@@ -747,12 +925,16 @@ export default function ManageCategoriesPage() {
         if (!editBrandId) return setMsg({ kind: 'error', text: 'Pick a brand to delete.' });
         if (!confirm('Delete this Brand?')) return;
         console.log('Deleting brand with ID:', editBrandId);
+        
+        // Optimistically remove from local state immediately
+        removeBrandOptimistic(editBrandId);
+        
         await deleteBrand(editBrandId);
         setEditBrandId(''); 
         setEditName('');
       }
       
-      await loadAll();
+      await refreshData();
       broadcast();
       setMsg({ kind: 'success', text: 'Item deleted successfully.' });
     } catch (err) { 
@@ -763,6 +945,17 @@ export default function ManageCategoriesPage() {
 
   return (
     <ThemeLayout>
+      {/* Global loading indicator */}
+      {(categoriesLoading || brandsLoading) && (
+        <div className="fixed top-4 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+          <span className="text-sm font-medium">
+            {categoriesLoading && brandsLoading ? 'Loading categories and brands...' : 
+             categoriesLoading ? 'Loading categories...' : 'Loading brands...'}
+          </span>
+        </div>
+      )}
+      
       <div className="flex flex-col xl:flex-row gap-6">
         {/* LEFT SIDE - Category Tree */}
         <div className="xl:w-5/12 w-full xl:sticky xl:top-16 h-fit space-y-6">
@@ -856,7 +1049,7 @@ export default function ManageCategoriesPage() {
                     localStorage.removeItem('admin_expanded_categories');
                     localStorage.removeItem('admin_user_has_collapsed');
                     setUserHasCollapsed(false);
-                    loadAll();
+                    loadData();
                   }}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 bg-red-100 dark:bg-red-700 hover:bg-red-200 dark:hover:bg-red-600 rounded-lg transition-colors duration-200"
                   title="Clear cache and reload from API"
@@ -888,7 +1081,39 @@ export default function ManageCategoriesPage() {
               </div>
             </div>
 
-            {tree.length ? (
+            {categoriesLoading ? (
+              <div className="max-h-[36rem] overflow-y-auto space-y-2 pr-2 pb-6">
+                {/* Skeleton loading for categories */}
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-600">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                        <div className="w-8 h-8 bg-slate-200 dark:bg-slate-600 rounded-lg"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-slate-200 dark:bg-slate-600 rounded w-3/4 mb-2"></div>
+                          <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded w-1/2"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : categoriesError ? (
+              <div className="text-center py-8 text-red-500 dark:text-red-400">
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <span className="text-xl">❌</span>
+                </div>
+                <div className="font-medium mb-1">Failed to load categories</div>
+                <div className="text-sm mb-4">{categoriesError.message}</div>
+                <button
+                  onClick={loadData}
+                  className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : tree.length ? (
               <div className="max-h-[36rem] overflow-y-auto space-y-2 pr-2 pb-6">
                 {tree.map(category => (
                   <CategoryItem
@@ -940,55 +1165,97 @@ export default function ManageCategoriesPage() {
               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Brands</h2>
             </div>
             <div className="text-sm text-slate-600 dark:text-slate-400 mb-4">Click a brand to edit/delete.</div>
-            <div className="max-h-[28rem] overflow-y-auto space-y-2 pr-2 pb-6">
-              {allBrands.map(b => (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => onPickBrand(b)}
-                  className="w-full text-left p-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
-                      {b.image ? (
-                        <img 
-                          src={b.image} 
-                          alt={b.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <span className="text-slate-600 dark:text-slate-400 text-sm">🏷️</span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-slate-800 dark:text-slate-200">
-                        {b.name}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Brand • ID: {b.id}
+            {brandsLoading ? (
+              <div className="max-h-[28rem] overflow-y-auto space-y-2 pr-2 pb-6">
+                {/* Skeleton loading for brands */}
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="w-full p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-slate-200 dark:bg-slate-600 rounded-lg"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-slate-200 dark:bg-slate-600 rounded w-2/3 mb-2"></div>
+                          <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded w-1/3"></div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </button>
-              ))}
-              {/* Extra spacing to ensure last item is fully visible */}
-              <div className="h-4"></div>
-              {allBrands.length === 0 && (
-                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                  <div className="w-12 h-12 bg-slate-200 dark:bg-slate-600 rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <span className="text-xl">🏷️</span>
-                  </div>
-                  <div className="font-medium mb-1">No brands yet</div>
-                  <div className="text-sm">Create your first brand using the form on the right</div>
+                ))}
+              </div>
+            ) : brandsError ? (
+              <div className="text-center py-8 text-red-500 dark:text-red-400">
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <span className="text-xl">❌</span>
                 </div>
-              )}
-            </div>
+                <div className="font-medium mb-1">Failed to load brands</div>
+                <div className="text-sm mb-4">{brandsError.message}</div>
+                <button
+                  onClick={loadData}
+                  className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <div className="max-h-[28rem] overflow-y-auto space-y-2 pr-2 pb-6">
+                {(Array.isArray(allBrands) ? allBrands : []).map(b => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => onPickBrand(b)}
+                    className="w-full text-left p-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
+                        {b.image ? (
+                          <img 
+                            src={b.image.startsWith('http') ? b.image : `${b.image}`} 
+                            alt={b.name}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <span className="text-slate-600 dark:text-slate-400 text-sm">🏷️</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-800 dark:text-slate-200">
+                          {b.name}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          Brand • ID: {b.id}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+                {/* Extra spacing to ensure last item is fully visible */}
+                <div className="h-4"></div>
+                {(Array.isArray(allBrands) ? allBrands : []).length === 0 && (
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                    <div className="w-12 h-12 bg-slate-200 dark:bg-slate-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <span className="text-xl">🏷️</span>
+                    </div>
+                    <div className="font-medium mb-1">No brands yet</div>
+                    <div className="text-sm">Create your first brand using the form on the right</div>
+                  </div>
+                )}
+              </div>
+            )}
           </ThemeCard>
         </div>
 
         {/* RIGHT SIDE - Forms */}
         <div className="xl:w-7/12 w-full space-y-6">
-          {msg && <ThemeAlert message={msg.text} type={msg.kind} />}
+          {/* Popup Alert Dialog */}
+          {msg && (
+            <ThemeAlert 
+              message={msg.text} 
+              type={msg.kind} 
+              onClose={() => setMsg(null)}
+              autoClose={true}
+              duration={1000}
+            />
+          )}
 
           {/* Quick Actions Toolbar */}
           <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600 p-4">
@@ -1139,7 +1406,11 @@ export default function ManageCategoriesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    📷 Category Image (Optional - typically for grandchild categories)
+                    📷 Category Image                     {(() => {
+                      const parentCategory = (Array.isArray(allCats) ? allCats : []).find(cat => cat.id === normalizeId(newSubParentId));
+                      const willBeGrandchild = parentCategory && parentCategory.level === 1;
+                      return willBeGrandchild ? '(Required for grandchild categories)' : '(Optional - typically for grandchild categories)';
+                    })()}
                   </label>
                   <input
                     type="file"
@@ -1164,7 +1435,11 @@ export default function ManageCategoriesPage() {
                 <div className="flex justify-end">
                   <ThemeButton 
                     type="submit" 
-                    disabled={busy || !newSubParentId || !newSubName.trim()} 
+                    disabled={busy || !newSubParentId || !newSubName.trim() || (() => {
+                      const parentCategory = (Array.isArray(allCats) ? allCats : []).find(cat => cat.id === normalizeId(newSubParentId));
+                      const willBeGrandchild = parentCategory && parentCategory.level === 1;
+                      return willBeGrandchild && !newSubImage;
+                    })()} 
                     loading={busy} 
                     variant="success" 
                     icon="📁"
@@ -1272,14 +1547,14 @@ export default function ManageCategoriesPage() {
               </div>
 
               {editMode === 'category' && (
-                <div className="space-y-4">
+                <div ref={editCategoryRef} className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-2">
                     <ThemeSelect
                       value={editCatId}
                       onChange={(e) => {
                         const id = e.target.value; 
                         setEditCatId(id);
-                        const c = allCats.find(x => String(x.id) === String(id));
+                        const c = (Array.isArray(allCats) ? allCats : []).find(x => String(x.id) === String(id));
                         setEditName(c?.name || '');
                         setEditSlogan(c?.slogan || '');
                       }}
@@ -1308,24 +1583,35 @@ export default function ManageCategoriesPage() {
               )}
 
               {(editMode === 'subcategory' || editMode === 'grandchild') && (
-                <div className="space-y-4">
+                <div ref={editMode === 'subcategory' ? editSubcategoryRef : editGrandchildRef} className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-2">
                     <ThemeSelect
                       value={editSubId}
                       onChange={(e) => {
                         const id = e.target.value; 
                         setEditSubId(id);
-                        const sc = allCats.find(x => String(x.id) === String(id));
+                        const sc = (Array.isArray(allCats) ? allCats : []).find(x => String(x.id) === String(id));
                         setEditName(sc?.name || '');
                         setEditSlogan(sc?.slogan || '');
                         setEditCurrentImage(sc?.image || null);
                         setEditSubImage(null);
+                        // Also update the parent ID for grandchild categories
+                        if (editMode === 'grandchild' && sc?.parent) {
+                          setEditSubParentId(String(sc.parent));
+                        }
                       }}
                       placeholder={`Select ${editMode === 'subcategory' ? 'Child' : 'Grandchild'} Category`}
-                      options={allCats.filter(c => c.level === (editMode === 'subcategory' ? 1 : 2)).map(sc => ({ 
+                      options={(Array.isArray(allCats) ? allCats : []).filter(c => c.level === (editMode === 'subcategory' ? 1 : 2)).map(sc => ({ 
                         value: sc.id, 
-                        label: `${sc.name} (${sc.full_path})` 
+                        label: `${sc.name} (${sc.full_path || sc.name})` 
                       }))}
+                      // Debug: Log the filtered options
+                      onFocus={() => {
+                        const filtered = (Array.isArray(allCats) ? allCats : []).filter(c => c.level === (editMode === 'subcategory' ? 1 : 2));
+                        console.log('🔍 Filtered categories for', editMode, ':', filtered);
+                        console.log('🔍 Current editMode:', editMode);
+                        console.log('🔍 Looking for level:', editMode === 'subcategory' ? 1 : 2);
+                      }}
                     />
                     <ThemeInput
                       value={editName}
@@ -1347,14 +1633,14 @@ export default function ManageCategoriesPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                      📷 Category Image {editMode === 'grandchild' && '(Recommended for grandchild categories)'}
+                      📷 Category Image {editMode === 'grandchild' && '(Optional for editing existing grandchild categories)'}
                     </label>
                     {editCurrentImage && (
                       <div className="mb-2">
                         <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Current image:</div>
                         <div className="w-16 h-16 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
                           <img 
-                            src={editCurrentImage} 
+                            src={editCurrentImage.startsWith('http') ? editCurrentImage : `${editCurrentImage}`} 
                             alt="Current category image" 
                             className="w-full h-full object-cover"
                           />
@@ -1384,20 +1670,20 @@ export default function ManageCategoriesPage() {
               )}
 
               {editMode === 'brand' && (
-                <div className="space-y-4">
+                <div ref={editBrandRef} className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-2">
                     <ThemeSelect
                       value={editBrandId}
                       onChange={(e) => {
                         const id = e.target.value; 
                         setEditBrandId(id);
-                        const b = allBrands.find(x => String(x.id) === String(id));
+                        const b = (Array.isArray(allBrands) ? allBrands : []).find(x => String(x.id) === String(id));
                         setEditName(b?.name || '');
                         setEditCurrentImage(b?.image || null);
                         setEditBrandImage(null);
                       }}
                       placeholder="Select Brand"
-                      options={allBrands.map(b => ({ value: b.id, label: b.name }))}
+                      options={(Array.isArray(allBrands) ? allBrands : []).map(b => ({ value: b.id, label: b.name }))}
                     />
                     <ThemeInput
                       value={editName}
@@ -1414,7 +1700,7 @@ export default function ManageCategoriesPage() {
                         <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Current image:</div>
                         <div className="w-16 h-16 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
                           <img 
-                            src={editCurrentImage} 
+                            src={editCurrentImage.startsWith('http') ? editCurrentImage : `${editCurrentImage}`} 
                             alt="Current brand image" 
                             className="w-full h-full object-cover"
                           />
@@ -1447,7 +1733,7 @@ export default function ManageCategoriesPage() {
                 <ThemeButton 
                   type="button" 
                   onClick={saveEdit} 
-                  disabled={busy} 
+                  disabled={busy || (editMode === 'grandchild' && !editSubImage && !editCurrentImage)} 
                   loading={busy} 
                   variant="success" 
                   icon="💾"

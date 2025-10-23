@@ -14,6 +14,7 @@ import {
   Download
 } from 'lucide-react';
 import { listUsers, deleteUser, suspendUser, unsuspendUser } from '../../lib/api';
+import { useCurrency } from '../../store/currencyStore';
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -24,13 +25,20 @@ const UsersPage = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
 
+  // Use dynamic currency formatting
+  const { formatAmount } = useCurrency();
+
   // Fetch users from API
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setIsLoading(true);
         const response = await listUsers();
-        const usersData = response.data.results.map(user => ({
+        
+        // Handle different response structures safely
+        const usersArray = response?.results || response?.data?.results || response?.data || response || [];
+        
+        const usersData = usersArray.map(user => ({
           id: user.id.toString(),
           username: user.username,
           email: user.email,
@@ -48,6 +56,11 @@ const UsersPage = () => {
         setFilteredUsers(usersData);
       } catch (error) {
         console.error('Failed to fetch users:', error);
+        console.error('Error details:', {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data
+        });
         // Set empty array on error
         setUsers([]);
         setFilteredUsers([]);
@@ -118,13 +131,6 @@ const UsersPage = () => {
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString();
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
   };
 
   const getStatusBadge = (user) => {
@@ -223,7 +229,7 @@ const UsersPage = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(users.reduce((sum, user) => sum + (user.totalSpent || 0), 0))}
+                {formatAmount(users.reduce((sum, user) => sum + (user.totalSpent || 0), 0))}
               </p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
@@ -350,7 +356,7 @@ const UsersPage = () => {
                       {user.ordersCount || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {user.totalSpent ? formatCurrency(user.totalSpent) : 'N/A'}
+                      {user.totalSpent ? formatAmount(user.totalSpent) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
@@ -470,7 +476,7 @@ const UsersPage = () => {
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Total Spent:</span>
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {selectedUser.totalSpent ? formatCurrency(selectedUser.totalSpent) : 'N/A'}
+                          {selectedUser.totalSpent ? formatAmount(selectedUser.totalSpent) : 'N/A'}
                         </span>
                       </div>
                     </div>

@@ -11,7 +11,12 @@ const DropdownContext = createContext<DropdownContextType | undefined>(undefined
 export const useDropdown = () => {
   const context = useContext(DropdownContext);
   if (!context) {
-    throw new Error('useDropdown must be used within a DropdownProvider');
+    // Return a fallback context when not within DropdownProvider
+    return {
+      activeDropdown: null,
+      setActiveDropdown: () => {},
+      closeAllDropdowns: () => {}
+    };
   }
   return context;
 };

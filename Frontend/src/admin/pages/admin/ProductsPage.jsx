@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   listBrands, listTopCategories, listSubcategories,
   listProducts, getProduct,
   createProduct, updateProduct, deleteProduct,
-  uploadProductImages, deleteProductImage,
+  uploadProductImages, deleteProductImage, setMainProductImage,
   authStore
 } from '../../lib/api';
 import { useCurrency } from '../../store/currencyStore';
+import { ThemeAlert } from '@theme';
+import { useOptimizedData } from '../../hooks/useOptimizedData';
 
 const onlyImages = (files) => [...files].filter(f => /\.(jpe?g|png)$/i.test(f.name));
 const kvToObject = (rows) => {
@@ -24,17 +26,37 @@ const calculateDiscountedPrice = (price, discountPercent) => {
 
 export default function ProductsPage(){
   const { formatAmount } = useCurrency();
-  useEffect(()=>{ 
-    console.log('[ProductsPage] mounted');
-    // Load initial data
-    loadTaxonomy();
-  },[]);
   
-  // taxonomies
-  const [brands, setBrands] = useState([]);
-  const [topCats, setTopCats] = useState([]);
-  const [subcats, setSubcats] = useState([]);
-  const [grandchildCats, setGrandchildCats] = useState([]);
+  // Simple data for products
+  const {
+    data: products,
+    loading: productsLoading,
+    error: productsError,
+    refresh: refreshProducts,
+    addItem: addProductOptimistic,
+    updateItem: updateProductOptimistic,
+    removeItem: removeProductOptimistic
+  } = useOptimizedData('products', () => listProducts());
+  
+  // Simple data for brands
+  const {
+    data: brandsRaw,
+    loading: brandsLoading,
+    refresh: refreshBrands
+  } = useOptimizedData('brands', () => listBrands());
+  
+  // Ensure brands is always an array
+  const brands = Array.isArray(brandsRaw) ? brandsRaw : (brandsRaw?.data?.results || brandsRaw?.data || []);
+  
+  // Simple data for categories
+  const {
+    data: topCatsRaw,
+    loading: categoriesLoading,
+    refresh: refreshCategories
+  } = useOptimizedData('categories', () => listTopCategories());
+  
+  // Ensure topCats is always an array
+  const topCats = Array.isArray(topCatsRaw) ? topCatsRaw : (topCatsRaw?.data?.results || topCatsRaw?.data || []);
 
   // CREATE form
   const [cName, setCName] = useState('');
@@ -60,9 +82,12 @@ export default function ProductsPage(){
   const [fGrandchildCat, setFGrandchildCat] = useState('');
   const [fSubList, setFSubList] = useState([]);
   const [fGrandchildList, setFGrandchildList] = useState([]);
+  
+  // Subcategories and grandchild categories for create/edit forms
+  const [subcats, setSubcats] = useState([]);
+  const [grandchildCats, setGrandchildCats] = useState([]);
 
   // LIST & EDIT
-  const [products, setProducts] = useState([]);
   const [editing, setEditing] = useState(null);
 
   // EDIT form
@@ -84,12 +109,53 @@ export default function ProductsPage(){
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  // Refs for scroll targets
+  const createProductRef = useRef(null);
+  const editProductRef = useRef(null);
+
+  // Real-time refresh function
+  const refreshData = async () => {
+    try {
+      await refreshProducts();
+      await refreshBrands();
+      await refreshCategories();
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    }
+  };
+
+  // Scroll to section function
+  const scrollToSection = (section) => {
+    setTimeout(() => {
+      let targetRef = null;
+      switch (section) {
+        case 'create':
+          targetRef = createProductRef.current;
+          break;
+        case 'edit':
+          targetRef = editProductRef.current;
+          break;
+        default:
+          return;
+      }
+      
+      if (targetRef) {
+        targetRef.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    }, 100);
+  };
+
   // load taxonomies
   const loadTaxonomy = async () => {
     try {
       const [b, t] = await Promise.all([listBrands(), listTopCategories()]);
-      setBrands(b.data.results || b.data);
-      setTopCats(t.data.results || t.data);
+      // Use the data from useSimpleResource hooks instead of local state
+      await refreshBrands();
+      await refreshCategories();
     } catch (err) {
       console.error('Failed to load taxonomy from API:', err);
       
@@ -97,20 +163,8 @@ export default function ProductsPage(){
       const savedCats = localStorage.getItem('admin_categories');
       const savedBrands = localStorage.getItem('admin_brands');
       
-      if (savedBrands) {
-        setBrands(JSON.parse(savedBrands));
-      } else {
-        setBrands([]);
-      }
-      
-      if (savedCats) {
-        const allCats = JSON.parse(savedCats);
-        // Filter to get only top-level categories (parent is null)
-        const topCats = allCats.filter(cat => cat.parent === null);
-        setTopCats(topCats);
-      } else {
-        setTopCats([]);
-      }
+      // Note: We can't set brands/topCats directly since they're managed by useSimpleResource
+      // The localStorage fallback will be handled by the API calls in the hooks
     }
   };
   const loadSub = async (topId, setter) => {
@@ -118,7 +172,7 @@ export default function ProductsPage(){
     const parentId = Number(topId); // Ensure it's a number
     try {
       const response = await listSubcategories(parentId);
-      const data = response.data;
+      const data = response;
       const subcatsData = data.results || data;
       setter(subcatsData);
     } catch (err) {
@@ -142,7 +196,7 @@ export default function ProductsPage(){
     const parentId = Number(subId); // Ensure it's a number
     try {
       const response = await listSubcategories(parentId);
-      const data = response.data;
+      const data = response;
       const grandchildData = data.results || data;
       setter(grandchildData);
     } catch (err) {
@@ -161,23 +215,36 @@ export default function ProductsPage(){
     }
   };
 
-  // load products
-  const loadList = async () => {
-    try {
-    const params = {};
-    if (q.trim()) params.q = q.trim();
-    const catId = fGrandchildCat || fSubcat || fTopCat;
-    if (fBrand) params.brand = fBrand;
-    if (catId) params.category = catId;
-    const { data } = await listProducts(params);
-    setProducts(data.results || data);
-    } catch (err) {
-      console.error('Failed to load products:', err);
-      setProducts([]);
+  // Filter products based on current filters
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    
+    let filtered = [...products];
+    
+    // Apply search filter
+    if (q.trim()) {
+      const searchTerm = q.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.name?.toLowerCase().includes(searchTerm) ||
+        product.description?.toLowerCase().includes(searchTerm)
+      );
     }
-  };
+    
+    // Apply brand filter
+    if (fBrand) {
+      filtered = filtered.filter(product => product.brand === parseInt(fBrand));
+    }
+    
+    // Apply category filter
+    const catId = fGrandchildCat || fSubcat || fTopCat;
+    if (catId) {
+      filtered = filtered.filter(product => product.category === parseInt(catId));
+    }
+    
+    return filtered;
+  }, [products, q, fBrand, fTopCat, fSubcat, fGrandchildCat]);
 
-  useEffect(()=>{ loadTaxonomy(); loadList(); }, []);
+  useEffect(()=>{ loadTaxonomy(); }, []);
   useEffect(()=>{ if(fTopCat){ loadSub(fTopCat, setFSubList) } else { setFSubList([]); setFSubcat(''); setFGrandchildCat(''); setFGrandchildList([]); } }, [fTopCat]);
   useEffect(()=>{ if(fSubcat){ loadGrandchild(fSubcat, setFGrandchildList) } else { setFGrandchildList([]); setFGrandchildCat(''); } }, [fSubcat]);
   useEffect(()=>{ 
@@ -193,6 +260,22 @@ export default function ProductsPage(){
   useEffect(()=>{ if(cSubcat){ loadGrandchild(cSubcat, setGrandchildCats) } else { setGrandchildCats([]); setCGrandchildCat(''); } }, [cSubcat]);
   useEffect(()=>{ if(eTopCat){ loadSub(eTopCat, setSubcats) } }, [eTopCat]);
   useEffect(()=>{ if(eSubcat){ loadGrandchild(eSubcat, setGrandchildCats) } else { setGrandchildCats([]); setEGrandchildCat(''); } }, [eSubcat]);
+  
+  // Load subcategories when editing and top category is set
+  useEffect(() => {
+    if (eTopCat && editing) {
+      loadSub(eTopCat, setSubcats);
+    }
+  }, [eTopCat, editing]);
+  
+  // Load grandchild categories when editing and subcategory is set
+  useEffect(() => {
+    if (eSubcat && editing) {
+      loadGrandchild(eSubcat, setGrandchildCats);
+    } else if (editing) {
+      setGrandchildCats([]);
+    }
+  }, [eSubcat, editing]);
   
   // Listen for taxonomy updates from manage-categories page
   useEffect(() => {
@@ -211,12 +294,72 @@ export default function ProductsPage(){
     setEName(p.name||''); setEDesc(p.description||'');
     setEPrice(p.price??0); setEDiscount(p.discount_rate??0); setEStock(p.stock??0);
     setEBrand(p.brand||'');
-    setETopCat(''); setESubcat(p.category||''); setEGrandchildCat('');
+    
+    // Resolve category hierarchy properly
+    const resolveCategoryHierarchy = (categoryId) => {
+      if (!categoryId) return { topCat: '', subcat: '', grandchildCat: '' };
+      
+      // Find the category in our loaded taxonomy
+      const findCategoryInList = (categories, id) => {
+        for (const cat of categories) {
+          if (cat.id === id) return cat;
+          if (cat.children) {
+            for (const subcat of cat.children) {
+              if (subcat.id === id) return { parent: cat, category: subcat };
+              if (subcat.children) {
+                for (const grandchild of subcat.children) {
+                  if (grandchild.id === id) return { parent: cat, subparent: subcat, category: grandchild };
+                }
+              }
+            }
+          }
+        }
+        return null;
+      };
+      
+      const result = findCategoryInList(topCats, categoryId);
+      if (!result) return { topCat: '', subcat: '', grandchildCat: '' };
+      
+      if (result.category && result.subparent) {
+        // It's a grandchild category
+        return { 
+          topCat: result.parent.id, 
+          subcat: result.subparent.id, 
+          grandchildCat: result.category.id 
+        };
+      } else if (result.category && result.parent) {
+        // It's a subcategory
+        return { 
+          topCat: result.parent.id, 
+          subcat: result.category.id, 
+          grandchildCat: '' 
+        };
+      } else if (result.id) {
+        // It's a top-level category
+        return { 
+          topCat: result.id, 
+          subcat: '', 
+          grandchildCat: '' 
+        };
+      }
+      
+      return { topCat: '', subcat: '', grandchildCat: '' };
+    };
+    
+    const categoryHierarchy = resolveCategoryHierarchy(p.category);
+    setETopCat(categoryHierarchy.topCat);
+    setESubcat(categoryHierarchy.subcat);
+    setEGrandchildCat(categoryHierarchy.grandchildCat);
+    
     setESpecs(objectToKv(p.technical_specs||{}));
     setEIsNewArrival(p.isNew||false);
     setEIsTopSelling(p.is_top_selling||false);
     setEFiles([]);
     setEImages([]);
+    setEMainImage(null); // Reset main image selection
+    
+    // Scroll to edit section
+    scrollToSection('edit');
   };
 
   // create handlers
@@ -250,7 +393,7 @@ export default function ProductsPage(){
     if (!cBrand) return setMsg({kind:'error',text:'Select a Brand.'});
     const category = cGrandchildCat || cSubcat || cTopCat;
     if (!category) return setMsg({kind:'error',text:'Select Category/Subcategory/Grandchild Category.'});
-    if (cImages.length === 0) return setMsg({kind:'error',text:'At least one product image is required.'});
+    if (!cMainImage && cImages.length === 0) return setMsg({kind:'error',text:'Main image is required. Please select a main image or upload at least one image.'});
     
     console.log('Validation passed, proceeding with product creation...');
     
@@ -274,19 +417,72 @@ export default function ProductsPage(){
         is_top_selling: cIsTopSelling,
       };
       console.log('Creating product with payload:', payload);
-      const { data: prod } = await createProduct(payload);
+      const prod = await createProduct(payload);
       console.log('Product created successfully:', prod);
       
       // Upload main image first if provided
-      if (cMainImage) {
-        const mainImageFormData = new FormData();
-        mainImageFormData.append('image', cMainImage);
-        mainImageFormData.append('is_main', 'true');
-        await uploadProductImages(prod.id, [cMainImage]);
+      if (cMainImage && cMainImage instanceof File) {
+        try {
+          await uploadProductImages(prod.id, [cMainImage]);
+          // Get the uploaded image and set it as main
+          const freshProduct = await getProduct(prod.id);
+          if (freshProduct.images && freshProduct.images.length > 0) {
+            const mainImage = freshProduct.images[freshProduct.images.length - 1]; // Last uploaded image
+            await setMainProductImage(prod.id, mainImage.id);
+          }
+        } catch (imageErr) {
+          console.error('[ProductsPage] Failed to upload main image:', imageErr);
+          
+          // Handle specific error types
+          if (imageErr.response?.data?.error_type === 'duplicate_image') {
+            setMsg({ 
+              kind: 'error', 
+              text: 'Duplicate Image: This image already exists for this product. Please upload a different image.' 
+            });
+          } else {
+            setMsg({ 
+              kind: 'error', 
+              text: `Failed to upload main image: ${imageErr.response?.data?.detail || imageErr.message}` 
+            });
+          }
+          // Don't fail the entire operation if image upload fails
+        }
       }
       
       // Upload additional images if provided
-      if (cImages.length) { await uploadProductImages(prod.id, cImages); }
+      if (cImages.length > 0) { 
+        try {
+          // Filter out any invalid files
+          const validImages = cImages.filter(img => img && img instanceof File);
+          if (validImages.length > 0) {
+            await uploadProductImages(prod.id, validImages);
+            // If no main image was set and we uploaded additional images, set the first one as main
+            if (!cMainImage) {
+              const freshProduct = await getProduct(prod.id);
+              if (freshProduct.images && freshProduct.images.length > 0) {
+                const firstImage = freshProduct.images[0];
+                await setMainProductImage(prod.id, firstImage.id);
+              }
+            }
+          }
+        } catch (imageErr) {
+          console.error('[ProductsPage] Failed to upload additional images:', imageErr);
+          
+          // Handle specific error types
+          if (imageErr.response?.data?.error_type === 'duplicate_image') {
+            setMsg({ 
+              kind: 'error', 
+              text: 'Duplicate Image: One or more images already exist for this product. Please upload different images.' 
+            });
+          } else {
+            setMsg({ 
+              kind: 'error', 
+              text: `Failed to upload additional images: ${imageErr.response?.data?.detail || imageErr.message}` 
+            });
+          }
+          // Don't fail the entire operation if image upload fails
+        }
+      }
       
       // reset
       setCName(''); setCDesc(''); setCPrice(''); setCDiscount(''); setCStock('');
@@ -294,7 +490,7 @@ export default function ProductsPage(){
       setCSpecs([{key:'',value:''}]); 
       setCImages([]);
       setCMainImage(null);
-      await loadList();
+      await refreshData();
       setMsg({kind:'success', text:'Product created successfully!'});
     } catch(err){
       console.error('=== PRODUCT CREATION ERROR ===');
@@ -345,22 +541,96 @@ export default function ProductsPage(){
       await updateProduct(editing.id, payload);
       
       // Handle main image upload first if provided
-      if (eMainImage) {
-        const mainImageFormData = new FormData();
-        mainImageFormData.append('image', eMainImage);
-        mainImageFormData.append('is_main', 'true');
-        await uploadProductImages(editing.id, [eMainImage]);
+      if (eMainImage && eMainImage instanceof File) {
+        console.log('[ProductsPage] Uploading main image:', eMainImage.name, eMainImage.size);
+        try {
+          await uploadProductImages(editing.id, [eMainImage]);
+          // Get the uploaded image and set it as main
+          const freshProduct = await getProduct(editing.id);
+          if (freshProduct.images && freshProduct.images.length > 0) {
+            const mainImage = freshProduct.images[freshProduct.images.length - 1]; // Last uploaded image
+            await setMainProductImage(editing.id, mainImage.id);
+          }
+        } catch (imageErr) {
+          console.error('[ProductsPage] Failed to upload main image:', imageErr);
+          
+          // Handle specific error types
+          if (imageErr.response?.data?.error_type === 'duplicate_image') {
+            setMsg({ 
+              kind: 'error', 
+              text: 'Duplicate Image: This image already exists for this product. Please upload a different image.' 
+            });
+          } else {
+            setMsg({ 
+              kind: 'error', 
+              text: `Failed to upload main image: ${imageErr.response?.data?.detail || imageErr.message}` 
+            });
+          }
+          // Don't fail the entire operation if image upload fails
+        }
+      } else {
+        console.log('[ProductsPage] No main image to upload:', { eMainImage, isFile: eMainImage instanceof File });
       }
       
       // Handle additional image uploads
-      if (eImages.length) {
-        await uploadProductImages(editing.id, eImages);
+      if (eImages.length > 0) {
+        console.log('[ProductsPage] Uploading additional images:', eImages.length, eImages.map(img => ({ name: img.name, size: img.size, isFile: img instanceof File })));
+        try {
+          // Filter out any invalid files
+          const validImages = eImages.filter(img => img && img instanceof File);
+          console.log('[ProductsPage] Valid images after filtering:', validImages.length);
+          if (validImages.length > 0) {
+            await uploadProductImages(editing.id, validImages);
+          }
+        } catch (imageErr) {
+          console.error('[ProductsPage] Failed to upload additional images:', imageErr);
+          
+          // Handle specific error types
+          if (imageErr.response?.data?.error_type === 'duplicate_image') {
+            setMsg({ 
+              kind: 'error', 
+              text: 'Duplicate Image: One or more images already exist for this product. Please upload different images.' 
+            });
+          } else {
+            setMsg({ 
+              kind: 'error', 
+              text: `Failed to upload additional images: ${imageErr.response?.data?.detail || imageErr.message}` 
+            });
+          }
+          // Don't fail the entire operation if image upload fails
+        }
+      } else {
+        console.log('[ProductsPage] No additional images to upload');
       }
-      if (eFiles.length) await uploadProductImages(editing.id, eFiles);
-      const fresh = (await getProduct(editing.id)).data;
+      if (eFiles.length > 0) {
+        try {
+          // Filter out any invalid files
+          const validFiles = eFiles.filter(file => file && file instanceof File);
+          if (validFiles.length > 0) {
+            await uploadProductImages(editing.id, validFiles);
+          }
+        } catch (imageErr) {
+          console.error('[ProductsPage] Failed to upload files:', imageErr);
+          
+          // Handle specific error types
+          if (imageErr.response?.data?.error_type === 'duplicate_image') {
+            setMsg({ 
+              kind: 'error', 
+              text: 'Duplicate Image: One or more images already exist for this product. Please upload different images.' 
+            });
+          } else {
+            setMsg({ 
+              kind: 'error', 
+              text: `Failed to upload files: ${imageErr.response?.data?.detail || imageErr.message}` 
+            });
+          }
+          // Don't fail the entire operation if image upload fails
+        }
+      }
+      const fresh = await getProduct(editing.id);
       setEditing(fresh);
       setEMainImage(null); // Reset main image selection
-      await loadList();
+      await refreshData();
       setMsg({kind:'success', text:'Product updated.'});
     } catch(err){
       setMsg({kind:'error', text: err.uiMessage || 'Failed to save product.'});
@@ -375,31 +645,71 @@ export default function ProductsPage(){
       setBusy(true);
       await deleteProduct(editing.id);
       setEditing(null);
-      await loadList();
+      await refreshData();
       setMsg({kind:'success', text:'Product deleted.'});
     } catch(err){
-      setMsg({kind:'error', text: err.uiMessage || 'Failed to delete product.'});
+      console.error('[ProductsPage] Failed to delete product:', err);
+      
+      // Handle specific error cases
+      if (err.message && err.message.includes('order item(s) are using this product')) {
+        setMsg({ 
+          kind: 'error', 
+          text: `⚠️ Cannot delete product: ${err.message}\n\nTo delete this product:\n1. Go to Orders page\n2. Find orders containing this product\n3. Either delete those orders or modify them to remove this product\n4. Then try deleting the product again`
+        });
+      } else if (err.message && err.message.includes('Authentication')) {
+        setMsg({ 
+          kind: 'error', 
+          text: 'Authentication expired. Please login again.' 
+        });
+      } else {
+        const errorMessage = err.response?.data?.detail || err.message || 'Failed to delete product';
+        setMsg({ kind: 'error', text: errorMessage });
+      }
     } finally { setBusy(false) }
   };
 
   const removeImage = async (imgId) => {
     if(!editing) return;
     await deleteProductImage(editing.id, imgId);
-    const fresh = (await getProduct(editing.id)).data;
+    const fresh = await getProduct(editing.id);
     setEditing(fresh);
+  };
+
+  const setMainImage = async (imgId) => {
+    if(!editing) return;
+    try {
+      setBusy(true);
+      await setMainProductImage(editing.id, imgId);
+      const fresh = await getProduct(editing.id);
+      setEditing(fresh);
+      setMsg({kind:'success', text:'Main image updated successfully!'});
+    } catch(err){
+      setMsg({kind:'error', text: err.uiMessage || 'Failed to set main image.'});
+    } finally { 
+      setBusy(false) 
+    }
   };
 
   return (
     <div className="space-y-8 p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 min-h-screen">
         {/* Add Product */}
-        <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
+        <section ref={createProductRef} className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
               <span className="text-white text-lg">📦</span>
             </div>
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Create Product</h2>
           </div>
-          {msg && <div className={`rounded-2xl border-2 px-4 py-3 mb-6 text-sm font-medium shadow-sm ${msg.kind==='error'?'border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200':'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-200'}`}>{msg.text}</div>}
+          {/* Popup Alert Dialog */}
+          {msg && (
+            <ThemeAlert 
+              message={msg.text} 
+              type={msg.kind} 
+              onClose={() => setMsg(null)}
+              autoClose={true}
+              duration={1000}
+            />
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Product Name</label>
@@ -650,11 +960,14 @@ export default function ProductsPage(){
                 <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
                   <span className="text-white text-xs">⭐</span>
                 </div>
-                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Main Picture</h4>
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Main Picture *</h4>
               </div>
               <div className="space-y-3">
                 <div className="text-sm text-slate-600 dark:text-slate-400">
                   Select the main image that will be displayed as the primary product image
+                </div>
+                <div className="text-red-500 text-sm font-medium">
+                  ⚠️ Main image is required
                 </div>
                 <input 
                   type="file" 
@@ -677,8 +990,8 @@ export default function ProductsPage(){
                 <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <span className="text-white text-2xl">📸</span>
                 </div>
-                <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Upload Product Images</div>
-                <div className="text-red-500 text-sm font-medium mb-4">At least one image is required *</div>
+                <div className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Upload Additional Product Images</div>
+                <div className="text-blue-600 dark:text-blue-400 text-sm font-medium mb-4">Optional - Additional images for product gallery</div>
                 <input 
                   type="file" 
                   accept=".jpg,.jpeg,.png" 
@@ -826,7 +1139,7 @@ export default function ProductsPage(){
             </div>
             <div className="mt-6 flex justify-end">
               <button 
-                onClick={loadList} 
+                onClick={refreshData} 
                 className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2"
               >
                 <span className="text-lg">🔍</span>
@@ -843,11 +1156,11 @@ export default function ProductsPage(){
               </div>
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Product List</h3>
               <div className="ml-auto text-sm text-slate-600 dark:text-slate-400">
-                {products.length} product{products.length !== 1 ? 's' : ''} found
+                {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
               </div>
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {products.map(p=>(
+            {filteredProducts.map(p=>(
                 <button 
                   key={p.id} 
                   onClick={()=>pick(p)} 
@@ -901,7 +1214,7 @@ export default function ProductsPage(){
 
         {/* Edit Product */}
         {editing && (
-          <section className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
+          <section ref={editProductRef} className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
                 <span className="text-white text-lg">✏️</span>
@@ -1037,6 +1350,24 @@ export default function ProductsPage(){
                 {brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
               </div>
+              
+              {/* Current Category Info */}
+              {editing && editing.category_data && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl">
+                  <div className="text-blue-700 dark:text-blue-300 text-sm font-medium mb-2">
+                    📂 Current Category Information
+                  </div>
+                  <div className="text-blue-800 dark:text-blue-200 font-semibold">
+                    {editing.category_data.name}
+                  </div>
+                  {editing.category_data.description && (
+                    <div className="text-blue-600 dark:text-blue-400 text-sm mt-1">
+                      {editing.category_data.description}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Category</label>
                 <select 
@@ -1056,7 +1387,7 @@ export default function ProductsPage(){
                   onChange={e=>{ setESubcat(e.target.value); setEGrandchildCat(''); }} 
                   disabled={!eTopCat && !editing.category}
                 >
-                  <option value="">{eTopCat ? 'Select Subcategory' : 'Keep existing or pick a Category'}</option>
+                  <option value="">{eTopCat ? 'Select Subcategory' : (editing?.category_data?.name ? `Current: ${editing.category_data.name}` : 'Keep existing or pick a Category')}</option>
                 {subcats.map(sc=><option key={sc.id} value={sc.id}>{sc.name}</option>)}
               </select>
               </div>
@@ -1068,7 +1399,7 @@ export default function ProductsPage(){
                   onChange={e=>setEGrandchildCat(e.target.value)} 
                   disabled={!eSubcat}
                 >
-                  <option value="">{eSubcat ? 'Select Grandchild Category' : 'Select a subcategory first'}</option>
+                  <option value="">{eSubcat ? 'Select Grandchild Category' : (editing?.category_data?.name ? `Current: ${editing.category_data.name}` : 'Select a subcategory first')}</option>
                 {grandchildCats.map(gc=><option key={gc.id} value={gc.id}>{gc.name}</option>)}
               </select>
               </div>
@@ -1156,6 +1487,9 @@ export default function ProductsPage(){
                   <div className="text-sm text-slate-600 dark:text-slate-400">
                     Select a new main image that will be displayed as the primary product image
                   </div>
+                  <div className="text-blue-600 dark:text-blue-400 text-sm font-medium">
+                    💡 Optional - Only upload if you want to change the main image
+                  </div>
                   <input 
                     type="file" 
                     accept=".jpg,.jpeg,.png" 
@@ -1176,17 +1510,37 @@ export default function ProductsPage(){
                 <div className="flex flex-wrap gap-4">
                 {editing.images?.map(img=>(
                     <div key={img.id} className="relative group">
-                      <div className="w-32 h-32 border-2 border-slate-200 dark:border-slate-600 rounded-2xl overflow-hidden bg-white dark:bg-slate-700 shadow-lg">
+                      <div className={`w-32 h-32 border-2 ${img.is_main ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-200 dark:border-slate-600'} rounded-2xl overflow-hidden bg-white dark:bg-slate-700 shadow-lg`}>
                     {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                        <img src={img.image} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300" />
+                        <img src={img.image.startsWith('http') ? img.image : `http://127.0.0.1:8001${img.image}`} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300" />
+                        {img.is_main && (
+                          <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                            MAIN
                       </div>
+                        )}
+                      </div>
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 rounded-2xl flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-2">
+                          {!img.is_main && (
                       <button 
                         type="button" 
-                        onClick={()=>removeImage(img.id)} 
-                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg hover:shadow-xl transition-all duration-200"
-                      >
-                        ×
+                              onClick={() => setMainImage(img.id)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                              title="Set as main image"
+                            >
+                              ⭐ Set Main
+                            </button>
+                          )}
+                          <button 
+                            type="button"
+                            onClick={() => removeImage(img.id)}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                            title="Delete image"
+                          >
+                            🗑️ Delete
                       </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {(!editing.images || editing.images.length===0) && (

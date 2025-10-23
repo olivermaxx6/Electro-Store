@@ -109,8 +109,10 @@ const Checkout: React.FC = () => {
               brand: backendProduct.brand_data?.name || 'Unknown',
               price: backendProduct.price,
               oldPrice: oldPrice,
-              rating: backendProduct.rating,
+              rating: backendProduct.average_rating,
               ratingCount: backendProduct.review_count,
+              average_rating: backendProduct.average_rating,  // Add this for ProductCard compatibility
+              review_count: backendProduct.review_count,     // Add this for ProductCard compatibility
               isNew: backendProduct.isNew || false,
               discountPct: backendProduct.discount_rate || 0,
               discount_rate: backendProduct.discount_rate || 0,

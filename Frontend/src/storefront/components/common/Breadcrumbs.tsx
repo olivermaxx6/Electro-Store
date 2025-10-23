@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
+import { useDropdown } from '../../contexts/DropdownContext';
 
 interface BreadcrumbItem {
   label: string;
@@ -17,6 +18,13 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
   className = '',
 }) => {
   const location = useLocation();
+  const { activeDropdown } = useDropdown();
+  
+  // Hide breadcrumb when any dropdown is active to prevent overlay issues
+  // activeDropdown will be null if not within DropdownProvider, so this is safe
+  if (activeDropdown) {
+    return null;
+  }
   
   // Auto-generate breadcrumbs from current path if no items provided
   const pathSegments = location.pathname.split('/').filter(Boolean);

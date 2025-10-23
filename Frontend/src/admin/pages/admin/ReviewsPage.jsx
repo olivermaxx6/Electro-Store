@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ThemeLayout, ThemeCard, ThemeButton, ThemeAlert, ThemeSelect } from '@shared/theme';
+import { ThemeLayout, ThemeCard, ThemeButton, ThemeAlert, ThemeSelect } from '@theme';
 import { useAuth } from '../../store/authStore';
 import { listReviews, deleteReview } from '../../lib/api';
 
@@ -29,15 +29,25 @@ export default function ReviewsPage() {
       const response = await listReviews(params);
       console.log('Admin Reviews: Response received:', response);
       
-      const data = response.data;
+      // Handle different response structures safely
+      const data = response?.data || response || {};
       console.log('Admin Reviews: Data received:', data);
       
-      setReviews(data.results || data);
-      setHasNext(!!data.next);
-      setHasPrev(!!data.previous);
+      setReviews(data?.results || data || []);
+      setHasNext(!!data?.next);
+      setHasPrev(!!data?.previous);
       
     } catch (err) {
       console.error('Admin Reviews: Failed to load product reviews:', err);
+      console.error('Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      // Set safe fallback values
+      setReviews([]);
+      setHasNext(false);
+      setHasPrev(false);
       setError('Failed to load product reviews. Please try again.');
     } finally {
       setLoading(false);

@@ -12,7 +12,7 @@ import { useGlobalLoading } from '../hooks/useGlobalLoading';
 import HotDealBanner from '../components/promo/HotDealBanner';
 import TitleUpdater from '../components/common/TitleUpdater';
 // @ts-ignore
-import { getServiceCategories, getServices, ServiceCategory } from '../../lib/servicesApi';
+import { getServiceCategories, getServiceCategoriesWithServices, getServices, ServiceCategory } from '../../lib/servicesApi';
 
 const Home: React.FC = () => {
   const dispatch = useDispatch();
@@ -56,17 +56,49 @@ const Home: React.FC = () => {
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
         -ms-overflow-style: none;
+        overscroll-behavior-x: contain;
         width: 100%;
       }
       .horizontal-scroll-container::-webkit-scrollbar {
         display: none;
       }
+      
+      /* Mobile and tablet specific fixes */
+      @media (max-width: 1024px) {
+        .horizontal-scroll-container {
+          touch-action: pan-x;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+      }
       .scrollbar-hide {
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        scrollbar-width: thin;
+        -ms-overflow-style: auto;
       }
       .scrollbar-hide::-webkit-scrollbar {
-        display: none;
+        height: 8px;
+        display: block;
+      }
+      .scrollbar-hide::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+      .scrollbar-hide::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+      .scrollbar-hide::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+      /* Dark mode scrollbar styling */
+      .dark .scrollbar-hide::-webkit-scrollbar-track {
+        background: #374151;
+      }
+      .dark .scrollbar-hide::-webkit-scrollbar-thumb {
+        background: #6b7280;
+      }
+      .dark .scrollbar-hide::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
       }
       .category-card {
         flex-shrink: 0;
@@ -165,27 +197,11 @@ const Home: React.FC = () => {
         const categoriesArray = Array.isArray(categoriesResponse) ? categoriesResponse : categoriesResponse.results || [];
         const services = Array.isArray(servicesResponse) ? servicesResponse : servicesResponse.results || [];
         
-        // Filter only parent categories (parent is null)
+        // Filter only parent categories (parent is null) - show ALL parent categories
         const parentCategories = categoriesArray.filter((category: ServiceCategory) => !category.parent);
         
-        // Filter out parent categories that have no services
-        const categoriesWithServices = parentCategories.filter((category: ServiceCategory) => {
-          // Check if any service belongs to this category or its subcategories
-          return services.some((service: any) => {
-            const serviceCategory = service.category;
-            if (!serviceCategory) return false;
-            
-            // Check if service belongs directly to this parent category
-            if (serviceCategory.id === category.id) return true;
-            
-            // Check if service belongs to a subcategory of this parent category
-            if (serviceCategory.parent === category.id) return true;
-            
-            return false;
-          });
-        });
-        
-        setServiceCategories(categoriesWithServices);
+        // Show all parent categories regardless of whether they have services
+        setServiceCategories(parentCategories);
       } catch (error) {
         console.error('Failed to fetch service data:', error);
         setServiceCategories([]);
@@ -451,8 +467,8 @@ const Home: React.FC = () => {
           {/* Horizontal Scroll of Product Categories */}
           {parentCategories.length > 0 ? (
             <div className="relative w-full">
-              <div className="overflow-x-auto overflow-y-hidden scrollbar-hide w-full" style={{ scrollBehavior: 'smooth' }}>
-                <div className="flex gap-6 pb-4" style={{ width: 'max-content', minWidth: '100%' }}>
+              <div className="overflow-x-auto overflow-y-hidden scrollbar-hide w-full pb-2" style={{ scrollBehavior: 'smooth' }}>
+                <div className="flex gap-6 pb-6" style={{ width: 'max-content', minWidth: '100%' }}>
                   {parentCategories.map((category, index) => {
                     const style = getProductCategoryStyle(index);
                     return (

@@ -16,6 +16,7 @@ const NavBar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { categories, loading: categoriesLoading } = useCategoriesWithHierarchy();
+
   
   // Create navigation items with dynamic categories
   const navItems: Array<{ label: string; href: string; hasDropdown: boolean }> = [
@@ -38,11 +39,11 @@ const NavBar: React.FC = () => {
   
   return (
     <DropdownProvider>
-      <nav className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 sticky top-0 z-40 shadow-lg backdrop-blur-sm border-b border-red-500/20 dark:border-blue-600/30">
-        <div className="container mx-auto px-4 lg:px-6 relative">
+      <nav className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950 sticky top-0 z-50 shadow-lg backdrop-blur-sm border-b border-red-500/20 dark:border-blue-600/30">
+        <div className="container mx-auto px-8 sm:px-12 lg:px-16 xl:px-20 relative">
           <div className="flex items-center justify-between">
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-1 pl-16 pr-4">
+            <div className="hidden lg:flex items-center space-x-1">
             {categoriesLoading ? (
               <div className="px-6 py-4 text-sm font-semibold text-red-100 dark:text-blue-200">
                 Loading...
@@ -163,36 +164,36 @@ const NavBar: React.FC = () => {
         
         {/* Mobile Navigation */}
         <div className={clsx(
-          'lg:hidden transition-all duration-500 ease-in-out',
-          isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          'lg:hidden transition-all duration-500 ease-in-out overflow-hidden',
+          isMobileMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
         )}>
-          <div className="py-4 sm:py-6 space-y-1 sm:space-y-2 border-t border-white/20">
+          <div className="py-4 sm:py-6 space-y-1 sm:space-y-2 border-t border-white/20 bg-gradient-to-b from-red-600 via-red-700 to-red-800 dark:from-blue-800 dark:via-blue-900 dark:to-blue-950">
             {categoriesLoading ? (
               <div className="py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base font-semibold text-red-100 dark:text-blue-200">
                 Loading...
               </div>
             ) : (
               navItems.map((item, index) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={clsx(
-                  'block py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base font-semibold transition-all duration-300 ease-in-out rounded-lg mx-2 group',
-                  isActive(item.href)
-                    ? 'text-white bg-white/20 shadow-lg'
-                    : 'text-red-100 hover:text-white hover:bg-white/10 hover:shadow-md'
-                )}
-                style={{ 
-                  animationDelay: `${index * 50}ms`,
-                  animation: isMobileMenuOpen ? 'slideInDown 0.3s ease-out forwards' : 'none'
-                }}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <span className="relative z-10">{item.label}</span>
-                {isActive(item.href) && (
-                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-4 sm:h-6 bg-white rounded-r-full" />
-                )}
-              </Link>
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className={clsx(
+                    'block py-3 sm:py-4 px-4 sm:px-6 text-base sm:text-lg font-semibold transition-all duration-300 ease-in-out rounded-lg mx-2 group',
+                    isActive(item.href)
+                      ? 'text-white bg-white/20 shadow-lg'
+                      : 'text-red-100 hover:text-white hover:bg-white/10 hover:shadow-md'
+                  )}
+                  style={{ 
+                    animationDelay: `${index * 50}ms`,
+                    animation: isMobileMenuOpen ? 'slideInDown 0.3s ease-out forwards' : 'none'
+                  }}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="relative z-10">{item.label}</span>
+                  {isActive(item.href) && (
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-white rounded-r-full" />
+                  )}
+                </Link>
               ))
             )}
           </div>

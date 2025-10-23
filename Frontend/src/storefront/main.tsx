@@ -13,6 +13,7 @@ import UserInitializer from './components/auth/UserInitializer';
 import WebSocketInitializer from './components/WebSocketInitializer';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay';
 import '../index.css';
+import '../styles/responsive.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

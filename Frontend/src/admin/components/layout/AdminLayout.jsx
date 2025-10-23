@@ -2,10 +2,13 @@ import { useState } from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import AdminTitleUpdater from '../common/AdminTitleUpdater';
+import { OfflineHandler, useBackendStatus } from '../common/OfflineHandler';
 import WebSocketInitializer from '../WebSocketInitializer';
 
 export default function AdminLayout({ children, title = 'Dashboard' }) {
   const [collapsed, setCollapsed] = useState(false);
+  const { isOnline } = useBackendStatus();
+  
   return (
     <div className="min-h-screen w-full flex bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
       <AdminTitleUpdater />
@@ -19,7 +22,9 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
       <main className="flex-1 min-w-0">
         <TopBar collapsed={collapsed} title={title} />
         <div className="px-4 py-4 md:px-6 mt-[70px]">
-          {children}
+          <OfflineHandler isOnline={isOnline}>
+            {children}
+          </OfflineHandler>
         </div>
       </main>
     </div>

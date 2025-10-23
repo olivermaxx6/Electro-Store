@@ -1,314 +1,393 @@
-# 🛒 SPPIX Ecommerce Platform
+# Electro-Store 🛍️
 
-A modern, full-stack ecommerce platform built with Django REST API and React frontend.
+A comprehensive, full-stack e-commerce platform built with modern technologies. Electro-Store features a Django REST API backend with real-time WebSocket support, a React/TypeScript storefront for customers, and an admin panel for store management.
+
+## 🏗️ Architecture Overview
+
+Electro-Store is built with a microservices-inspired architecture:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Frontend      │    │   Backend       │
+│   Storefront    │    │   Admin Panel   │    │   Django API    │
+│   (React/TS)    │◄──►│   (React/TS)    │◄──►│   + WebSockets  │
+│   Port: 5173    │    │   Port: 5174    │    │   Port: 8001    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+## ✨ Key Features
+
+### 🛒 E-commerce Storefront
+- **Complete Shopping Experience**: Product browsing, cart management, wishlist, and checkout
+- **Advanced Product Catalog**: Categories, brands, filtering, search, and product reviews
+- **Multi-step Checkout**: Address → Shipping → Payment → Review flow
+- **User Accounts**: Registration, authentication, order history, and profile management
+- **Order Tracking**: Real-time order status updates
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+
+### 🔧 Admin Panel
+- **Product Management**: CRUD operations for products, categories, and brands
+- **Order Management**: Process orders, update statuses, and track fulfillment
+- **User Management**: Admin accounts and customer management
+- **Analytics Dashboard**: Sales metrics, performance analytics, and insights
+- **Content Management**: Website content, banners, and static pages
+- **Service Management**: Digital services with custom forms and pricing
+
+### 🚀 Backend API
+- **Django REST Framework**: Comprehensive API with authentication and permissions
+- **Real-time Features**: WebSocket support for live chat and notifications
+- **Payment Integration**: Stripe payment processing with webhooks
+- **Database Support**: MySQL with optimized queries and caching
+- **File Management**: Image uploads with validation and optimization
+- **Security**: JWT authentication, CORS, and input validation
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **React 18** with TypeScript for type safety
+- **Vite** for fast development and building
+- **Tailwind CSS** for modern, responsive styling
+- **Redux Toolkit** for state management
+- **React Router v6** for client-side routing
+- **Socket.io** for real-time communication
+- **Stripe React** for payment processing
+
+### Backend
+- **Django 5.2** with Django REST Framework
+- **MySQL** database with PyMySQL driver
+- **Django Channels** for WebSocket support
+- **Redis** for caching and session storage
+- **Stripe** for payment processing
+- **Pillow** for image processing
+- **JWT** for authentication
+
+### Development Tools
+- **ESLint** and **TypeScript** for code quality
+- **Black** and **Flake8** for Python code formatting
+- **Concurrently** for running multiple dev servers
+- **Docker** support for containerization
+
+## 📁 Project Structure
+
+```
+Electro-Store/
+├── Backend/                    # Django API Server
+│   ├── adminpanel/            # Main Django app
+│   │   ├── models.py         # Database models
+│   │   ├── views.py          # Admin API views
+│   │   ├── views_public.py   # Public API views
+│   │   ├── serializers.py    # API serializers
+│   │   ├── urls.py           # Admin API routes
+│   │   ├── urls_public.py    # Public API routes
+│   │   ├── consumers.py      # WebSocket consumers
+│   │   └── management/       # Django management commands
+│   ├── accounts/             # User authentication
+│   ├── core/                 # Django settings and config
+│   ├── media/                # File uploads
+│   ├── static/               # Static files
+│   └── requirements.txt      # Python dependencies
+├── Frontend/                  # React Applications
+│   ├── src/
+│   │   ├── storefront/       # Customer-facing store
+│   │   │   ├── components/   # Reusable UI components
+│   │   │   ├── pages/        # Page components
+│   │   │   ├── store/        # Redux store and slices
+│   │   │   └── routes/       # React Router config
+│   │   ├── admin/            # Admin panel
+│   │   │   ├── components/   # Admin UI components
+│   │   │   ├── pages/        # Admin pages
+│   │   │   └── store/        # Admin state management
+│   │   └── shared/           # Shared utilities and types
+│   ├── package.json          # Frontend dependencies
+│   └── vite.config.js        # Vite configuration
+└── README.md                 # This file
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Python 3.8+** - [Download Python](https://www.python.org/downloads/)
-- **Node.js 16+** - [Download Node.js](https://nodejs.org/)
-- **Git** - [Download Git](https://git-scm.com/)
+- **Node.js 18+** and npm
+- **Python 3.11+** and pip
+- **MySQL 8.0+** database
+- **Redis** (for WebSocket support)
 
-### One-Command Setup (Windows)
-
-```powershell
-# Clone the repository
-git clone <your-repo-url>
-cd sppix-ecommerce
-
-# Run the setup script
-.\setup-project.ps1
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd Electro-Store
 ```
 
-### Manual Setup
-
-#### 1. Backend Setup (Django)
-
+### 2. Backend Setup
 ```bash
-# Navigate to backend directory
 cd Backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
-
-# Activate virtual environment
 # Windows:
 venv\Scripts\activate
-# macOS/Linux:
+# Linux/Mac:
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run migrations
+# Set up environment variables
+cp env.example .env
+# Edit .env with your database and Stripe credentials
+
+# Run database migrations
 python manage.py migrate
 
 # Create admin user
 python manage.py seed_admin
 
-# Start backend server
+# Start Django development server
 python manage.py runserver 127.0.0.1:8001
 ```
 
-#### 2. Frontend Setup (React)
-
+### 3. Frontend Setup
 ```bash
-# Navigate to frontend directory (in a new terminal)
 cd Frontend
 
 # Install dependencies
 npm install
 
-# Start storefront server
-npm run dev:storefront
-
-# Start admin panel server (in another terminal)
-npm run dev:admin
+# Start development servers
+npm run dev:both
+# This starts both storefront (5173) and admin (5174)
 ```
 
-## 🎯 Easy Commands
-
-### PowerShell Scripts (Windows)
-
-| Command | Description |
-|---------|-------------|
-| `.\setup-project.ps1` | Complete project setup from scratch |
-| `.\start-project.ps1` | Start both backend and frontend servers |
-| `.\start-backend.ps1` | Start only the Django backend |
-| `.\start-frontend.ps1` | Start only the React storefront |
-| `.\start-admin.ps1` | Start only the React admin panel |
-
-### Batch Files (Windows)
-
-| Command | Description |
-|---------|-------------|
-| `start-project.bat` | Start both servers |
-| `start-backend.bat` | Start only backend |
-| `start-frontend.bat` | Start only storefront |
-| `start-admin.bat` | Start only admin panel |
-
-## 🌐 Access URLs
-
+### 4. Access the Applications
 - **Storefront**: http://localhost:5173
 - **Admin Panel**: http://localhost:5174
-- **Backend API**: http://127.0.0.1:8001
+- **API**: http://127.0.0.1:8001/api/
 - **Django Admin**: http://127.0.0.1:8001/admin/
 
-## 👤 Default Admin Credentials
-
-- **Email**: admin@example.com
-- **Password**: admin123
-
-## 📁 Project Structure
-
-```
-sppix-ecommerce/
-├── Backend/                 # Django REST API
-│   ├── core/               # Django settings
-│   ├── adminpanel/         # Main app models & views
-│   ├── accounts/           # User authentication
-│   ├── requirements.txt    # Python dependencies
-│   ├── env.example         # Environment template
-│   └── manage.py           # Django management
-├── Frontend/               # React frontend
-│   ├── src/
-│   │   ├── admin/          # Admin panel
-│   │   └── storefront/     # Customer-facing store
-│   ├── package.json        # Node.js dependencies
-│   ├── env.example         # Environment template
-│   └── vite.config.js      # Vite configuration
-├── *.ps1                   # PowerShell scripts (Windows)
-├── *.bat                   # Batch files (Windows)
-├── package.json            # Root package.json with npm scripts
-├── README.md               # This documentation
-├── QUICK_START.md          # Quick start guide
-└── SETUP_COMPLETE.md       # Setup completion summary
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Copy the example environment files and customize:
-
-```bash
-# Backend
-cp Backend/env.example Backend/.env
-
-# Frontend  
-cp Frontend/env.example Frontend/.env
-```
-
-### Key Settings
-
-- **Backend Port**: 8001 (configurable in `Backend/core/settings.py`)
-- **Storefront Port**: 5173 (configurable in `Frontend/vite.storefront.config.js`)
-- **Admin Port**: 5174 (configurable in `Frontend/vite.admin.config.js`)
-- **Database**: MySQL
-- **Authentication**: JWT tokens
-
-## 🛠️ Development
+## 🔧 Development
 
 ### Backend Development
-
 ```bash
 cd Backend
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # macOS/Linux
 
-# Run migrations
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Run tests
-python manage.py test
-
-# Start development server
+# Run Django server
 python manage.py runserver 127.0.0.1:8001
+
+# Run with specific settings
+python manage.py runserver --settings=core.settings_clean
+
+# Run management commands
+python manage.py seed_data          # Seed sample data
+python manage.py seed_services      # Seed service categories
+python manage.py collectstatic      # Collect static files
 ```
 
 ### Frontend Development
-
 ```bash
 cd Frontend
 
-# Install dependencies
-npm install
-
-# Start storefront development server
-npm run dev:storefront
-
-# Start admin panel development server (in another terminal)
-npm run dev:admin
+# Start individual applications
+npm run dev:storefront    # Storefront only (port 5173)
+npm run dev:admin         # Admin panel only (port 5174)
 
 # Build for production
-npm run build
+npm run build:storefront
+npm run build:admin
+npm run build:both
 
-# Run tests
-npm test
+# Lint and format
+npm run lint
 ```
 
-## 📦 Features
+### Database Management
+```bash
+# Create migrations
+python manage.py makemigrations
 
-### Admin Panel
-- ✅ Product management
-- ✅ Order management
-- ✅ User management
-- ✅ Category & brand management
-- ✅ Real-time chat system
-- ✅ Analytics dashboard
-- ✅ Content management
+# Apply migrations
+python manage.py migrate
 
-### Storefront
-- ✅ Product catalog
-- ✅ Shopping cart
-- ✅ Checkout process
-- ✅ User authentication
-- ✅ Order tracking
-- ✅ Product reviews
-- ✅ Wishlist
-- ✅ Search & filters
+# Reset database (development only)
+python manage.py flush
 
-### Technical Features
-- ✅ RESTful API
-- ✅ JWT Authentication
-- ✅ WebSocket chat
-- ✅ Payment integration (Stripe)
-- ✅ Image uploads
-- ✅ Responsive design
-- ✅ Dark/Light theme
+# Load sample data
+python manage.py seed_data
+python manage.py seed_services_comprehensive
+```
+
+## 📊 API Documentation
+
+### Public API Endpoints (Storefront)
+- `GET /api/public/products/` - List products with filtering
+- `GET /api/public/categories/` - List categories
+- `GET /api/public/brands/` - List brands
+- `POST /api/public/orders/` - Create new order
+- `GET /api/public/orders/{id}/` - Get order details
+- `POST /api/public/create-checkout-session/` - Create Stripe checkout
+- `GET /api/public/chat-rooms/` - Chat system endpoints
+
+### Admin API Endpoints
+- `GET /api/admin/products/` - Manage products
+- `GET /api/admin/orders/` - Manage orders
+- `GET /api/admin/users/` - Manage users
+- `GET /api/admin/dashboard/stats/` - Dashboard analytics
+- `POST /api/auth/login/` - Admin authentication
+
+### WebSocket Endpoints
+- `ws://localhost:8001/ws/chat/{room_id}/` - Real-time chat
+- `ws://localhost:8001/ws/notifications/` - Admin notifications
+
+## 🎨 Design System
+
+### Color Palette
+- **Primary Red**: `#e62e2e` - Brand color for CTAs
+- **Dark Gray**: `#0f0f14` - Utility bar background
+- **Light Gray**: `#f5f6f8` - Surface backgrounds
+- **Text Dark**: `#22242a` - Primary text
+- **Text Muted**: `#6b7280` - Secondary text
+- **Star Yellow**: `#ffcc00` - Rating stars
+
+### Typography
+- **Font Family**: Poppins (primary), Inter (fallback)
+- **Responsive Scaling**: 16px base, scales with viewport
+
+### Responsive Breakpoints
+- **Mobile**: < 768px (single column)
+- **Tablet**: 768px - 1199px (2-up grids)
+- **Desktop**: ≥ 1200px (4-up grids)
+
+## 🔒 Security Features
+
+- **JWT Authentication** for secure API access
+- **CORS Configuration** for cross-origin requests
+- **Input Validation** on both client and server
+- **SQL Injection Protection** via Django ORM
+- **XSS Protection** with sanitized inputs
+- **CSRF Protection** for form submissions
+- **File Upload Validation** with type checking
+- **Rate Limiting** on sensitive endpoints
+
+## 💳 Payment Integration
+
+Electro-Store integrates with Stripe for secure payment processing:
+
+- **Stripe Checkout** for hosted payment pages
+- **Payment Intents** for custom payment flows
+- **Webhook Handling** for payment confirmations
+- **Order Status Updates** based on payment events
+- **Refund Processing** through admin panel
+
+## 📱 Real-time Features
+
+- **Live Chat System** between customers and support
+- **Order Status Updates** via WebSocket
+- **Admin Notifications** for new orders and inquiries
+- **Real-time Inventory** updates (planned)
 
 ## 🚀 Deployment
 
-### Production Setup
-
-1. **Backend Deployment**:
-   ```bash
-   # Install production dependencies
-   pip install gunicorn whitenoise
-
-   # Collect static files
-   python manage.py collectstatic
-
-   # Run with Gunicorn
-   gunicorn core.wsgi:application
-   ```
-
-2. **Frontend Deployment**:
-   ```bash
-   # Build for production
-   npm run build
-
-   # Serve with nginx or similar
-   ```
-
-### Environment Variables for Production
-
-Set these environment variables:
-
+### Production Environment Variables
 ```bash
+# Backend (.env)
+DJANGO_SECRET_KEY=your-secret-key
 DEBUG=False
-SECRET_KEY=your-production-secret-key
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-DATABASE_URL=postgresql://user:password@localhost/dbname
+DATABASE_URL=mysql://user:pass@host:port/db
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+REDIS_URL=redis://host:port
+
+# Frontend (.env.production)
+VITE_API_URL=https://your-api-domain.com/api
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
 ```
 
-## 🐛 Troubleshooting
+### Docker Deployment
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
 
-### Common Issues
+# Or build individual containers
+docker build -t electro-store-backend ./Backend
+docker build -t electro-store-frontend ./Frontend
+```
 
-1. **Port Already in Use**:
-   ```bash
-# Kill process on port 8001
-netstat -ano | findstr :8001
-taskkill /PID <PID> /F
-   ```
+### Static File Serving
+```bash
+# Collect static files
+python manage.py collectstatic
 
-2. **Python Virtual Environment Issues**:
-   ```bash
-   # Recreate virtual environment
-   rmdir /s venv
-   python -m venv venv
-   venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
+# Serve with nginx or CDN
+# Configure nginx to serve /static/ and /media/ files
+```
 
-3. **Node Modules Issues**:
-   ```bash
-   # Clear and reinstall
-   rmdir /s node_modules
-   del package-lock.json
-   npm install
-   ```
+## 🧪 Testing
 
-4. **Database Issues**:
-   ```bash
-   # Reset database (MySQL)
-   python manage.py migrate
-   python manage.py seed_admin
-   ```
+### Backend Testing
+```bash
+cd Backend
+python manage.py test
+pytest
+```
 
-### Getting Help
+### Frontend Testing
+```bash
+cd Frontend
+npm test
+npm run test:coverage
+```
 
-- Check the console output for error messages
-- Ensure both servers are running on correct ports
-- Verify admin credentials: admin@example.com / admin123
-- Check browser developer tools for network errors
+## 📈 Performance Optimizations
 
-## 📝 License
-
-This project is licensed under the MIT License.
+- **Database Query Optimization** with select_related and prefetch_related
+- **Redis Caching** for frequently accessed data
+- **Image Optimization** with Pillow and responsive images
+- **Code Splitting** in React for smaller bundle sizes
+- **Lazy Loading** for components and routes
+- **CDN Integration** for static assets
+- **Database Indexing** on frequently queried fields
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+- Follow the existing code style and conventions
+- Write tests for new features
+- Update documentation for API changes
+- Use meaningful commit messages
+- Ensure all tests pass before submitting
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Documentation**: Check the individual README files in Backend/ and Frontend/
+- **Issues**: Open an issue on GitHub
+- **API Health**: Check http://127.0.0.1:8001/api/public/health/
+- **WebSocket Health**: Check ws://127.0.0.1:8001/ws/health/
+
+## 🎯 Roadmap
+
+### Upcoming Features
+- **Multi-language Support** (i18n)
+- **Advanced Analytics** with detailed reporting
+- **Mobile App** (React Native)
+- **PWA Support** for offline functionality
+- **Advanced Search** with Elasticsearch
+- **Inventory Management** with real-time tracking
+- **Multi-vendor Support** for marketplace functionality
+
+### Performance Improvements
+- **Server-Side Rendering** (Next.js)
+- **Advanced Caching** strategies
+- **Image CDN** integration
+- **Database Sharding** for scalability
 
 ---
 
-**Happy Coding! 🎉**
+Built with ❤️ by the Electro-Store development team. This platform represents modern e-commerce best practices with a focus on user experience, performance, and maintainability.

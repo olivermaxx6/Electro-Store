@@ -58,6 +58,8 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
         });
         if (response.ok) {
           const data = await response.json();
+          console.log('StoreContext: Fetched store settings:', data);
+          console.log('StoreContext: store_logo:', data.store_logo);
           setStoreSettings(data);
         } else {
           console.warn('Failed to fetch store settings, using defaults');

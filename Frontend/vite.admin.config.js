@@ -3,11 +3,20 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({
+    jsxRuntime: 'automatic',
+    jsxImportSource: 'react'
+  })],
   root: 'src/admin',
+  publicDir: '../../public',
+  base: '/',
   build: {
     outDir: '../../dist/admin',
     emptyOutDir: true,
+  },
+  preview: {
+    port: 5174,
+    strictPort: true,
   },
   server: {
     host: '127.0.0.1',
@@ -45,7 +54,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src/admin'),
-      '@shared': path.resolve(__dirname, 'src'),
+      '@shared': path.resolve(__dirname, 'src/shared'),
+      '@theme': path.resolve(__dirname, 'src/theme'),
+      '@hooks': path.resolve(__dirname, 'src/hooks'),
+      '@styles': path.resolve(__dirname, 'src/styles'),
     }
   }
 })

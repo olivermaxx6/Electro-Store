@@ -9,6 +9,7 @@ import { addToast } from '../store/uiSlice';
 import { formatCurrency } from '../lib/format';
 import { Currency } from '../lib/types';
 import { useStoreSettings } from '../hooks/useStoreSettings';
+import { normalizeImageUrl } from '../utils/imageUtils';
 import { getProduct, getProductReviews, createProductReview, checkUserProductReview, incrementProductView } from '../../lib/productsApi';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -19,6 +20,7 @@ import ReviewForm from '../components/products/ReviewForm';
 import ReviewList from '../components/products/ReviewList';
 import TitleUpdater from '../components/common/TitleUpdater';
 import Placeholder from '../components/common/Placeholder';
+import ReviewAlertDialog from '../components/common/ReviewAlertDialog';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +33,8 @@ const ProductDetail: React.FC = () => {
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [checkingReview, setCheckingReview] = useState(true);
+  const [showReviewAlert, setShowReviewAlert] = useState(false);
+  const [existingReview, setExistingReview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   const currentUser = useSelector(selectCurrentUser);
@@ -58,20 +62,23 @@ const ProductDetail: React.FC = () => {
             oldPrice: productData.discount_rate && productData.discount_rate > 0 
               ? productData.price / (1 - productData.discount_rate / 100)
               : undefined,
-            rating: productData.rating,
+            rating: productData.average_rating,
             ratingCount: productData.review_count,
             isNew: productData.isNew || false,
             discountPct: productData.discount_rate || 0,
             discount_rate: productData.discount_rate || 0,
             is_top_selling: productData.is_top_selling || false,
             description: productData.description,
-            images: productData.images.map((img: any) => img.image),
+            images: productData.images.map((img: any) => normalizeImageUrl(img.image)),
             stock: productData.stock || 0,
             inStock: (productData.stock || 0) > 0,
             sku: `SKU-${productData.id}`,
             specs: productData.technical_specs || {},
             viewCount: productData.view_count,
-            image: productData.images.find((img: any) => img.is_main)?.image || productData.images[0]?.image,
+            image: (() => {
+              const mainImage = productData.images.find((img: any) => img.is_main) || productData.images[0];
+              return mainImage ? normalizeImageUrl(mainImage.image) : undefined;
+            })(),
           };
           
           setProduct(transformedProduct);
@@ -113,19 +120,37 @@ const ProductDetail: React.FC = () => {
     loadProduct();
   }, [id]);
 
+  // Update selected image when product loads to show main image first
+  useEffect(() => {
+    if (product?.images) {
+      const mainImageIndex = product.images.findIndex((img: any) => img.is_main);
+      if (mainImageIndex >= 0) {
+        setSelectedImage(mainImageIndex);
+      }
+    }
+  }, [product]);
+
   // Check if user has already reviewed this product
   useEffect(() => {
     const checkReview = async () => {
-      if (!currentUser?.isAuthenticated || !id) {
+      if (!id) {
         setCheckingReview(false);
         return;
       }
 
       try {
-        const response = await checkUserProductReview(id);
-        setHasReviewed(response.has_reviewed);
+        // For authenticated users, check by user ID
+        if (currentUser?.isAuthenticated) {
+          const response = await checkUserProductReview(id);
+          setHasReviewed(response.has_reviewed);
+        } else {
+          // For unauthenticated users, check by author name
+          // We'll check this when they try to submit a review
+          setHasReviewed(false);
+        }
       } catch (error) {
         console.error('Failed to check user review:', error);
+        setHasReviewed(false);
       } finally {
         setCheckingReview(false);
       }
@@ -185,20 +210,32 @@ const ProductDetail: React.FC = () => {
 
     // Check if user has already reviewed this product
     if (hasReviewed) {
-      dispatch(addToast({
-        message: 'You have already reviewed this product. You can only review each product once.',
-        type: 'error',
-        duration: 5000
-      }));
-      return;
+      // Find the existing review to show in the alert
+      const userReview = reviews.find(review => 
+        review.author === (currentUser.name || currentUser.email || 'Anonymous')
+      );
+      
+      if (userReview) {
+        setExistingReview({
+          id: userReview.id,
+          author_name: userReview.author,
+          rating: userReview.rating,
+          comment: userReview.comment,
+          created_at: userReview.date
+        });
+        setShowReviewAlert(true);
+        return;
+      }
     }
     
     try {
+      // For authenticated users, send user ID instead of author_name
+      // The backend will use the user's name from the User model
       const newReview = await createProductReview({
         product: parseInt(id!),
         rating: reviewData.rating,
         comment: reviewData.comment,
-        author_name: currentUser.name || currentUser.email || 'Anonymous',
+        user: currentUser.id, // Send user ID for authenticated users
       });
       
       console.log('ProductDetail: New review received', newReview);
@@ -221,10 +258,76 @@ const ProductDetail: React.FC = () => {
         type: 'success',
         duration: 4000
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('ProductDetail: Failed to submit review:', error);
+      
+      // Extract error details
+      const errorMessage = error.message || '';
+      const errorData = error.response?.data || error.data || {};
+      const errorString = JSON.stringify(errorData);
+      
+      console.log('ProductDetail: Error details:', {
+        message: errorMessage,
+        errorData,
+        errorString,
+        status: error.status
+      });
+      
+      // Check if it's a duplicate review error
+      const isDuplicateError = errorMessage.includes('already reviewed') ||
+                               errorMessage.includes('already exists') ||
+                               errorMessage.includes('duplicate') ||
+                               errorString.includes('already exists') ||
+                               errorString.includes('already reviewed') ||
+                               errorString.includes('You have already reviewed this product') ||
+                               error.status === 400; // 400 errors are often validation errors including duplicates
+      
+      if (isDuplicateError) {
+        console.log('ProductDetail: Duplicate error detected, showing alert dialog');
+        
+        // Find the existing review to show in the alert
+        const existingReviewData = reviews.find(review => 
+          review.author === (currentUser.name || currentUser.email || 'Anonymous')
+        );
+        
+        if (existingReviewData) {
+          setExistingReview({
+            id: existingReviewData.id,
+            author_name: existingReviewData.author,
+            rating: existingReviewData.rating,
+            comment: existingReviewData.comment,
+            created_at: existingReviewData.date
+          });
+        } else {
+          // Fallback: Create a mock review for the alert dialog
+          setExistingReview({
+            id: 'unknown',
+            author_name: currentUser.name || currentUser.email || 'Anonymous',
+            rating: 5, // Default rating
+            comment: 'You have already reviewed this product. Please check the reviews section below to see your existing review.',
+            created_at: new Date().toISOString().split('T')[0]
+          });
+        }
+        
+        setShowReviewAlert(true);
+        return;
+      }
+      
+      // For other validation errors, show a more specific error message
+      let errorMsg = 'Failed to submit review. Please try again.';
+      
+      if (errorData && typeof errorData === 'object') {
+        // Extract specific field errors
+        const fieldErrors = Object.values(errorData).flat();
+        if (fieldErrors.length > 0) {
+          errorMsg = Array.isArray(fieldErrors[0]) ? fieldErrors[0][0] : fieldErrors[0];
+        }
+      } else if (errorMessage) {
+        errorMsg = errorMessage;
+      }
+      
       dispatch(addToast({
-        message: 'Failed to submit review. Please try again.',
+        message: errorMsg,
         type: 'error',
         duration: 5000
       }));
@@ -235,6 +338,31 @@ const ProductDetail: React.FC = () => {
     if (reviews.length === 0) return 0;
     const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
     return sum / reviews.length;
+  };
+
+  // Alert dialog handlers
+  const handleCloseReviewAlert = () => {
+    setShowReviewAlert(false);
+    setExistingReview(null);
+  };
+
+  const handleEditReview = () => {
+    // Scroll to review form and focus on it
+    const reviewForm = document.getElementById('review-form');
+    if (reviewForm) {
+      reviewForm.scrollIntoView({ behavior: 'smooth' });
+      // You could add logic here to pre-fill the form with existing review data
+    }
+    handleCloseReviewAlert();
+  };
+
+  const handleViewAllReviews = () => {
+    // Scroll to reviews section
+    const reviewsSection = document.getElementById('reviews-section');
+    if (reviewsSection) {
+      reviewsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    handleCloseReviewAlert();
   };
   
   const tabs = [
@@ -251,15 +379,15 @@ const ProductDetail: React.FC = () => {
         {/* Breadcrumbs */}
         <Breadcrumbs className="mb-6" />
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
           {/* Product Images */}
-          <div>
+          <div className="space-y-4">
             {/* Main Product Image */}
-            <div className="mb-4">
-              {product && product.image ? (
-                <div className="w-full h-96 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
+            <div>
+              {product && product.main_image ? (
+                <div className="w-full h-64 sm:h-80 md:h-96 lg:h-[500px] bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                   <img 
-                    src={product.image.startsWith('http') ? product.image : `http://127.0.0.1:8001${product.image}`}
+                    src={product.main_image.startsWith('http') ? product.main_image : `http://127.0.0.1:8001${product.main_image}`}
                     alt={product.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -269,7 +397,7 @@ const ProductDetail: React.FC = () => {
                   />
                 </div>
               ) : product && product.images && product.images.length > 0 ? (
-                <div className="w-full h-96 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
+                <div className="w-full h-64 sm:h-80 md:h-96 lg:h-[500px] bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                   <img 
                     src={product.images[selectedImage]?.startsWith('http') ? product.images[selectedImage] : `http://127.0.0.1:8001${product.images[selectedImage]}`}
                     alt={product.title}
@@ -281,7 +409,7 @@ const ProductDetail: React.FC = () => {
                   />
                 </div>
               ) : (
-                <Placeholder ratio="4/3" className="w-full h-96">
+                <Placeholder ratio="4/3" className="w-full h-64 sm:h-80 md:h-96 lg:h-[500px]">
                   <div className="text-gray-400 dark:text-slate-500">No Product Image</div>
                 </Placeholder>
               )}
@@ -328,21 +456,21 @@ const ProductDetail: React.FC = () => {
           </div>
           
           {/* Product Info */}
-          <div>
+          <div className="space-y-4 sm:space-y-6">
             <div className="mb-4">
               <Stars rating={calculateAverageRating()} count={reviews.length} />
             </div>
             
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100 mb-4">{product.title}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-slate-100 mb-4">{product.title}</h1>
             
             <div className="mb-4">
               <Price price={product.price} oldPrice={product.oldPrice} size="lg" />
             </div>
             
             <div className="mb-6">
-              <p className="text-gray-600 dark:text-slate-300 mb-4">{product.description}</p>
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-slate-300 mb-4">{product.description}</p>
               
-              <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-slate-400">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-slate-400">
                 <span>SKU: {product.sku || 'N/A'}</span>
                 <span>Brand: {product.brand || 'N/A'}</span>
                 <span className={`${product.inStock ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -396,29 +524,29 @@ const ProductDetail: React.FC = () => {
                 )}
               </div>
               
-              <div className="flex space-x-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={handleAddToCart}
                   disabled={!product.stock || product.stock <= 0}
-                  className={`flex-1 py-3 px-6 rounded-md transition-colors flex items-center justify-center space-x-2 ${
+                  className={`flex-1 py-3 sm:py-4 px-6 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm sm:text-base md:text-lg min-h-[44px] ${
                     !product.stock || product.stock <= 0
                       ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                       : 'bg-red-600 dark:bg-blue-600 text-white hover:bg-red-700 dark:hover:bg-blue-700'
                   }`}
                 >
-                  <ShoppingCart className="w-5 h-5" />
+                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>{!product.stock || product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}</span>
                 </button>
                 
                 <button
                   onClick={handleWishlistToggle}
-                  className={`p-3 rounded-md border transition-colors ${
+                  className={`p-3 sm:p-4 rounded-md border transition-colors min-h-[44px] min-w-[44px] ${
                     isInWishlist
                       ? 'bg-red-600 dark:bg-blue-600 text-white border-red-600 dark:border-blue-600'
                       : 'border-gray-300 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:border-red-500 dark:hover:border-blue-500 hover:text-red-600 dark:hover:text-blue-400'
                   }`}
                 >
-                  <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-current' : ''}`} />
+                  <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isInWishlist ? 'fill-current' : ''}`} />
                 </button>
               </div>
             </div>
@@ -513,17 +641,21 @@ const ProductDetail: React.FC = () => {
             
             {activeTab === 'reviews' && (
               <div className="space-y-8">
-                <ReviewForm 
-                  productId={product.id} 
-                  onSubmit={handleReviewSubmit}
-                  hasReviewed={hasReviewed}
-                  checkingReview={checkingReview}
-                />
-                <ReviewList 
-                  reviews={reviews}
-                  averageRating={calculateAverageRating()}
-                  totalReviews={reviews.length}
-                />
+                <div id="review-form">
+                  <ReviewForm 
+                    productId={product.id} 
+                    onSubmit={handleReviewSubmit}
+                    hasReviewed={hasReviewed}
+                    checkingReview={checkingReview}
+                  />
+                </div>
+                <div id="reviews-section">
+                  <ReviewList 
+                    reviews={reviews}
+                    averageRating={calculateAverageRating()}
+                    totalReviews={reviews.length}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -532,30 +664,30 @@ const ProductDetail: React.FC = () => {
         {/* You May Also Like */}
         {relatedProducts.length > 0 && (
           <div className="mt-16">
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-8">You May Also Like</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 mb-6 sm:mb-8">You May Also Like</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {relatedProducts.map((relatedProduct) => (
                 <Link key={relatedProduct.id} to={`/product/${relatedProduct.id}`}>
-                  <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 hover:shadow-lg transition-shadow">
-                    <div className="aspect-w-4 aspect-h-3 mb-4">
+                  <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-3 sm:p-4 hover:shadow-lg transition-shadow">
+                    <div className="aspect-w-4 aspect-h-3 mb-3 sm:mb-4">
                       <img
                         src={relatedProduct.image}
                         alt={relatedProduct.title}
-                        className="w-full h-48 object-cover rounded-md"
+                        className="w-full h-32 sm:h-40 md:h-48 object-cover rounded-md"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = '/placeholder-product.jpg';
                         }}
                       />
                     </div>
-                    <h4 className="font-medium text-gray-900 dark:text-slate-100 mb-2 line-clamp-2">
+                    <h4 className="font-medium text-gray-900 dark:text-slate-100 mb-2 line-clamp-2 text-sm sm:text-base">
                       {relatedProduct.title}
                     </h4>
                     <div className="flex items-center space-x-2">
-                      <span className="text-primary font-semibold">
+                      <span className="text-primary font-semibold text-sm sm:text-base">
                         {formatCurrency(relatedProduct.price, settings?.currency as Currency || 'USD')}
                       </span>
                       {relatedProduct.oldPrice && (
-                        <span className="text-gray-500 line-through text-sm">
+                        <span className="text-gray-500 line-through text-xs sm:text-sm">
                           {formatCurrency(relatedProduct.oldPrice, settings?.currency as Currency || 'USD')}
                         </span>
                       )}
@@ -574,6 +706,15 @@ const ProductDetail: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Review Alert Dialog */}
+      <ReviewAlertDialog
+        isOpen={showReviewAlert}
+        onClose={handleCloseReviewAlert}
+        existingReview={existingReview}
+        onEditReview={handleEditReview}
+        onViewReview={handleViewAllReviews}
+      />
     </div>
   );
 };

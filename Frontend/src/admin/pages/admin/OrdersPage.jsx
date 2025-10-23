@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Card from '../../components/ui/Card';
 import Pager from '../../components/ui/Pager';
-import { ThemeLayout, ThemeCard, ThemeSelect, ThemeButton } from '@shared/theme';
+import { ThemeLayout, ThemeCard, ThemeSelect, ThemeButton } from '@theme';
 import { useCurrency } from '../../store/currencyStore';
 import { listOrders, updateOrder, deleteOrder } from '../../lib/api';
 import { useAuth } from '../../store/authStore';
@@ -79,7 +79,7 @@ export default function OrdersPage() {
       console.log('🔍 Checking backend health...');
       
       // Test basic API connectivity
-      const healthResponse = await fetch('http://127.0.0.1:8001/api/admin/health/ping/', {
+      const healthResponse = await fetch('/api/admin/health/ping/', {
         method: 'GET',
       });
       
@@ -89,7 +89,7 @@ export default function OrdersPage() {
       }
       
       // Test if Django admin is accessible
-      const adminResponse = await fetch('http://127.0.0.1:8001/admin/', {
+      const adminResponse = await fetch('/admin/', {
         method: 'GET',
       });
       
@@ -116,7 +116,7 @@ export default function OrdersPage() {
           
           Please ensure:
           1. The Django server is running: python manage.py runserver 127.0.0.1:8001
-          2. The server is accessible at http://127.0.0.1:8001
+          2. The server is accessible at http://127.0.0.1:8001 (backend) and http://127.0.0.1:5174 (frontend)
           3. There are no firewall or CORS issues
         `);
         setAuthState('unauthenticated');
@@ -137,7 +137,7 @@ export default function OrdersPage() {
       }
       
       // Verify token is still valid by calling /api/auth/me/
-      const response = await fetch('http://127.0.0.1:8001/api/auth/me/', {
+      const response = await fetch('/api/auth/me/', {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -180,7 +180,7 @@ export default function OrdersPage() {
         return false;
       }
       
-      const response = await fetch('http://127.0.0.1:8001/api/auth/refresh/', {
+      const response = await fetch('/api/auth/refresh/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh: refreshToken })
@@ -227,7 +227,7 @@ export default function OrdersPage() {
         throw new Error('No authentication token found');
       }
       
-      const apiUrl = `http://127.0.0.1:8001/api/admin/orders/?page=${page}${status ? `&status=${status}` : ''}`;
+      const apiUrl = `/api/admin/orders/?page=${page}${status ? `&status=${status}` : ''}`;
       console.log('📡 Making API request to:', apiUrl);
       
       const response = await fetch(apiUrl, {
@@ -310,7 +310,7 @@ export default function OrdersPage() {
         errorMessage = 'Authentication failed. Please log in again.';
         // Redirect to login after short delay
         setTimeout(() => {
-          window.location.href = '/admin/sign-in';
+          window.location.href = '/sign-in';
         }, 2000);
       } else if (error.message.includes('Access denied')) {
         errorMessage = 'Access denied. You may not have admin permissions.';
@@ -358,7 +358,7 @@ export default function OrdersPage() {
         authState: authState,
         fetchStatus: fetchStatus,
         retryCount: retryCount,
-        apiEndpoint: 'http://127.0.0.1:8001/api/admin/orders/'
+        apiEndpoint: '/api/admin/orders/'
       };
       setDiagnostics(diag);
     };
@@ -530,7 +530,7 @@ export default function OrdersPage() {
                 </div>
                 <p className="text-red-700 dark:text-red-300 mb-3">You must be logged in to view orders. Redirecting to login...</p>
                 <button 
-                  onClick={() => window.location.href = '/admin/sign-in'}
+                  onClick={() => window.location.href = '/sign-in'}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                 >
                   Go to Login
@@ -584,7 +584,7 @@ export default function OrdersPage() {
                       Refresh Page
                     </button>
                     <button
-                      onClick={() => window.open('http://127.0.0.1:8001/admin/', '_blank')}
+                      onClick={() => window.open('/admin/', '_blank')}
                       className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                     >
                       Check Backend Admin
@@ -605,7 +605,7 @@ export default function OrdersPage() {
                     <p>Auth State: {authState}</p>
                     <p>Fetch Status: {fetchStatus}</p>
                     <p>Retry Count: {retryCount}/{MAX_RETRIES}</p>
-                    <p>API Endpoint: http://127.0.0.1:8001/api/admin/orders/</p>
+                    <p>API Endpoint: /api/admin/orders/</p>
                     <p>Check browser console for detailed error logs</p>
                   </div>
                   <BackendDiagnostics />

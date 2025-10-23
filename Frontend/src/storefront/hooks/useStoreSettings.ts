@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 
 export interface StoreSettings {
   id: number;
+  store_name: string;
+  store_logo: string;
   currency: string;
   tax_rate: number;
   shipping_rate: number;

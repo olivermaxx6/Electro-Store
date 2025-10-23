@@ -20,7 +20,10 @@ const apiRequest = async (endpoint, options = {}) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: 'Network error' }));
-      throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+      const error = new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+      error.status = response.status;
+      error.response = { data: errorData };
+      throw error;
     }
     
     return await response.json();
@@ -44,7 +47,8 @@ export const getProductReviews = async (productId, params = {}) => {
   try {
     const result = await apiRequest(endpoint);
     console.log('productsApi: getProductReviews success:', result);
-    return result;
+    // Return the results array directly since the API returns paginated response
+    return result.results || [];
   } catch (error) {
     console.error('productsApi: getProductReviews error:', error);
     throw error;
@@ -69,12 +73,12 @@ export const createProductReview = async (reviewData) => {
 
 // Check if user has reviewed product
 export const checkUserProductReview = async (productId) => {
-  return apiRequest(`/reviews/check-user-review/?product=${productId}`);
+  return apiRequest(`/products/${productId}/reviews/check/`);
 };
 
 // Increment product view count
 export const incrementProductView = async (productId) => {
-  return apiRequest(`/products/${productId}/view/`, {
+  return apiRequest(`/products/${productId}/increment_view/`, {
     method: 'POST',
   });
 };

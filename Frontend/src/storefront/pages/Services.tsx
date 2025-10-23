@@ -1,34 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, ArrowRight, Star, Clock, Shield, Award, Users, CheckCircle, Zap, Phone, Mail, MapPin, MessageCircle } from 'lucide-react';
+import { ArrowRight, Star, Clock, Shield, Award, Users, CheckCircle, Zap, Phone, Mail, MapPin, MessageCircle } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import LoadingScreen from '../components/common/LoadingScreen';
 import TitleUpdater from '../components/common/TitleUpdater';
 import PhoneDialog from '../components/common/PhoneDialog';
 // @ts-ignore
-import { getServices, getServiceCategories, incrementServiceView, Service, ServiceCategory } from '../../lib/servicesApi';
+import { getServices, getServiceCategories, getServiceCategoriesWithServices, incrementServiceView, Service, ServiceCategory } from '../../lib/servicesApi';
 import { useStoreSettings } from '../hooks/useStoreSettings';
 import { useWebsiteContent } from '../hooks/useWebsiteContent';
-
-// Transform API service data to match the component's expected format
-const transformServiceData = (apiService: Service) => {
-  return {
-    id: apiService.id,
-    title: apiService.name,
-    description: apiService.description,
-    price: parseFloat(apiService.price.toString()),
-    duration: apiService.availability || 'Contact for details',
-    rating: parseFloat(apiService.rating.toString()),
-    reviewCount: apiService.review_count,
-    viewCount: apiService.view_count || 0,
-    image: apiService.images?.[0]?.image || null,
-    features: Array.isArray(apiService.key_features) ? apiService.key_features : [],
-    category: apiService.category?.name || 'Uncategorized',
-    categoryId: apiService.category?.id || null,
-    parentCategory: apiService.category?.parent_name || null,
-    parentCategoryId: apiService.category?.parent || null
-  };
-};
 
 // Enhanced normalizeCategoryData function to handle the actual API response format
 const normalizeCategoryData = (categories: any[]): ServiceCategory[] => {
@@ -49,114 +29,85 @@ const normalizeCategoryData = (categories: any[]): ServiceCategory[] => {
   }));
 };
 
-// Subcategory Card Component
-const SubcategoryCard: React.FC<{ 
-  subcategory: ServiceCategory; 
-  services: any[]; 
-  onServiceClick: (service: any) => void;
-}> = ({ subcategory, services, onServiceClick }) => {
-  const handleServiceClick = async (service: any) => {
-    try {
-      await incrementServiceView(service.id.toString());
-      onServiceClick(service);
-    } catch (error) {
-      console.error('Failed to increment view count:', error);
-    }
+// YouTube-Style Subcategory Thumbnail Component
+const SubcategoryThumbnail: React.FC<{ 
+  subcategory: any; 
+  onSubcategoryClick: (subcategory: any) => void;
+}> = ({ subcategory, onSubcategoryClick }) => {
+  const handleSubcategoryClick = () => {
+    onSubcategoryClick(subcategory);
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer flex-shrink-0 min-w-[300px] max-w-[300px] subcategory-card transform hover:-translate-y-1 mx-2">
+    <div className="group cursor-pointer">
       <Link 
-        to={`/services/${(subcategory.parent_name?.toLowerCase() || 'services').replace(/\s+/g, '-')}?category=${encodeURIComponent(subcategory.parent_name || subcategory.name)}`} 
-        onClick={() => handleServiceClick(services[0])}
-        className="block h-full flex flex-col"
+        to={`/services/subcategory/${subcategory.id}?name=${encodeURIComponent(subcategory.name)}`} 
+        onClick={handleSubcategoryClick}
+        className="block"
       >
-        {/* Service Image - 300x300 */}
-        <div className="relative w-full h-[300px] overflow-hidden">
+        {/* YouTube-Style Thumbnail */}
+        <div className="relative w-full aspect-video bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
           {subcategory.image ? (
             <img
               src={subcategory.image}
               alt={subcategory.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              style={{ width: '300px', height: '300px' }}
-            />
-          ) : services[0]?.image ? (
-            <img
-              src={services[0].image}
-              alt={services[0].title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              style={{ width: '300px', height: '300px' }}
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                // If image fails to load, show the YouTube-style fallback
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.innerHTML = `
+                    <div class="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center">
+                      <div class="text-center">
+                        <div class="w-12 h-12 mx-auto mb-2 bg-white/20 rounded-full flex items-center justify-center">
+                          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span class="text-sm text-white font-medium">${subcategory.name}</span>
+                      </div>
+                    </div>
+                  `;
+                }
+              }}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 flex items-center justify-center">
+            <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center">
               <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                <div className="w-12 h-12 mx-auto mb-2 bg-white/20 rounded-full flex items-center justify-center">
+                  <Zap className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-lg text-white/80 font-medium">{subcategory.name}</span>
+                <span className="text-sm text-white font-medium">{subcategory.name}</span>
               </div>
             </div>
           )}
           
-          {/* Overlay on hover */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300"></div>
+          {/* Service-Style Duration Badge */}
+          <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+            {subcategory.services_count || 0} services
+          </div>
           
-          {/* Service count badge */}
-          <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-medium text-gray-900 dark:text-white">
-            {services.length} service{services.length !== 1 ? 's' : ''}
+          {/* Service-Style Action Button Overlay */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
+            <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
           </div>
         </div>
         
-        {/* Subcategory Info */}
-        <div className="p-6">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-lg">
+        {/* Service-Style Info */}
+        <div className="mt-3">
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm line-clamp-2 group-hover:text-red-600 dark:group-hover:text-blue-400 transition-colors leading-tight">
             {subcategory.name}
           </h3>
           
-          <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2 leading-relaxed">
-            {subcategory.description}
-          </p>
-          
-          {/* Features preview */}
-          {services[0]?.features && services[0].features.length > 0 && (
-            <div className="mb-4">
-              <div className="flex flex-wrap gap-1">
-                {services[0].features.slice(0, 2).map((feature: string, index: number) => (
-                  <span key={index} className="inline-block bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs px-2 py-1 rounded-full">
-                    {feature}
-                  </span>
-                ))}
-                {services[0].features.length > 2 && (
-                  <span className="inline-block bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs px-2 py-1 rounded-full">
-                    +{services[0].features.length - 2} more
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {services[0]?.rating && (
-                <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {services[0].rating}
-                  </span>
-                </div>
-              )}
-              {services[0]?.reviewCount && services[0].reviewCount > 0 && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  ({services[0].reviewCount} reviews)
-                </span>
-              )}
-            </div>
-            <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium group-hover:gap-2 transition-all duration-300">
-              <span>View All</span>
-              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
-            </div>
+          <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+            {subcategory.services_count || 0} service{subcategory.services_count !== 1 ? 's' : ''}
           </div>
         </div>
       </Link>
@@ -164,23 +115,20 @@ const SubcategoryCard: React.FC<{
   );
 };
 
-// Horizontal Scroll Component for Subcategories
-const HorizontalScrollContainer: React.FC<{
-  subcategories: ServiceCategory[];
-  servicesBySubcategory: { [key: string]: any[] };
-  onServiceClick: (service: any) => void;
-}> = ({ subcategories, servicesBySubcategory, onServiceClick }) => {
+// YouTube-Style Horizontal Scroll Container
+const YouTubeScrollContainer: React.FC<{
+  subcategories: any[];
+  onSubcategoryClick: (subcategory: any) => void;
+}> = ({ subcategories, onSubcategoryClick }) => {
   return (
     <div className="relative w-full">
-      {/* Horizontal scrollable container */}
-      <div className="overflow-x-auto overflow-y-hidden scrollbar-hide w-full" style={{ scrollBehavior: 'smooth' }}>
-        <div className="flex gap-8 pb-4 px-4" style={{ width: 'max-content', minWidth: '100%' }}>
+      <div className="overflow-x-auto overflow-y-hidden scrollbar-hide mobile-scroll w-full" style={{ scrollBehavior: 'smooth' }}>
+        <div className="flex gap-4" style={{ width: 'max-content', minWidth: '100%' }}>
           {subcategories.map((subcategory) => (
-            <div key={subcategory.id} className="flex-shrink-0 subcategory-card-container">
-              <SubcategoryCard 
+            <div key={subcategory.id} className="w-80 flex-shrink-0">
+              <SubcategoryThumbnail 
                 subcategory={subcategory}
-                services={servicesBySubcategory[subcategory.name] || []}
-                onServiceClick={onServiceClick}
+                onSubcategoryClick={onSubcategoryClick}
               />
             </div>
           ))}
@@ -190,68 +138,51 @@ const HorizontalScrollContainer: React.FC<{
   );
 };
 
-// Category Section Component
+// YouTube-Style Category Section Component
 const CategorySection: React.FC<{
   categoryName: string;
-  categoryDescription: string;
-  subcategories: ServiceCategory[];
-  servicesBySubcategory: { [key: string]: any[] };
-  onServiceClick: (service: any) => void;
-}> = ({ categoryName, categoryDescription, subcategories, servicesBySubcategory, onServiceClick }) => {
+  subcategories: any[];
+  onSubcategoryClick: (subcategory: any) => void;
+}> = ({ categoryName, subcategories, onSubcategoryClick }) => {
   return (
-    <div className="space-y-12">
-      {/* Category Header - Enhanced */}
-      <div className="text-left">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-            <Zap className="w-6 h-6 text-white" />
-          </div>
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
-            {categoryName}
-          </h2>
+    <div className="space-y-6">
+      {/* YouTube-Style Category Label */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 bg-red-600 dark:bg-blue-600 rounded-full flex items-center justify-center">
+          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
         </div>
-        <p className="text-gray-600 dark:text-gray-300 text-lg max-w-4xl leading-relaxed">
-          {categoryDescription}
-        </p>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          {categoryName}
+        </h2>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          {subcategories.reduce((total, sub) => total + (sub.services_count || 0), 0)} services
+        </div>
       </div>
 
-      {/* Horizontal Scroll of Subcategories */}
+      {/* YouTube-Style Horizontal Scroll */}
       {subcategories.length > 0 ? (
-        <HorizontalScrollContainer
+        <YouTubeScrollContainer
           subcategories={subcategories}
-          servicesBySubcategory={servicesBySubcategory}
-          onServiceClick={onServiceClick}
+          onSubcategoryClick={onSubcategoryClick}
         />
       ) : (
-        <div className="text-center py-12 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700">
+        <div className="text-center py-12 bg-gray-50 dark:bg-slate-800 rounded-xl">
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <Zap className="w-8 h-8 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-gray-500 dark:text-gray-400 text-lg">
-            No subcategories available for this category.
+            No services available for this category.
           </p>
         </div>
       )}
-
-      {/* Show All Button - Enhanced */}
-      <div className="flex justify-center">
-        <Link
-          to={`/services/${categoryName.toLowerCase().replace(/\s+/g, '-')}?category=${encodeURIComponent(categoryName)}`}
-          className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          Show All {categoryName} Services
-          <ChevronRight className="w-5 h-5" />
-        </Link>
-      </div>
     </div>
   );
 };
 
 const Services: React.FC = () => {
   // Dynamic data state
-  const [servicesData, setServicesData] = useState<any[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -265,22 +196,36 @@ const Services: React.FC = () => {
   // Website content for services page description
   const { content: websiteContent } = useWebsiteContent();
 
-  // Add CSS for horizontal scrolling
+  // Add CSS for YouTube-style thumbnails and horizontal scroll
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
-      .horizontal-scroll-container {
-        overflow-x: auto;
-        overflow-y: hidden;
-        scroll-behavior: smooth;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-        width: 100%;
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
-      .horizontal-scroll-container::-webkit-scrollbar {
-        display: none;
+      
+      .aspect-video {
+        aspect-ratio: 16 / 9;
       }
+      
+      @supports not (aspect-ratio: 16 / 9) {
+        .aspect-video {
+          position: relative;
+          padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        }
+        
+        .aspect-video > * {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+      }
+      
       .scrollbar-hide {
         scrollbar-width: none;
         -ms-overflow-style: none;
@@ -288,28 +233,34 @@ const Services: React.FC = () => {
       .scrollbar-hide::-webkit-scrollbar {
         display: none;
       }
-      .subcategory-card {
-        flex-shrink: 0;
-        min-width: 280px;
-        max-width: 320px;
+      
+      /* Mobile touch scrolling */
+      .mobile-scroll {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
       }
-      .subcategory-card img {
-        max-width: 100%;
-        height: auto;
-        object-fit: cover;
-        display: block;
+      .mobile-scroll::-webkit-scrollbar {
+        display: none;
       }
-      .subcategory-card-container {
-        flex-shrink: 0;
-        width: 280px;
-      }
-      @media (max-width: 640px) {
-        .subcategory-card {
-          min-width: 260px;
-          max-width: 280px;
+      
+      /* Ensure proper touch scrolling on mobile */
+      @media (max-width: 768px) {
+        .mobile-scroll {
+          touch-action: pan-x;
+          overflow-x: auto;
+          overflow-y: hidden;
         }
-        .subcategory-card-container {
-          width: 260px;
+      }
+      
+      /* Tablet specific fixes */
+      @media (min-width: 769px) and (max-width: 1024px) {
+        .mobile-scroll {
+          touch-action: pan-x;
+          overflow-x: auto;
+          overflow-y: hidden;
         }
       }
     `;
@@ -327,134 +278,147 @@ const Services: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const [servicesResponse, categoriesResponse] = await Promise.all([
-          getServices(),
-          getServiceCategories()
-        ]);
+        console.log('🚀 Starting to fetch service categories...');
+        
+        // Add cache busting to ensure fresh data
+        const categoriesResponse = await getServiceCategories();
+        
+        console.log('📡 Raw API response:', categoriesResponse);
         
         // Extract results from paginated response
-        const services = (servicesResponse as any).results || servicesResponse;
         const categoriesRaw = (categoriesResponse as any).results || categoriesResponse;
         
+        console.log('📦 Extracted categories:', categoriesRaw);
+        console.log('📊 Categories count:', categoriesRaw.length);
+        
         // Debug logging
-        console.log('Raw services response:', servicesResponse);
-        console.log('Raw categories response:', categoriesResponse);
-        console.log('Services with categories:', services.map((s: any) => ({ 
-          name: s.name, 
-          category: s.category,
-          parentCategory: s.category?.parent_name 
+        console.log('Categories with hierarchy:', categoriesRaw.map((c: any) => ({ 
+          id: c.id,
+          name: c.name, 
+          parent: c.parent,
+          parent_name: c.parent_name,
+          parentType: typeof c.parent,
+          depth: c.depth
         })));
         
         // Normalize and transform data
         const normalizedCategories = normalizeCategoryData(categoriesRaw);
-        const transformedServices = services.map((service: Service) => transformServiceData(service));
         
-        setServicesData(transformedServices);
+        console.log('✨ Normalized categories:', normalizedCategories.map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          parent: cat.parent,
+          parentType: typeof cat.parent,
+          depth: cat.depth
+        })));
+        
         setCategories(normalizedCategories);
-        
-        console.log('Normalized categories:', normalizedCategories);
-        console.log('Transformed services:', transformedServices);
+        console.log('✅ Categories set successfully!');
         
       } catch (err) {
-        console.error('Failed to fetch services data:', err);
+        console.error('❌ Failed to fetch services data:', err);
+        console.error('Error details:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
         setError('Failed to load services. Please try again later.');
       } finally {
         setLoading(false);
+        console.log('🏁 Loading finished');
       }
     };
 
     fetchData();
   }, []);
 
-  // Improved Service Grouping Logic - Group services by parent categories first, then by subcategories
-  const groupedServices = React.useMemo(() => {
-    const groups: { [key: string]: { category: ServiceCategory, subcategories: { [key: string]: { subcategory: ServiceCategory, services: any[] } } } } = {};
-    
-    // Debug logging
-    console.log('Grouping services - Total categories:', categories.length);
-    console.log('Grouping services - Total services:', servicesData.length);
-    console.log('Categories with parent info:', categories.map(cat => ({ 
-      id: cat.id, 
-      name: cat.name, 
-      parent: cat.parent, 
-      parent_name: cat.parent_name 
-    })));
-    
-    // First, organize categories by parent
-    const categoriesByParent: { [key: string]: ServiceCategory[] } = {};
-    categories.forEach(cat => {
-      const parentId = cat.parent ? cat.parent : 'uncategorized';
-      if (!categoriesByParent[parentId]) {
-        categoriesByParent[parentId] = [];
+  // Refresh data when page becomes visible (handles image updates)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, refresh data
+        const fetchData = async () => {
+          try {
+            const categoriesResponse = await getServiceCategories();
+            const categoriesRaw = (categoriesResponse as any).results || categoriesResponse;
+            const normalizedCategories = normalizeCategoryData(categoriesRaw);
+            setCategories(normalizedCategories);
+          } catch (err) {
+            console.error('Error refreshing categories data:', err);
+          }
+        };
+        fetchData();
       }
-      categoriesByParent[parentId].push(cat);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Category-Subcategory Grouping - Show ALL categories with proper hierarchy
+  const groupedCategories = React.useMemo(() => {
+    const groups: { [key: string]: any[] } = {};
+    
+    console.log('🔍 Debugging groupedCategories:', {
+      totalCategories: categories.length,
+      categories: categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        parent: cat.parent,
+        parentType: typeof cat.parent,
+        depth: cat.depth
+      }))
     });
     
-    console.log('Categories by parent:', categoriesByParent);
+    // Group categories by their hierarchy level
+    // Root categories have parent === null or parent === undefined
+    const rootCategories = categories.filter(cat => cat.parent === null || cat.parent === undefined);
+    const childCategories = categories.filter(cat => cat.parent !== null && cat.parent !== undefined);
     
-    // Then group services under their categories
-    servicesData.forEach(service => {
-      const categoryId = service.categoryId;
-      const category = categories.find(cat => cat.id === categoryId);
-      
-      console.log(`Processing service: ${service.title}, categoryId: ${categoryId}, found category:`, category);
-      
-      if (category) {
-        const parentCategoryId = category.parent || 'uncategorized';
-        const parentCategory = categories.find(cat => cat.id === parentCategoryId) || 
-                              { 
-                                id: 0, 
-                                name: 'Uncategorized', 
-                                description: 'Services without category',
-                                slug: 'uncategorized',
-                                ordering: 0,
-                                is_active: true,
-                                parent: null,
-                                parent_name: null,
-                                children: [],
-                                depth: 0,
-                                services_count: 0,
-                                image: null,
-                                created_at: new Date().toISOString()
-                              } as unknown as ServiceCategory;
-        
-        console.log(`Service ${service.title} belongs to parent category: ${parentCategory.name}`);
-        
-        if (!groups[parentCategory.name]) {
-          groups[parentCategory.name] = {
-            category: parentCategory,
-            subcategories: {}
-          };
-        }
-        
-        if (!groups[parentCategory.name].subcategories[category.name]) {
-          groups[parentCategory.name].subcategories[category.name] = {
-            subcategory: category,
-            services: []
-          };
-        }
-        
-        groups[parentCategory.name].subcategories[category.name].services.push(service);
-      } else {
-        console.warn(`Service ${service.title} has no matching category for ID: ${categoryId}`);
-      }
+    console.log('📊 Category Analysis:', {
+      rootCategories: rootCategories.length,
+      childCategories: childCategories.length,
+      rootCategoryNames: rootCategories.map(cat => cat.name),
+      childCategoryDetails: childCategories.map(cat => ({
+        name: cat.name,
+        parent: cat.parent,
+        parentType: typeof cat.parent,
+        depth: cat.depth
+      }))
     });
     
-    console.log('Final grouped services:', groups);
+    // For each root category, find its child categories
+    rootCategories.forEach(rootCategory => {
+      const rootName = rootCategory.name;
+      
+      // Find child categories that belong to this root
+      // Parent is a number (ID) in the API response
+      const childCats = childCategories.filter(child => {
+        const matches = child.parent === rootCategory.id;
+        
+        if (matches) {
+          console.log(`✅ Found child category: ${child.name} belongs to ${rootName}`);
+        }
+        
+        return matches;
+      });
+      
+      console.log(`🏗️ Building group for ${rootName}:`, {
+        childCount: childCats.length,
+        children: childCats.map(child => child.name)
+      });
+      
+      // Add groups even if they don't have child categories (show all root categories)
+      groups[rootName] = childCats;
+    });
+    
+    console.log('🎯 Final groupedCategories:', groups);
     return groups;
-  }, [servicesData, categories]);
+  }, [categories]);
 
-  // Get parent categories (categories without parent)
-  const parentCategories = categories.filter(cat => !cat.parent);
-
-  // Function to get category descriptions
-  const getCategoryDescription = (categoryName: string): string => {
-    const category = parentCategories.find(cat => cat.name === categoryName);
-    return category?.description || `Browse our range of ${categoryName} services.`;
-  };
-
-  const handleServiceClick = () => {
-    // Service click is handled in the SubcategoryCard component
+  const handleSubcategoryClick = (subcategory: any) => {
+    // Subcategory click is handled in the SubcategoryCard component
+    console.log('Subcategory clicked:', subcategory);
   };
 
   // Dialog handlers
@@ -465,12 +429,6 @@ const Services: React.FC = () => {
   const closePhoneDialog = () => {
     setIsPhoneDialogOpen(false);
   };
-
-  // Filter out empty categories
-  const nonEmptyCategories = Object.keys(groupedServices).filter(categoryName => {
-    const categoryData = groupedServices[categoryName];
-    return Object.keys(categoryData.subcategories).length > 0 || categoryName !== 'Uncategorized';
-  });
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
@@ -586,8 +544,6 @@ const Services: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading State */}
-        {loading && <LoadingScreen message="Loading services..." />}
 
         {/* Error State */}
         {error && (
@@ -610,42 +566,28 @@ const Services: React.FC = () => {
           </div>
         )}
 
-        {/* Main Content - only show when not loading and no error */}
+        {/* Loading Screen */}
+        {loading && <LoadingScreen />}
+
+        {/* Main Content - YouTube-Style Layout */}
         {!loading && !error && (
-          <div className="space-y-20" id="services">
-            {/* Services by Categories */}
-            {nonEmptyCategories.length > 0 ? (
-              <div className="space-y-24">
-                {nonEmptyCategories.map((categoryName) => {
-                  const categoryData = groupedServices[categoryName];
-                  
-                  // Get subcategories for this parent category
-                  const subcategoriesForParent = Object.values(categoryData.subcategories).map(item => item.subcategory);
-                  
-                  // Create services by subcategory mapping
-                  const servicesBySubcategory: { [key: string]: any[] } = {};
-                  Object.values(categoryData.subcategories).forEach(item => {
-                    servicesBySubcategory[item.subcategory.name] = item.services;
-                  });
-                  
-                  return (
-                    <CategorySection
-                      key={categoryName}
-                      categoryName={categoryName}
-                      categoryDescription={getCategoryDescription(categoryName)}
-                      subcategories={subcategoriesForParent}
-                      servicesBySubcategory={servicesBySubcategory}
-                      onServiceClick={handleServiceClick}
-                    />
-                  );
-                })}
+          <div className="space-y-12" id="services">
+            {/* YouTube-Style Categories */}
+            {Object.keys(groupedCategories).length > 0 ? (
+              <div className="space-y-12">
+                {Object.entries(groupedCategories).map(([categoryName, subcategories]) => (
+                  <CategorySection
+                    key={categoryName}
+                    categoryName={categoryName}
+                    subcategories={subcategories}
+                    onSubcategoryClick={handleSubcategoryClick}
+                  />
+                ))}
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="w-24 h-24 mx-auto mb-4 bg-gray-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
-                  <svg className="w-12 h-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                <div className="w-24 h-24 mx-auto mb-4 bg-red-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <Zap className="w-12 h-12 text-red-500 dark:text-blue-400" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   No Services Available
