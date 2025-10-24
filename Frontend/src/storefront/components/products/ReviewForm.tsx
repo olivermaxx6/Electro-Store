@@ -6,7 +6,11 @@ import { addToast } from '../../store/uiSlice';
 
 interface ReviewFormProps {
   productId: string;
-  onSubmit: (review: { rating: number; comment: string; author: string }) => void;
+  onSubmit: (review: { 
+    rating: number; 
+    comment: string; 
+    author: string;
+  }) => void;
   hasReviewed?: boolean;
   checkingReview?: boolean;
 }
@@ -20,10 +24,19 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
   const currentUser = useSelector(selectCurrentUser);
   const dispatch = useDispatch();
 
+  // Debug logging
+  console.log('ReviewForm: Component rendered with currentUser:', currentUser);
+  console.log('ReviewForm: currentUser.name:', currentUser?.name);
+  console.log('ReviewForm: currentUser.username:', currentUser?.username);
+  console.log('ReviewForm: currentUser.email:', currentUser?.email);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('ReviewForm: handleSubmit called', { rating, comment, author });
     console.log('ReviewForm: currentUser:', currentUser);
+    console.log('ReviewForm: currentUser.name:', currentUser?.name);
+    console.log('ReviewForm: currentUser.username:', currentUser?.username);
+    console.log('ReviewForm: currentUser.email:', currentUser?.email);
     console.log('ReviewForm: isAuthenticated:', currentUser?.isAuthenticated);
     
     // Check if user is authenticated
@@ -65,34 +78,61 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
         author: currentUser.name || currentUser.email || 'Anonymous'
       });
       console.log('ReviewForm: Review submitted successfully');
+      
+      // Success toast
+      dispatch(addToast({
+        message: 'Thank you for your review! It has been submitted successfully.',
+        type: 'success',
+        duration: 4000
+      }));
+      
       setRating(0);
       setComment('');
       setAuthor('');
     } catch (error) {
       console.error('ReviewForm: Failed to submit review:', error);
+      dispatch(addToast({
+        message: 'Failed to submit review. Please try again.',
+        type: 'error',
+        duration: 5000
+      }));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const StarRating = () => (
-    <div className="flex space-x-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => setRating(star)}
-          onMouseEnter={() => setHoveredRating(star)}
-          onMouseLeave={() => setHoveredRating(0)}
-          className={`transition-colors duration-150 ${
-            star <= (hoveredRating || rating)
-              ? 'text-yellow-400 dark:text-yellow-500'
-              : 'text-gray-300 dark:text-slate-600'
-          }`}
-        >
-          <Star className="w-6 h-6 fill-current" />
-        </button>
-      ))}
+  const StarRating: React.FC<{ 
+    rating: number; 
+    setRating: (rating: number) => void;
+    hoveredRating: number;
+    setHoveredRating: (rating: number) => void;
+    label: string;
+  }> = ({ rating, setRating, hoveredRating, setHoveredRating, label }) => (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">
+        {label}
+      </label>
+      <div className="flex space-x-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => setRating(star)}
+            onMouseEnter={() => setHoveredRating(star)}
+            onMouseLeave={() => setHoveredRating(0)}
+            className={`transition-colors duration-150 ${
+              star <= (hoveredRating || rating)
+                ? 'text-yellow-400'
+                : 'text-gray-300 dark:text-gray-600'
+            }`}
+          >
+            <Star className="w-5 h-5 fill-current" />
+          </button>
+        ))}
+        <span className="text-sm ml-2 text-gray-600 dark:text-slate-400">
+          {rating > 0 && `${rating} out of 5`}
+        </span>
+      </div>
     </div>
   );
 
@@ -150,7 +190,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
                 </div>
                 <div className="text-xs text-gray-600 dark:text-slate-400">
                   {currentUser?.isAuthenticated 
-                    ? `Reviewing as: ${currentUser.name || currentUser.email}`
+                    ? `Reviewing as: ${currentUser.name || currentUser.username || currentUser.email || 'Unknown User'}`
                     : 'You need to login to submit a review'
                   }
                 </div>
@@ -158,18 +198,14 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmit, hasReviewe
             </div>
           </div>
 
-        {/* Star Rating */}
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
-            Rating
-          </label>
-          <div className="flex items-center space-x-2">
-            <StarRating />
-            <span className="text-sm text-gray-600 dark:text-slate-400">
-              {rating > 0 && `${rating} out of 5 stars`}
-            </span>
-          </div>
-        </div>
+        {/* Overall Rating */}
+        <StarRating
+          rating={rating}
+          setRating={setRating}
+          hoveredRating={hoveredRating}
+          setHoveredRating={setHoveredRating}
+          label="Overall Rating"
+        />
 
         {/* Comment */}
         <div>

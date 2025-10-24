@@ -97,10 +97,11 @@ const ProductDetail: React.FC = () => {
           console.log('ProductDetail: Loading reviews for product', id);
           const reviewsData = await getProductReviews(id);
           console.log('ProductDetail: Reviews data received', reviewsData);
+          console.log('ProductDetail: First review raw data:', reviewsData[0]);
           
           const formattedReviews = reviewsData.map((review: any) => ({
             id: review.id.toString(),
-            author: review.author_name || review.user_name || review.user?.username || 'Anonymous',
+            author_name: review.author_name || review.user_name || review.user?.username || 'Anonymous',
             rating: review.rating,
             comment: review.comment || '',
             date: review.created_at.split('T')[0],
@@ -108,6 +109,7 @@ const ProductDetail: React.FC = () => {
           }));
           
           console.log('ProductDetail: Formatted reviews', formattedReviews);
+          console.log('ProductDetail: First formatted review:', formattedReviews[0]);
           setReviews(formattedReviews);
         } catch (error) {
           console.error('Failed to load product:', error);
@@ -192,7 +194,11 @@ const ProductDetail: React.FC = () => {
     }
   };
 
-  const handleReviewSubmit = async (reviewData: { rating: number; comment: string; author: string }) => {
+  const handleReviewSubmit = async (reviewData: { 
+    rating: number; 
+    comment: string; 
+    author: string;
+  }) => {
     console.log('ProductDetail: handleReviewSubmit called', { reviewData, productId: id });
     console.log('ProductDetail: currentUser:', currentUser);
     console.log('ProductDetail: isAuthenticated:', currentUser?.isAuthenticated);
@@ -212,13 +218,13 @@ const ProductDetail: React.FC = () => {
     if (hasReviewed) {
       // Find the existing review to show in the alert
       const userReview = reviews.find(review => 
-        review.author === (currentUser.name || currentUser.email || 'Anonymous')
+        review.author_name === (currentUser.name || currentUser.email || 'Anonymous')
       );
       
       if (userReview) {
         setExistingReview({
           id: userReview.id,
-          author_name: userReview.author,
+          author_name: userReview.author_name,
           rating: userReview.rating,
           comment: userReview.comment,
           created_at: userReview.date
@@ -229,13 +235,13 @@ const ProductDetail: React.FC = () => {
     }
     
     try {
-      // For authenticated users, send user ID instead of author_name
-      // The backend will use the user's name from the User model
+      // For authenticated users, let the backend handle user authentication
+      // The backend will use the user's name from the User model based on the JWT token
       const newReview = await createProductReview({
         product: parseInt(id!),
         rating: reviewData.rating,
         comment: reviewData.comment,
-        user: currentUser.id, // Send user ID for authenticated users
+        // Don't send user ID - let backend handle authentication
       });
       
       console.log('ProductDetail: New review received', newReview);
@@ -287,13 +293,13 @@ const ProductDetail: React.FC = () => {
         
         // Find the existing review to show in the alert
         const existingReviewData = reviews.find(review => 
-          review.author === (currentUser.name || currentUser.email || 'Anonymous')
+          review.author_name === (currentUser.name || currentUser.email || 'Anonymous')
         );
         
         if (existingReviewData) {
           setExistingReview({
             id: existingReviewData.id,
-            author_name: existingReviewData.author,
+            author_name: existingReviewData.author_name,
             rating: existingReviewData.rating,
             comment: existingReviewData.comment,
             created_at: existingReviewData.date

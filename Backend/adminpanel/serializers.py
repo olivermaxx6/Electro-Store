@@ -208,6 +208,10 @@ class ProductSerializer(SafeModelSerializer):
     # Add nested serializers for read-only brand and category data
     brand_data = BrandSerializer(source='brand', read_only=True)
     category_data = CategorySerializer(source='category', read_only=True)
+    
+    # Add calculated rating fields
+    average_rating = serializers.SerializerMethodField()
+    review_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -218,6 +222,7 @@ class ProductSerializer(SafeModelSerializer):
             "brand_data", "category_data",
             "technical_specs", "view_count",
             "isNew", "is_top_selling", "images", "main_image", "created_at",
+            "average_rating", "review_count",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -286,6 +291,18 @@ class ProductSerializer(SafeModelSerializer):
         if first_image:
             return first_image.image.url if first_image.image else None
         return None
+    
+    def get_average_rating(self, obj):
+        """Calculate average rating from reviews"""
+        reviews = obj.reviews.all()
+        if not reviews.exists():
+            return 0.0
+        total_rating = sum(review.rating for review in reviews)
+        return round(total_rating / reviews.count(), 1)
+    
+    def get_review_count(self, obj):
+        """Get the count of reviews for this product"""
+        return obj.reviews.count()
 
 # --- Orders ---
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -457,11 +474,22 @@ class ServiceInquirySerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
     user_name = serializers.CharField(source="user.username", read_only=True)
+    author_name = serializers.CharField(required=False, allow_blank=True)  # Make optional
+    
+    # Make detailed rating fields optional since we're simplifying to overall rating only
+    product_quality = serializers.IntegerField(required=False, default=0)
+    value_for_money = serializers.IntegerField(required=False, default=0)
+    delivery_speed = serializers.IntegerField(required=False, default=0)
+    packaging = serializers.IntegerField(required=False, default=0)
     
     class Meta:
         model = Review
-        fields = ["id","product","product_name","user","user_name","author_name","rating","comment","created_at"]
-        read_only_fields = ["created_at", "user"]  # Make user read-only since it's set in perform_create
+        fields = [
+            "id", "product", "product_name", "user", "user_name", "author_name",
+            "rating", "comment", "product_quality", "value_for_money", "delivery_speed",
+            "packaging", "verified", "created_at", "updated_at"
+        ]
+        read_only_fields = ["created_at", "updated_at", "user"]  # Make user read-only since it's set in perform_create
     
     def validate(self, data):
         """Validate that user hasn't already reviewed this product"""
@@ -495,10 +523,33 @@ class ReviewSerializer(serializers.ModelSerializer):
                 })
         
         return data
+    
+    def create(self, validated_data):
+        """Override create to set author_name from user if authenticated"""
+        # Get the user from the validated data (set in perform_create)
+        user = validated_data.get('user')
+        
+        if user and user.is_authenticated:
+            # Set author_name from user's name (always override for authenticated users)
+            if user.first_name and user.last_name:
+                validated_data['author_name'] = f"{user.first_name} {user.last_name}"
+            elif user.first_name:
+                validated_data['author_name'] = user.first_name
+            elif user.username:
+                validated_data['author_name'] = user.username
+            else:
+                validated_data['author_name'] = user.email.split('@')[0] if user.email else 'User'
+        else:
+            # For unauthenticated users, use provided author_name or default to Anonymous
+            if not validated_data.get('author_name'):
+                validated_data['author_name'] = 'Anonymous'
+        
+        return super().create(validated_data)
 
 class ServiceReviewSerializer(serializers.ModelSerializer):
     service_name = serializers.CharField(source="service.name", read_only=True)
     user_name = serializers.CharField(source="user.username", read_only=True)
+    author_name = serializers.CharField(required=False, allow_blank=True)  # Make optional
     
     class Meta:
         model = ServiceReview
@@ -527,6 +578,28 @@ class ServiceReviewSerializer(serializers.ModelSerializer):
                 })
         
         return data
+    
+    def create(self, validated_data):
+        """Override create to set author_name from user if authenticated"""
+        # Get the user from the validated data (set in perform_create)
+        user = validated_data.get('user')
+        
+        if user and user.is_authenticated:
+            # Set author_name from user's name (always override for authenticated users)
+            if user.first_name and user.last_name:
+                validated_data['author_name'] = f"{user.first_name} {user.last_name}"
+            elif user.first_name:
+                validated_data['author_name'] = user.first_name
+            elif user.username:
+                validated_data['author_name'] = user.username
+            else:
+                validated_data['author_name'] = user.email.split('@')[0] if user.email else 'User'
+        else:
+            # For unauthenticated users, use provided author_name or default to Anonymous
+            if not validated_data.get('author_name'):
+                validated_data['author_name'] = 'Anonymous'
+        
+        return super().create(validated_data)
 
 # --- Content & Settings ---
 class WebsiteContentSerializer(serializers.ModelSerializer):

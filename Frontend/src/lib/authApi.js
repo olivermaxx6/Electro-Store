@@ -17,6 +17,21 @@ const apiRequest = async (endpoint, options = {}) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: 'Network error' }));
+      
+      // Enhanced error handling for detailed validation errors
+      if (errorData.errors) {
+        // Format validation errors into a readable message
+        const errorMessages = [];
+        for (const [field, errors] of Object.entries(errorData.errors)) {
+          if (Array.isArray(errors)) {
+            errorMessages.push(`${field}: ${errors.join(', ')}`);
+          } else {
+            errorMessages.push(`${field}: ${errors}`);
+          }
+        }
+        throw new Error(errorMessages.join('; '));
+      }
+      
       throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
     }
     
@@ -32,7 +47,7 @@ export const loginUser = async (email, password) => {
   try {
     const response = await apiRequest('/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username: email, password }),
     });
 
     // Store tokens
@@ -70,11 +85,13 @@ export const registerUser = async (userData) => {
   } catch (error) {
     console.error('Registration error:', error);
     
-    // Enhanced error handling for registration
-    if (error.message.includes('username already exists')) {
+    // Enhanced error handling for registration with better user-friendly messages
+    if (error.message.includes('username: A user with that username already exists')) {
       throw new Error('A user with this username already exists. Please choose a different username.');
-    } else if (error.message.includes('email address already exists')) {
+    } else if (error.message.includes('email: A user with this email address already exists')) {
       throw new Error('A user with this email address already exists. Please use a different email or try signing in.');
+    } else if (error.message.includes('username: A user with this username already exists')) {
+      throw new Error('A user with this username already exists. Please choose a different username.');
     } else if (error.message.includes('already exists')) {
       throw new Error('A user with this information already exists. Please check your details or try signing in.');
     }

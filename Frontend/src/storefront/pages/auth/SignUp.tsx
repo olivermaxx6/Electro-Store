@@ -76,91 +76,31 @@ const SignUp: React.FC = () => {
         return;
       }
 
-      // Call the real registration API
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.username, // Add first_name field
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        // Handle specific error cases
-        if (errorData.errors) {
-          // Handle field-specific errors
-          const errorMessages = [];
-          
-          if (errorData.errors.username) {
-            errorMessages.push(`Username: ${errorData.errors.username}`);
-          }
-          if (errorData.errors.email) {
-            errorMessages.push(`Email: ${errorData.errors.email}`);
-          }
-          if (errorData.errors.password) {
-            errorMessages.push(`Password: ${errorData.errors.password}`);
-          }
-          
-          if (errorMessages.length > 0) {
-            setError(errorMessages.join('. '));
-          } else {
-            setError(errorData.detail || 'Registration failed. Please try again.');
-          }
-        } else {
-          setError(errorData.detail || 'Registration failed. Please try again.');
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      const result = await response.json();
-      
-      // After successful registration, automatically log the user in
-      const loginResponse = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          password: formData.password,
-        }),
-      });
-
-      if (!loginResponse.ok) {
-        throw new Error('Auto-login after registration failed');
-      }
-
-      const loginResult = await loginResponse.json();
-      
-      // Store auth data in localStorage
-      const authData = {
-        access: loginResult.access,
-        refresh: loginResult.refresh,
-        user: loginResult.user
-      };
-      localStorage.setItem('auth', JSON.stringify(authData));
-      localStorage.setItem('access_token', loginResult.access);
-      
-      // Sign the user in after successful registration and load their data
-      dispatch(signUpWithData({
-        email: formData.email,
-        name: formData.username,
+      // Call the registration API through Redux thunk
+      await dispatch(signUpWithData({
         username: formData.username,
-        password: formData.password
-      }));
+        email: formData.email,
+        password: formData.password,
+        name: formData.username
+      })).unwrap();
       
       navigate('/user/dashboard');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Registration error:', err);
-      setError('Registration failed. Please try again.');
+      
+      // Enhanced error handling with better user feedback
+      let errorMessage = err.message || 'Registration failed. Please try again.';
+      
+      // Provide specific guidance based on error type
+      if (errorMessage.includes('username already exists')) {
+        errorMessage = 'This username is already taken. Please choose a different username.';
+      } else if (errorMessage.includes('email address already exists')) {
+        errorMessage = 'An account with this email already exists. Please use a different email or try signing in instead.';
+      } else if (errorMessage.includes('password')) {
+        errorMessage = 'Please check your password requirements and try again.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -346,7 +286,7 @@ const SignUp: React.FC = () => {
                     <div className="mt-2 text-sm text-red-700 dark:text-red-300">
                       <p>{error}</p>
                     </div>
-                    {error.includes('already exists') && (
+                    {(error.includes('already exists') || error.includes('already taken')) && (
                       <div className="mt-3">
                         <p className="text-sm text-red-600 dark:text-red-400">
                           Already have an account?{' '}
